@@ -1,0 +1,5 @@
+<!-- * Implement sphere-based query -->
+* Implement querying Atom or Residue Names
+* Accept ranges in command line list input
+* Maybe refactor with subcommands
+* Write tests

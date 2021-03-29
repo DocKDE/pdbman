@@ -1,0 +1,193 @@
+// #![allow(dead_code)]
+#[macro_use]
+extern crate clap;
+
+#[macro_use]
+extern crate prettytable;
+
+use std::error::Error;
+use std::fs;
+use std::process;
+// use clap::{load_yaml, App};
+use pdbtbx::StrictnessLevel;
+
+pub mod argparse;
+use crate::argparse::*;
+
+pub mod functions;
+use crate::functions::*;
+
+type Result<T> = std::result::Result<T, Box<dyn Error>>;
+
+fn run() -> Result<()> {
+    let matches = parse_args()?;
+    let parser = Parse::new(&matches)?;
+    let filename = matches.value_of("INPUT").unwrap();
+    let (mut pdb, _err) = pdbtbx::open_pdb(filename, StrictnessLevel::Medium).unwrap();
+
+    match parser.mode {
+        Mode::Query => match parser.source {
+            Source::List => match parser.target {
+                Target::Atoms => query_atoms(&pdb, matches.values_of_t("List")?)?,
+                Target::Residues => query_residues(&pdb, matches.values_of_t("List")?)?,
+                Target::None => {
+                    return Err("Please provide either the 'atoms' or 'residues' flag.".into())
+                }
+            },
+            Source::Sphere => {
+                let sphere: Vec<_> = matches.values_of("Sphere").unwrap().collect();
+
+                let (origin_id, radius): (usize, f64) = if let [o, r] = sphere[..] {
+                    (o.parse()?, r.parse()?)
+                } else {
+                    return Err("Error parsing sphere values!".into());
+                };
+
+                let origin_atom = pdb
+                    .atoms()
+                    .find(|x| x.serial_number() == origin_id)
+                    .ok_or("No atom corresponding to the given ID could be found.")?;
+
+                let list = match parser.target {
+                    Target::Atoms => calc_atom_sphere(&pdb, origin_atom, radius, false)?,
+                    Target::Residues => calc_residue_sphere(&pdb, origin_atom, radius, false)?,
+                    _ => return Err("No target was given!".into()),
+                };
+                query_atoms(&pdb, list)?;
+            }
+            _ => println!("Please specifiy another input for a query."),
+        },
+        Mode::Analyze => {
+            let verbosity = match parser.target {
+                Target::Atoms => 2,
+                Target::Residues => 1,
+                _ => 0,
+            };
+            functions::analyze(&pdb, &parser.region.to_string(), verbosity)?;
+            match parser.distance {
+                Distance::Clashes => find_contacts(&pdb, 0)?.printstd(),
+                Distance::Contacts => find_contacts(&pdb, 1)?.printstd(),
+                Distance::None => {0},
+            };
+        }
+        Mode::Add | Mode::Remove => {
+            let edit_value = match parser.mode {
+                Mode::Remove => 0.00,
+                Mode::Add => match parser.region {
+                    Region::Active => 1.00,
+                    Region::QM1 => 1.00,
+                    Region::QM2 => 2.00,
+                    Region::None => 0.00,
+                },
+                _ => 0.00,
+            };
+            match parser.source {
+                Source::Infile => {
+                    println!("This is not implemented yet.")
+                }
+                Source::List => match parser.target {
+                    Target::Atoms => match parser.region {
+                        Region::QM1 | Region::QM2 => {
+                            edit_qm_atoms(&mut pdb, edit_value, matches.values_of_t("List")?)?
+                        }
+                        Region::Active => {
+                            edit_active_atoms(&mut pdb, edit_value, matches.values_of_t("List")?)?
+                        }
+                        Region::None => {
+                            return Err("Please give a region to add atoms or residues to.".into());
+                        }
+                    },
+                    Target::Residues => match parser.region {
+                        Region::QM1 | Region::QM2 => edit_qm_residues(
+                            &mut pdb,
+                            edit_value,
+                            matches.values_of_t("List")?,
+                            &parser.partial.to_string(),
+                        )?,
+                        Region::Active => edit_active_residues(
+                            &mut pdb,
+                            edit_value,
+                            matches.values_of_t("List")?,
+                            &parser.partial.to_string(),
+                        )?,
+                        Region::None => return Err("Please give a region to modify.".into()),
+                    },
+                    Target::None => {
+                        return Err("Please give either an 'Atoms' or 'Residues' flag.".into())
+                    }
+                },
+                Source::Sphere => {
+                    let sphere: Vec<_> = matches.values_of("Sphere").unwrap().collect();
+
+                    let (origin_id, radius): (usize, f64) = if let [o, r] = sphere[..] {
+                        (o.parse()?, r.parse()?)
+                    } else {
+                        return Err("Error parsing sphere values!".into());
+                    };
+
+                    let origin_atom = pdb
+                        .atoms()
+                        .find(|x| x.serial_number() == origin_id)
+                        .ok_or("No atom corresponding to the given ID could be found.")?;
+
+                    let list = match parser.target {
+                        Target::Atoms => calc_atom_sphere(&pdb, origin_atom, radius, true)?,
+                        Target::Residues => calc_residue_sphere(&pdb, origin_atom, radius, true)?,
+                        _ => return Err("No target was given!".into()),
+                    };
+
+                    match parser.region {
+                        Region::QM1 | Region::QM2 => edit_qm_atoms(&mut pdb, edit_value, list)?,
+                        Region::Active => edit_active_atoms(&mut pdb, edit_value, list)?,
+                        Region::None => return Err("Please give a target region.".into()),
+                    }
+                }
+                Source::None => {
+                    if parser.mode == Mode::Remove
+                        && parser.region == Region::None
+                        && parser.target == Target::None
+                    {
+                        remove_all(&mut pdb)?
+                    } else {
+                        return Err("Please provide a source (input file, list or sphere) for the addition of atoms or residues.".into());
+                    }
+                }
+            }
+        }
+        Mode::None => {
+            return Err("Please choose either 'Add', 'Analyze', 'Query' or 'Remove' mode.".into())
+        }
+    }
+
+    if parser.mode == Mode::Add || parser.mode == Mode::Remove {
+        if parser.output == Output::Outfile {
+            pdbtbx::save_pdb(
+                pdb,
+                matches
+                    .value_of("Outfile")
+                    .ok_or("Value for Outfile could not be parsed")?,
+                StrictnessLevel::Loose,
+            )
+            .unwrap();
+        } else if parser.output == Output::Overwrite {
+            let filename_new = &(filename.to_string() + "_new");
+            // molecule.print_to_file(filename_new)?;
+            pdbtbx::save_pdb(pdb, filename_new, StrictnessLevel::Loose).unwrap();
+            fs::remove_file(filename)?;
+            fs::rename(filename_new, filename)?;
+        } else {
+            print_to_stdout(&pdb)?;
+        }
+    }
+    Ok(())
+}
+
+fn main() {
+    // let yaml = load_yaml!("opt.yml");
+    // let matches = App::from(yaml).get_matches();
+
+    if let Err(e) = run() {
+        eprintln!("{}", e);
+        process::exit(1);
+    }
+}
