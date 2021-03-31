@@ -22,8 +22,8 @@ pub fn run() -> Result<()> {
     let matches = parse_args()?;
     let mode = arg_struct(&matches)?;
     let filename = matches.value_of("INPUT").unwrap();
-    // let (mut pdb, _err) = pdbtbx::open_pdb(filename, StrictnessLevel::Medium).unwrap();
     let mut pdb;
+
     match pdbtbx::open_pdb(filename, StrictnessLevel::Strict) {
         Ok(result) => pdb = result.0,
         Err(e) => {

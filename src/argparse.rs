@@ -277,7 +277,7 @@ pub fn arg_struct(matches: &clap::ArgMatches) -> Result<Mode> {
             })
         }
         Some(&_) => return Err("This is impossible".into()),
-        None => return Err("Choose a subcommand".into()),
+        None => return Err("Please choose a subcommand: 'Query', 'Analyze', 'Add' or 'Remove'. For more information enter 'pdbman --help'.".into()),
     }
 }
 
