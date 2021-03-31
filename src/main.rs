@@ -23,19 +23,52 @@ fn run() -> Result<()> {
     let matches = parse_args()?;
     let mode = arg_struct(&matches)?;
     let filename = matches.value_of("INPUT").unwrap();
-    let (mut pdb, _err) = pdbtbx::open_pdb(filename, StrictnessLevel::Medium).unwrap();
+    // let (mut pdb, _err) = pdbtbx::open_pdb(filename, StrictnessLevel::Medium).unwrap();
+    let mut pdb;
+    match pdbtbx::open_pdb(filename, StrictnessLevel::Strict) {
+        Ok(result) => pdb = result.0,
+        Err(e) => {
+            let err_string: String = e
+                .iter()
+                .map(|x| x.short_description())
+                .collect::<Vec<&str>>()
+                .join("\n");
+            return Err(err_string.into());
+        }
+    }
+    // let test = pdbtbx::validate_pdb(&pdb);
+    // for i in test.iter() {
+    //     println!("{}", i)
+    // }
 
     match mode.clone() {
-        Mode::Query{source, target} => match source {
+        Mode::Query { source, target } => match source {
             Source::List => match target {
-                Target::Atoms => query_atoms(&pdb, matches.subcommand_matches("Query").unwrap().values_of_t("List")?)?,
-                Target::Residues => query_residues(&pdb, matches.subcommand_matches("Query").unwrap().values_of_t("List")?)?,
+                Target::Atoms => query_atoms(
+                    &pdb,
+                    matches
+                        .subcommand_matches("Query")
+                        .unwrap()
+                        .values_of_t("List")?,
+                )?,
+                Target::Residues => query_residues(
+                    &pdb,
+                    matches
+                        .subcommand_matches("Query")
+                        .unwrap()
+                        .values_of_t("List")?,
+                )?,
                 Target::None => {
                     return Err("Please provide either the 'atoms' or 'residues' flag.".into())
                 }
             },
             Source::Sphere => {
-                let sphere: Vec<_> = matches.subcommand_matches("Query").unwrap().values_of("Sphere").unwrap().collect();
+                let sphere: Vec<_> = matches
+                    .subcommand_matches("Query")
+                    .unwrap()
+                    .values_of("Sphere")
+                    .unwrap()
+                    .collect();
 
                 let (origin_id, radius): (usize, f64) = if let [o, r] = sphere[..] {
                     (o.parse()?, r.parse()?)
@@ -57,7 +90,11 @@ fn run() -> Result<()> {
             }
             _ => println!("Please specifiy another input for a query."),
         },
-        Mode::Analyze{region, target, distance} => {
+        Mode::Analyze {
+            region,
+            target,
+            distance,
+        } => {
             let verbosity = match target {
                 Target::Atoms => 2,
                 Target::Residues => 1,
@@ -67,13 +104,26 @@ fn run() -> Result<()> {
             match distance {
                 Distance::Clashes => find_contacts(&pdb, 0)?.printstd(),
                 Distance::Contacts => find_contacts(&pdb, 1)?.printstd(),
-                Distance::None => {0},
+                Distance::None => 0,
             };
         }
-        Mode::Add{region, source, target, partial, output: _} | Mode::Remove{region, source, target, partial, output: _} => {
+        Mode::Add {
+            region,
+            source,
+            target,
+            partial,
+            output: _,
+        }
+        | Mode::Remove {
+            region,
+            source,
+            target,
+            partial,
+            output: _,
+        } => {
             let edit_value = match mode {
-                Mode::Remove{..} => 0.00,
-                Mode::Add{..} => match region {
+                Mode::Remove { .. } => 0.00,
+                Mode::Add { .. } => match region {
                     Region::Active => 1.00,
                     Region::QM1 => 1.00,
                     Region::QM2 => 2.00,
@@ -117,7 +167,12 @@ fn run() -> Result<()> {
                     }
                 },
                 Source::Sphere => {
-                    let sphere: Vec<_> = matches.subcommand_matches(mode.to_string()).unwrap().values_of("Sphere").unwrap().collect();
+                    let sphere: Vec<_> = matches
+                        .subcommand_matches(mode.to_string())
+                        .unwrap()
+                        .values_of("Sphere")
+                        .unwrap()
+                        .collect();
 
                     let (origin_id, radius): (usize, f64) = if let [o, r] = sphere[..] {
                         (o.parse()?, r.parse()?)
@@ -160,18 +215,27 @@ fn run() -> Result<()> {
     }
 
     if mode.to_string() == "Add".to_string() || mode.to_string() == "Remove".to_string() {
-        if matches.subcommand_matches(mode.to_string()).unwrap().is_present("Outfile") {
+        if matches
+            .subcommand_matches(mode.to_string())
+            .unwrap()
+            .is_present("Outfile")
+        {
             pdbtbx::save_pdb(
                 pdb,
-                matches.subcommand_matches(mode.to_string()).unwrap()
+                matches
+                    .subcommand_matches(mode.to_string())
+                    .unwrap()
                     .value_of("Outfile")
                     .ok_or("Value for Outfile could not be parsed")?,
                 StrictnessLevel::Loose,
             )
             .unwrap();
-        } else if matches.subcommand_matches(mode.to_string()).unwrap().is_present("Overwrite") {
+        } else if matches
+            .subcommand_matches(mode.to_string())
+            .unwrap()
+            .is_present("Overwrite")
+        {
             let filename_new = &(filename.to_string() + "_new");
-            // molecule.print_to_file(filename_new)?;
             pdbtbx::save_pdb(pdb, filename_new, StrictnessLevel::Loose).unwrap();
             fs::remove_file(filename)?;
             fs::rename(filename_new, filename)?;
