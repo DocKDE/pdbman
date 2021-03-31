@@ -80,8 +80,11 @@ pub enum Distance {
     None,
 }
 
-pub fn arg_struct(matches: &clap::ArgMatches) -> Result<Mode> {
-    match matches.subcommand_name() {
+impl Mode {
+    /// Creates new Mode enum from clap::ArgMatches struct. This is
+    /// where the given command line options are stored for later use.
+    pub fn new(matches: &clap::ArgMatches) -> Result<Mode> {
+        match matches.subcommand_name() {
         Some("Query") => {
             let mut passed_source = Source::None;
             for source in Source::VARIANTS {
@@ -279,82 +282,8 @@ pub fn arg_struct(matches: &clap::ArgMatches) -> Result<Mode> {
         Some(&_) => return Err("This is impossible".into()),
         None => return Err("Please choose a subcommand: 'Query', 'Analyze', 'Add' or 'Remove'. For more information enter 'pdbman --help'.".into()),
     }
+    }
 }
-
-// #[derive(Debug)]
-// pub struct Parse {
-//     pub mode: Mode,
-//     pub region: Region,
-//     pub source: Source,
-//     pub output: Output,
-//     pub target: Target,
-//     pub partial: Partial,
-//     pub distance: Distance,
-// }
-
-// impl Parse {
-//     /// Converts clap Args to enums for easier pattern matching.
-//     pub fn new(matches: &clap::ArgMatches) -> Result<Parse> {
-//         let mut passed_mode = Mode::None;
-//         for mode in Mode::VARIANTS {
-//             if matches.is_present(mode) {
-//                 passed_mode = Mode::from_str(mode)?;
-//             }
-//         }
-
-//         let mut passed_region = Region::None;
-//         for region in Region::VARIANTS {
-//             if matches.is_present(region) {
-//                 passed_region = Region::from_str(region)?;
-//             }
-//         }
-
-//         let mut passed_source = Source::None;
-//         for source in Source::VARIANTS {
-//             if matches.is_present(source) {
-//                 passed_source = Source::from_str(source)?;
-//             }
-//         }
-
-//         let mut passed_target = Target::None;
-//         for target in Target::VARIANTS {
-//             if matches.is_present(target) {
-//                 passed_target = Target::from_str(target)?;
-//             }
-//         }
-
-//         let mut passed_partial = Partial::None;
-//         for partial in Partial::VARIANTS {
-//             if matches.is_present(partial) {
-//                 passed_partial = Partial::from_str(partial)?;
-//             }
-//         }
-
-//         let mut passed_output = Output::None;
-//         for output in Output::VARIANTS {
-//             if matches.is_present(output) {
-//                 passed_output = Output::from_str(output)?;
-//             }
-//         }
-
-//         let mut passed_distance = Distance::None;
-//         for distance in Distance::VARIANTS {
-//             if matches.is_present(distance) {
-//                 passed_distance = Distance::from_str(distance)?;
-//             }
-//         }
-
-//         Ok(Parse {
-//             mode: passed_mode,
-//             region: passed_region,
-//             source: passed_source,
-//             output: passed_output,
-//             target: passed_target,
-//             partial: passed_partial,
-//             distance: passed_distance,
-//         })
-//     }
-// }
 
 /// Defines all Args, their configuration and all ArgGroups as defined by clap.
 pub fn parse_args() -> Result<clap::ArgMatches> {

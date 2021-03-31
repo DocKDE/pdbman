@@ -20,7 +20,7 @@ type Result<T> = std::result::Result<T, Box<dyn Error>>;
 
 pub fn run() -> Result<()> {
     let matches = parse_args()?;
-    let mode = arg_struct(&matches)?;
+    let mode = Mode::new(&matches)?;
     let filename = matches.value_of("INPUT").unwrap();
     let mut pdb;
 
