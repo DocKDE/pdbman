@@ -7,19 +7,18 @@ extern crate prettytable;
 
 use std::error::Error;
 use std::fs;
-use std::process;
 // use clap::{load_yaml, App};
 use pdbtbx::StrictnessLevel;
 
-pub mod argparse;
 use crate::argparse::*;
-
-pub mod functions;
 use crate::functions::*;
+
+pub mod argparse;
+pub mod functions;
 
 type Result<T> = std::result::Result<T, Box<dyn Error>>;
 
-fn run() -> Result<()> {
+pub fn run() -> Result<()> {
     let matches = parse_args()?;
     let mode = arg_struct(&matches)?;
     let filename = matches.value_of("INPUT").unwrap();
@@ -36,10 +35,10 @@ fn run() -> Result<()> {
             return Err(err_string.into());
         }
     }
-    // let test = pdbtbx::validate_pdb(&pdb);
-    // for i in test.iter() {
-    //     println!("{}", i)
-    // }
+
+    for i in pdbtbx::validate_pdb(&pdb).iter() {
+        println!("{}", i)
+    }
 
     match mode.clone() {
         Mode::Query { source, target } => match source {
@@ -244,11 +243,4 @@ fn run() -> Result<()> {
         }
     }
     Ok(())
-}
-
-fn main() {
-    if let Err(e) = run() {
-        eprintln!("{}", e);
-        process::exit(1);
-    }
 }

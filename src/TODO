@@ -2,7 +2,8 @@
 * Implement querying Atom or Residue Names
 * Accept ranges in command line list input
     - write function to replace use of values_of_t
-* improve error handling of reading pdb file
+* move run to lib.rs
+#* improve error handling of reading pdb file
 #* Maybe refactor with subcommands
 #    - add enums for modes
 #    - write parsing function that returns an enum variant (based on mode chosen) which contains a struct of command line flags given (which in turn contain potential data)

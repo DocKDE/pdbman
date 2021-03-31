@@ -323,9 +323,9 @@ dependencies = [
 
 [[package]]
 name = "pdbtbx"
-version = "0.6.1"
+version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "79a6832a2f9e4d09474cae4687064e21742e923259d9e2f7030341c23cb38da8"
+checksum = "1c1045befd859824197c3c3edbc9921d4e3c8e12eda772ad20879948c5820446"
 
 [[package]]
 name = "pdqselect"
