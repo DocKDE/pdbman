@@ -366,7 +366,7 @@ pub fn parse_args() -> Result<clap::ArgMatches> {
         .subcommand(App::new("Query")
             .about("Query mode")
             .setting(AppSettings::DisableVersion)
-            .aliases(&["query", "que", "Q", "q"])
+            .visible_aliases(&["query", "que", "Q", "q"])
             .arg(
                 Arg::new("Residues")
                     .about("Residue Mode")
@@ -411,7 +411,7 @@ pub fn parse_args() -> Result<clap::ArgMatches> {
         .subcommand(App::new("Analyze")
             .about("Analysis mode")
             .setting(AppSettings::DisableVersion)
-            .aliases(&["analyze", "ana", "Y", "y"])
+            .visible_aliases(&["analyze", "ana", "Y", "y"])
             .arg(
                 Arg::new("Residues")
                     .about("Residue Mode")
@@ -461,7 +461,7 @@ pub fn parse_args() -> Result<clap::ArgMatches> {
         .subcommand(App::new("Add")
             .about("Add mode")
             .setting(AppSettings::DisableVersion)
-            .aliases(&["add", "A", "a"])
+            .visible_aliases(&["add", "A", "a"])
             .arg(
                 Arg::new("Residues")
                     .about("Residue Mode")
@@ -556,7 +556,7 @@ pub fn parse_args() -> Result<clap::ArgMatches> {
         .subcommand(App::new("Remove")
             .about("Remove mode")
             .setting(AppSettings::DisableVersion)
-            .aliases(&["remove", "rem", "R", "r"])
+            .visible_aliases(&["remove", "rem", "R", "r"])
             .arg(
                 Arg::new("Residues")
                     .about("Residue Mode")
