@@ -2,6 +2,7 @@
 * Implement querying Atom or Residue Names
 * Accept ranges in command line list input
     - write function to replace use of values_of_t
+* rewrite the function logic to pass around Atom structs, not indices
 #* move run to lib.rs
 #* improve error handling of reading pdb file
 #* Maybe refactor with subcommands

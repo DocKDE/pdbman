@@ -321,8 +321,8 @@ pub fn parse_args() -> Result<clap::ArgMatches> {
                     .long("list")
                     .short('l')
                     .takes_value(true)
-                    .multiple(true)
-                    .use_delimiter(true),
+                    // .multiple(true)
+                    // .use_delimiter(true),
             )
             .arg(
                 Arg::new("Sphere")
@@ -416,7 +416,7 @@ pub fn parse_args() -> Result<clap::ArgMatches> {
                     .long("list")
                     .short('l')
                     .takes_value(true)
-                    .multiple(true)
+                    // .multiple(true)
                     .use_delimiter(true),
             )
             .arg(
@@ -511,7 +511,7 @@ pub fn parse_args() -> Result<clap::ArgMatches> {
                     .long("list")
                     .short('l')
                     .takes_value(true)
-                    .multiple(true)
+                    // .multiple(true)
                     .use_delimiter(true),
             )
             .arg(

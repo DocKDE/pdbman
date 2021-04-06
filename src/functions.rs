@@ -83,6 +83,7 @@ pub fn edit_active_residues(
     for residue in pdb.residues_mut() {
         let serial_number = residue.serial_number();
         let name = residue.name().ok_or("No Residue Name")?.to_string();
+
         for atom in residue.atoms_mut() {
             match partial {
                 "None" => {
@@ -349,6 +350,92 @@ pub fn find_contacts(pdb: &PDB, level: u8) -> Result<Table> {
     } else {
         Err("No contacts found!".into())
     }
+}
+
+// ///Input may contain only one instance of a range-indicating character
+fn expand_range(input: &str) -> Vec<usize> {
+    let vector: Vec<usize> = input
+        .split(&['-', ':'][..])
+        .map(|x| x.parse().expect("Parsing of String into usize failed!"))
+        .collect();
+    (vector[0]..=vector[1]).collect()
+}
+
+/// Takes a comma-separated list (usually from command line input) as string and parses it into
+/// a vector of Atom IDs. The Input may be atom IDs or Atom Names
+pub fn parse_atomic_list(input: &str, pdb: &PDB) -> Result<Vec<usize>> {
+    let mut output_vec: Vec<usize> = vec![];
+
+    match input
+        .split(&[',', '-', ':'][..])
+        .all(|x| x.parse::<usize>().is_ok())
+    {
+        true => {
+            let input_vec: Vec<&str> = input.split(',').collect();
+
+            for i in input_vec {
+                if i.contains(&['-', ':'][..]) {
+                    output_vec.extend(expand_range(i))
+                } else {
+                    output_vec.push(i.parse()?)
+                }
+            }
+        }
+        false => match input
+            .split(&[',', '-', ':'][..])
+            .all(|x| x.parse::<usize>().is_err())
+        {
+            true => {
+                let input_vec: Vec<String> = input.split(',').map(|x| x.to_lowercase()).collect();
+                output_vec = pdb
+                    .atoms()
+                    .filter(|x| input_vec.contains(&x.name().to_lowercase()))
+                    .map(|x| x.serial_number())
+                    .collect();
+            }
+            false => return Err("Input List contains mixed types or unknown characters.".into()),
+        },
+    }
+
+    Ok(output_vec)
+}
+
+pub fn parse_residue_list(input: &str, pdb: &PDB) -> Result<Vec<isize>> {
+    let mut output_vec: Vec<isize> = vec![];
+
+    match input
+        .split(&[',', '-', ':'][..])
+        .all(|x| x.parse::<isize>().is_ok())
+    {
+        true => {
+            let input_vec: Vec<&str> = input.split(',').collect();
+
+            for i in input_vec {
+                if i.contains(&['-', ':'][..]) {
+                    // let extension = expand_range(i).iter().for_each(|x| isize::try_from(x));
+                    // output_vec.extend(expand_range(i).iter().for_each(|x| isize::try_from(x)))
+                } else {
+                    output_vec.push(i.parse()?)
+                }
+            }
+        }
+        false => match input
+            .split(&[',', '-', ':'][..])
+            .all(|x| x.parse::<isize>().is_err())
+        {
+            true => {
+                let input_vec: Vec<String> = input.split(',').map(|x| x.to_lowercase()).collect();
+                output_vec = pdb
+                    .residues()
+                    .filter(|x| input_vec.contains(&x.name().unwrap().to_lowercase()))
+                    .map(|x| x.serial_number())
+                    .collect();
+            }
+            false => return Err("Input List contains mixed types or unknown characters.".into()),
+        },
+    }
+
+    Ok(output_vec)
 }
 
 /// Query Molecule for information. Depending on the input this will print a table of

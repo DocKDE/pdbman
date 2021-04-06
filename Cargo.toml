@@ -12,6 +12,7 @@ prettytable-rs = "0.8"
 clap = "3.0.0-beta.2"
 strum = "0.20.0"
 strum_macros = "0.20.1"
+#anyhow = "^1.0"
 rstar = "0.8.2"
 pdbtbx = "^0.6.2"
 #pdbtbx = {path = "/home/floeserb/Nextcloud/Code/rust/pdbtbx"}
