@@ -46,7 +46,14 @@ pub fn run() -> Result<()> {
             Source::List => match target {
                 Target::Atoms => query_atoms(
                     &pdb,
-                    parse_atomic_list(matches.subcommand_matches("Query").unwrap().value_of("List").unwrap(), &pdb)?,
+                    parse_atomic_list(
+                        matches
+                            .subcommand_matches("Query")
+                            .unwrap()
+                            .value_of("List")
+                            .unwrap(),
+                        &pdb,
+                    )?,
                     // matches
                     //     .subcommand_matches("Query")
                     //     .unwrap()
@@ -54,10 +61,18 @@ pub fn run() -> Result<()> {
                 )?,
                 Target::Residues => query_residues(
                     &pdb,
-                    matches
-                        .subcommand_matches("Query")
-                        .unwrap()
-                        .values_of_t("List")?,
+                    parse_residue_list(
+                        matches
+                            .subcommand_matches("Query")
+                            .unwrap()
+                            .value_of("List")
+                            .unwrap(),
+                        &pdb,
+                    )?,
+                    // matches
+                    //     .subcommand_matches("Query")
+                    //     .unwrap()
+                    //     .values_of_t("List")?,
                 )?,
                 Target::None => {
                     return Err("Please provide either the 'atoms' or 'residues' flag.".into())
@@ -138,12 +153,22 @@ pub fn run() -> Result<()> {
                 }
                 Source::List => match target {
                     Target::Atoms => match region {
-                        Region::QM1 | Region::QM2 => {
-                            edit_qm_atoms(&mut pdb, edit_value, matches.subcommand_matches(mode.to_string()).unwrap().values_of_t("List")?)?
-                        }
-                        Region::Active => {
-                            edit_active_atoms(&mut pdb, edit_value, matches.subcommand_matches(mode.to_string()).unwrap().values_of_t("List")?)?
-                        }
+                        Region::QM1 | Region::QM2 => edit_qm_atoms(
+                            &mut pdb,
+                            edit_value,
+                            matches
+                                .subcommand_matches(mode.to_string())
+                                .unwrap()
+                                .values_of_t("List")?,
+                        )?,
+                        Region::Active => edit_active_atoms(
+                            &mut pdb,
+                            edit_value,
+                            matches
+                                .subcommand_matches(mode.to_string())
+                                .unwrap()
+                                .values_of_t("List")?,
+                        )?,
                         Region::None => {
                             return Err("Please give a region to add atoms or residues to.".into());
                         }
@@ -152,13 +177,19 @@ pub fn run() -> Result<()> {
                         Region::QM1 | Region::QM2 => edit_qm_residues(
                             &mut pdb,
                             edit_value,
-                            matches.subcommand_matches(mode.to_string()).unwrap().values_of_t("List")?,
+                            matches
+                                .subcommand_matches(mode.to_string())
+                                .unwrap()
+                                .values_of_t("List")?,
                             &partial.to_string(),
                         )?,
                         Region::Active => edit_active_residues(
                             &mut pdb,
                             edit_value,
-                            matches.subcommand_matches(mode.to_string()).unwrap().values_of_t("List")?,
+                            matches
+                                .subcommand_matches(mode.to_string())
+                                .unwrap()
+                                .values_of_t("List")?,
                             &partial.to_string(),
                         )?,
                         Region::None => return Err("Please give a region to modify.".into()),

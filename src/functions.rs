@@ -4,6 +4,7 @@ use std::error::Error;
 
 use pdbtbx::{Atom, Residue, PDB};
 use prettytable::{format, Table};
+use regex::Regex;
 use rstar::primitives::PointWithData;
 use rstar::RTree;
 
@@ -365,6 +366,11 @@ fn expand_range(input: &str) -> Vec<usize> {
 /// a vector of Atom IDs. The Input may be atom IDs or Atom Names
 pub fn parse_atomic_list(input: &str, pdb: &PDB) -> Result<Vec<usize>> {
     let mut output_vec: Vec<usize> = vec![];
+    let re = Regex::new(r"[-:A-Za-z\d,]")?;
+
+    if !input.chars().all(|x| re.is_match(&x.to_string())) {
+        return Err("Invalid List input!".into());
+    }
 
     match input
         .split(&[',', '-', ':'][..])
@@ -393,7 +399,7 @@ pub fn parse_atomic_list(input: &str, pdb: &PDB) -> Result<Vec<usize>> {
                     .map(|x| x.serial_number())
                     .collect();
             }
-            false => return Err("Input List contains mixed types or unknown characters.".into()),
+            false => return Err("Input List contains mixed types which is not supported.".into()),
         },
     }
 
@@ -402,6 +408,11 @@ pub fn parse_atomic_list(input: &str, pdb: &PDB) -> Result<Vec<usize>> {
 
 pub fn parse_residue_list(input: &str, pdb: &PDB) -> Result<Vec<isize>> {
     let mut output_vec: Vec<isize> = vec![];
+    let re = Regex::new(r"[-:A-Za-z\d,]")?;
+
+    if !input.chars().all(|x| re.is_match(&x.to_string())) {
+        return Err("Invalid List input!".into());
+    }
 
     match input
         .split(&[',', '-', ':'][..])
@@ -412,8 +423,18 @@ pub fn parse_residue_list(input: &str, pdb: &PDB) -> Result<Vec<isize>> {
 
             for i in input_vec {
                 if i.contains(&['-', ':'][..]) {
-                    // let extension = expand_range(i).iter().for_each(|x| isize::try_from(x));
-                    // output_vec.extend(expand_range(i).iter().for_each(|x| isize::try_from(x)))
+                    output_vec.extend(
+                        expand_range(i)
+                            .into_iter()
+                            .map(|x| isize::try_from(x).unwrap())
+                            .collect::<Vec<isize>>(),
+                    )
+                    // let extension: Vec<isize> = expand_range(i).iter().map(|&x| isize::try_from(x).unwrap()).collect();
+                    // let extension = expand_range(i).iter().for_each(|x| &isize::try_from(x)?);
+                    // let test = expand_range(i);
+                    // for j in test {
+                    //     let test2 = isize::try_from(j)?;
+                    // }
                 } else {
                     output_vec.push(i.parse()?)
                 }
@@ -431,7 +452,7 @@ pub fn parse_residue_list(input: &str, pdb: &PDB) -> Result<Vec<isize>> {
                     .map(|x| x.serial_number())
                     .collect();
             }
-            false => return Err("Input List contains mixed types or unknown characters.".into()),
+            false => return Err("Input List contains mixed types which is not supported.".into()),
         },
     }
 
@@ -474,7 +495,7 @@ pub fn query_atoms(pdb: &PDB, atom_list: Vec<usize>) -> Result<()> {
     }
 }
 
-pub fn query_residues(pdb: &PDB, residue_list: Vec<usize>) -> Result<()> {
+pub fn query_residues(pdb: &PDB, residue_list: Vec<isize>) -> Result<()> {
     let mut table = Table::new();
     table.add_row(row![
         "Atom ID",
@@ -487,7 +508,8 @@ pub fn query_residues(pdb: &PDB, residue_list: Vec<usize>) -> Result<()> {
 
     for residue in pdb.residues() {
         for atom in residue.atoms() {
-            if residue_list.contains(&usize::try_from(residue.serial_number())?) {
+            // if residue_list.contains(&usize::try_from(residue.serial_number())?) {
+            if residue_list.contains(&residue.serial_number()) {
                 table.add_row(row![
                     atom.serial_number(),
                     atom.name(),
