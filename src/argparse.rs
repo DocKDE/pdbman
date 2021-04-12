@@ -2,6 +2,7 @@ use clap::{App, AppSettings, Arg, ArgGroup};
 use std::error::Error;
 use std::str::FromStr;
 
+use regex::Regex;
 use strum::VariantNames;
 use strum_macros::{Display, EnumString, EnumVariantNames};
 
@@ -285,8 +286,19 @@ impl Mode {
     }
 }
 
+fn list_valid(v: &str) -> Result<()> {
+    let re = Regex::new(r"[-:A-Za-z\d,]")?;
+
+    if !v.chars().all(|x| re.is_match(&x.to_string())) {
+        return Err("Unsupported input characters detected!".into());
+    }
+    Ok(())
+}
+
 /// Defines all Args, their configuration and all ArgGroups as defined by clap.
 pub fn parse_args() -> Result<clap::ArgMatches> {
+    // let re = Regex::new(r"[-:A-Za-z\d,]")?;
+
     let matches = App::new(crate_name!())
         .about(crate_description!())
         .version(crate_version!())
@@ -321,6 +333,8 @@ pub fn parse_args() -> Result<clap::ArgMatches> {
                     .long("list")
                     .short('l')
                     .takes_value(true)
+                    .validator(list_valid)
+                    // .validator_regex(&re, "Invalid characters for list input")
                     // .multiple(true)
                     // .use_delimiter(true),
             )
@@ -416,8 +430,9 @@ pub fn parse_args() -> Result<clap::ArgMatches> {
                     .long("list")
                     .short('l')
                     .takes_value(true)
+                    .validator(list_valid)
                     // .multiple(true)
-                    .use_delimiter(true),
+                    // .use_delimiter(true),
             )
             .arg(
                 Arg::new("Sphere")
@@ -511,8 +526,9 @@ pub fn parse_args() -> Result<clap::ArgMatches> {
                     .long("list")
                     .short('l')
                     .takes_value(true)
+                    .validator(list_valid)
                     // .multiple(true)
-                    .use_delimiter(true),
+                    // .use_delimiter(true),
             )
             .arg(
                 Arg::new("Sphere")
