@@ -1,8 +1,8 @@
-* Accept ranges in command line list input
-    - write function to replace use of values_of_t
 * rewrite the function logic to pass around Atom structs, not indices
-* move validation of command line arguments (i.e. List) to argparse module (clap validator_regex)
 
+#* Accept ranges in command line list input
+#    - write function to replace use of values_of_t
+#* move validation of command line arguments (i.e. List) to argparse module (clap validator_regex) for some reason clap doesn't recognize this so regular validator was used with separate function
 #* Implement querying Atom or Residue Names
 #* Implement sphere-based query
 #* change parsing of List input in add and remove modes
