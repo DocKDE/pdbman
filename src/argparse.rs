@@ -280,8 +280,8 @@ impl Mode {
                 output: passed_output,
             })
         }
-        Some(&_) => return Err("This is impossible".into()),
-        None => return Err("Please choose a subcommand: 'Query', 'Analyze', 'Add' or 'Remove'. For more information enter 'pdbman --help'.".into()),
+        Some(&_) => Err("This is impossible".into()),
+        None => Err("Please choose a subcommand: 'Query', 'Analyze', 'Add' or 'Remove'. For more information enter 'pdbman --help'.".into()),
     }
     }
 }
@@ -298,15 +298,16 @@ fn list_valid(v: &str) -> Result<()> {
 /// Defines all Args, their configuration and all ArgGroups as defined by clap.
 pub fn parse_args() -> Result<clap::ArgMatches> {
     // let re = Regex::new(r"[-:A-Za-z\d,]")?;
-
     let matches = App::new(crate_name!())
         .about(crate_description!())
         .version(crate_version!())
         .author(crate_authors!())
-        .arg(Arg::new("INPUT").about("Name of PDB file").value_name("PDB file").required(true))
+        .setting(AppSettings::ArgRequiredElseHelp)
+        .setting(AppSettings::SubcommandRequiredElseHelp)
+        .setting(AppSettings::VersionlessSubcommands)
+        .arg(Arg::new("INPUT").about("Path to PDB file").value_name("PDB file").required(true))
         .subcommand(App::new("Query")
             .about("Query mode")
-            .setting(AppSettings::DisableVersion)
             .visible_aliases(&["query", "que", "Q", "q"])
             .arg(
                 Arg::new("Residues")
@@ -353,7 +354,6 @@ pub fn parse_args() -> Result<clap::ArgMatches> {
         )
         .subcommand(App::new("Analyze")
             .about("Analysis mode")
-            .setting(AppSettings::DisableVersion)
             .visible_aliases(&["analyze", "ana", "Y", "y"])
             .arg(
                 Arg::new("Residues")
@@ -403,7 +403,6 @@ pub fn parse_args() -> Result<clap::ArgMatches> {
         )
         .subcommand(App::new("Add")
             .about("Add mode")
-            .setting(AppSettings::DisableVersion)
             .visible_aliases(&["add", "A", "a"])
             .arg(
                 Arg::new("Residues")
@@ -499,7 +498,6 @@ pub fn parse_args() -> Result<clap::ArgMatches> {
         )
         .subcommand(App::new("Remove")
             .about("Remove mode")
-            .setting(AppSettings::DisableVersion)
             .visible_aliases(&["remove", "rem", "R", "r"])
             .arg(
                 Arg::new("Residues")

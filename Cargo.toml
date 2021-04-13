@@ -3,7 +3,8 @@ name = "pdbman"
 version = "0.3.2"
 authors = ["Benedikt M. Flöser <benedikt.floeser@cec.mpg.de>"]
 edition = "2018"
-description = "Parses and edits PDB files"
+description = "Analyzes and edits PDB files for usage in QM/MM calculations with the ORCA Quantum Chemistry package"
+license = "GPL-2.0-or-later"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

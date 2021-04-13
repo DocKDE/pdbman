@@ -1,4 +1,10 @@
 * rewrite the function logic to pass around Atom structs, not indices
+* change storage location for atomic radius hashtable
+* find out how to return error from within closure
+* add validation for sphere input
+* find more elegant solution to mode.clone() in run() (maybe smart pointers?)
+* find better solution to pdb.clone() in run()
+* split command list parsing into function for integers and strings?
 
 #* Accept ranges in command line list input
 #    - write function to replace use of values_of_t

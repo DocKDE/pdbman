@@ -1,3 +1,28 @@
+//! This crate serves as a command line utility to handle PDB files for use with the Quantum
+//! Chemistry package ORCA. Its capabilities include querying the file for residues and atoms,
+//! analyzing the defined QM and Active regions (according to ORCA nomenclature using the
+//! occupancy and B values) and editing these same regions so the PDB file can be used as input
+//! in a QM/MM calculation.
+//!
+//! # Example usage:
+//! Query for atoms with the name 'Cu':
+//!
+//! `pdbman myfile.pdb Query -tl Cu`
+//!
+//! Analyze QM residues:
+//!
+//! `pdbman myfile.pdb Analyze -rq`
+//!
+//! Remove all QM and Active atoms and overwrite input file:
+//!
+//! `pdbman myfile.pdb Remove -w`
+//!
+//! Add atoms in a sphere around a given atom to Active region:
+//!
+//! `pdbman myfile.pdb Add -raws 2589 10`
+//!
+//! The `--sphere` or `-s` flag takes an atom ID and a radius in Angstrom as arguments.
+
 // #![allow(dead_code)]
 #[macro_use]
 extern crate clap;
@@ -7,7 +32,6 @@ extern crate prettytable;
 
 use std::error::Error;
 use std::fs;
-// use clap::{load_yaml, App};
 use pdbtbx::StrictnessLevel;
 
 use crate::argparse::*;
@@ -18,9 +42,12 @@ pub mod functions;
 
 type Result<T> = std::result::Result<T, Box<dyn Error>>;
 
+// Run function that handles the logic of when to call which function given an enum with the
+// command line options. Hands all occurring errors to main.
 pub fn run() -> Result<()> {
     let matches = parse_args()?;
     let mode = Mode::new(&matches)?;
+    // let mode = Rc::new(Mode::new(&matches)?);
     let filename = matches.value_of("INPUT").unwrap();
     let mut pdb;
     // println!("{:?}", matches.subcommand_matches("Add").unwrap().value_of("List").unwrap());
@@ -28,7 +55,7 @@ pub fn run() -> Result<()> {
     match pdbtbx::open_pdb(filename, StrictnessLevel::Strict) {
         Ok(result) => pdb = result.0,
         Err(e) => {
-            let err_string: String = e
+            let err_string = e
                 .iter()
                 .map(|x| x.short_description())
                 .collect::<Vec<&str>>()
@@ -144,9 +171,9 @@ pub fn run() -> Result<()> {
                     Region::Active => 1.00,
                     Region::QM1 => 1.00,
                     Region::QM2 => 2.00,
-                    Region::None => 0.00,
+                    Region::None => return Err("Region input is needed".into()),
                 },
-                _ => 0.00,
+                _ => return Err("A mode must be selected".into()),
             };
             match source {
                 Source::Infile => {
@@ -263,7 +290,7 @@ pub fn run() -> Result<()> {
                     }
                 }
                 Source::None => {
-                    if mode.to_string() == "Remove".to_string()
+                    if mode.to_string() == *"Remove"
                         && region == Region::None
                         && target == Target::None
                     {
@@ -275,11 +302,11 @@ pub fn run() -> Result<()> {
             }
         }
         Mode::None => {
-            return Err("Please choose either 'Add', 'Analyze', 'Query' or 'Remove' mode.".into())
+            return Err("Please choose either 'Add', 'Analyze', 'Query' or 'Remove' mode using the respective subcommand.".into())
         }
     }
 
-    if mode.to_string() == "Add".to_string() || mode.to_string() == "Remove".to_string() {
+    if mode.to_string() == *"Add" || mode.to_string() == *"Remove" {
         if matches
             .subcommand_matches(mode.to_string())
             .unwrap()

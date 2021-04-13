@@ -5,8 +5,7 @@ use std::error::Error;
 use pdbtbx::{Atom, Residue, PDB};
 use prettytable::{format, Table};
 // use regex::Regex;
-use rstar::primitives::PointWithData;
-use rstar::RTree;
+use rstar::{RTree, primitives::PointWithData};
 
 type Result<T> = std::result::Result<T, Box<dyn Error>>;
 
@@ -341,7 +340,7 @@ pub fn find_contacts(pdb: &PDB, level: u8) -> Result<Table> {
             }
         }
     }
-    if table.len() > 0 {
+    if !table.is_empty() {
         if level == 0 {
             println!("\nClash Analysis");
         } else if level == 1 {
@@ -366,11 +365,6 @@ fn expand_range(input: &str) -> Vec<usize> {
 /// a vector of Atom IDs. The Input may be atom IDs or Atom Names
 pub fn parse_atomic_list(input: &str, pdb: &PDB) -> Result<Vec<usize>> {
     let mut output_vec: Vec<usize> = vec![];
-    // let re = Regex::new(r"[-:A-Za-z\d,]")?;
-
-    // if !input.chars().all(|x| re.is_match(&x.to_string())) {
-    //     return Err("Invalid List input!".into());
-    // }
 
     match input
         .split(&[',', '-', ':'][..])
@@ -408,11 +402,6 @@ pub fn parse_atomic_list(input: &str, pdb: &PDB) -> Result<Vec<usize>> {
 
 pub fn parse_residue_list(input: &str, pdb: &PDB) -> Result<Vec<isize>> {
     let mut output_vec: Vec<isize> = vec![];
-    // let re = Regex::new(r"[-:A-Za-z\d,]")?;
-
-    // if !input.chars().all(|x| re.is_match(&x.to_string())) {
-    //     return Err("Invalid List input!".into());
-    // }
 
     match input
         .split(&[',', '-', ':'][..])
@@ -487,7 +476,7 @@ pub fn query_atoms(pdb: &PDB, atom_list: Vec<usize>) -> Result<()> {
         }
     }
 
-    if atom_list.len() > 0 {
+    if !atom_list.is_empty() {
         table.printstd();
         Ok(())
     } else {
@@ -522,7 +511,7 @@ pub fn query_residues(pdb: &PDB, residue_list: Vec<isize>) -> Result<()> {
         }
     }
 
-    if residue_list.len() > 0 {
+    if !residue_list.is_empty() {
         table.printstd();
         Ok(())
     } else {
@@ -617,7 +606,7 @@ pub fn analyze(pdb: &PDB, region: &str, verbosity: u8) -> Result<()> {
             println!("\n{} Residues", region);
             residue_table.printstd();
         } else {
-            return Err("No Residues found in given region!".into())
+            return Err("No Residues found in given region!".into());
         }
     } else if verbosity == 2 {
         let (atom_list, residue_list) = match region {
@@ -655,7 +644,7 @@ pub fn analyze(pdb: &PDB, region: &str, verbosity: u8) -> Result<()> {
             println!("\n{} Atoms", region);
             atom_table.printstd();
         } else {
-            return Err("No Atoms found in given region!".into())
+            return Err("No Atoms found in given region!".into());
         }
     }
     Ok(())
