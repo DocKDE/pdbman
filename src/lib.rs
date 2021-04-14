@@ -33,6 +33,7 @@ extern crate prettytable;
 use pdbtbx::StrictnessLevel;
 use std::error::Error;
 use std::fs;
+use std::rc::Rc;
 
 use crate::argparse::*;
 use crate::functions::*;
@@ -40,14 +41,12 @@ use crate::functions::*;
 pub mod argparse;
 pub mod functions;
 
-type Result<T> = std::result::Result<T, Box<dyn Error>>;
-
 // Run function that handles the logic of when to call which function given an enum with the
 // command line options. Hands all occurring errors to main.
-pub fn run() -> Result<()> {
+pub fn run() -> Result<(), Box<dyn Error>> {
     let matches = parse_args()?;
-    let mode = Mode::new(&matches)?;
-    // let mode = Rc::new(Mode::new(&matches)?);
+    let mode = Rc::new(Mode::new(&matches)?);
+    // let mode = Mode::new(&matches)?;
     let filename = matches.value_of("INPUT").ok_or("No input file given")?;
     let mut pdb;
 
@@ -62,7 +61,7 @@ pub fn run() -> Result<()> {
         }
     }
 
-    match mode.clone() {
+    match *mode {
         Mode::Query { source, target } => match source {
             Source::List => {
                 let list = matches
@@ -138,7 +137,7 @@ pub fn run() -> Result<()> {
             output: _,
         } => {
             let pdb_copy = pdb.clone();
-            let edit_value = match mode {
+            let edit_value = match *mode {
                 Mode::Remove { .. } => 0.00,
                 Mode::Add { .. } => match region {
                     Region::Active => 1.00,

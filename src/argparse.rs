@@ -36,7 +36,7 @@ pub enum Mode {
     None,
 }
 
-#[derive(Display, PartialEq, Debug, Clone, EnumString, EnumVariantNames)]
+#[derive(Display, PartialEq, Debug, Clone, Copy, EnumString, EnumVariantNames)]
 pub enum Region {
     QM1,
     QM2,
@@ -44,7 +44,7 @@ pub enum Region {
     None,
 }
 
-#[derive(Display, PartialEq, Debug, Clone, EnumString, EnumVariantNames)]
+#[derive(Display, PartialEq, Debug, Clone, Copy, EnumString, EnumVariantNames)]
 pub enum Source {
     Infile,
     List,
@@ -52,28 +52,28 @@ pub enum Source {
     None,
 }
 
-#[derive(Display, PartialEq, Debug, Clone, EnumString, EnumVariantNames)]
+#[derive(Display, PartialEq, Debug, Clone, Copy, EnumString, EnumVariantNames)]
 pub enum Target {
     Atoms,
     Residues,
     None,
 }
 
-#[derive(Display, PartialEq, Debug, Clone, EnumString, EnumVariantNames)]
+#[derive(Display, PartialEq, Debug, Clone, Copy, EnumString, EnumVariantNames)]
 pub enum Output {
     Outfile,
     Overwrite,
     None,
 }
 
-#[derive(Display, PartialEq, Debug, Clone, EnumString, EnumVariantNames)]
+#[derive(Display, PartialEq, Debug, Clone, Copy, EnumString, EnumVariantNames)]
 pub enum Partial {
     Sidechain,
     Backbone,
     None,
 }
 
-#[derive(Display, PartialEq, Debug, Clone, EnumString, EnumVariantNames)]
+#[derive(Display, PartialEq, Debug, Clone, Copy, EnumString, EnumVariantNames)]
 pub enum Distance {
     Clashes,
     Contacts,
