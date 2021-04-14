@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::error::Error;
 
@@ -6,8 +5,14 @@ use pdbtbx::{Atom, Residue, PDB};
 use prettytable::{format, Table};
 // use regex::Regex;
 use rstar::{RTree, primitives::PointWithData};
+use crate::Partial;
 
 type Result<T> = std::result::Result<T, Box<dyn Error>>;
+
+const AMINOS: [&str; 29] = ["ARG", "HIS", "HIP", "HID", "HIM", "HIE", "LYS", "LYN", "ASP", "ASH", "GLU", "GLH", "SER",
+        "THR", "ASN", "GLN", "CYS", "CYX", "SEC", "GLY", "PRO", "ALA", "VAL", "ILE", "LEU", "MET",
+        "PHE", "TYR", "TRP",];
+const BACKBONE_ATOMS: [&str; 8] = ["C", "O", "N", "H", "CA", "HA", "HA2", "HA3",];
 
 /// This function edits the q value of the Molecule (used by ORCA as input for QM section
 /// selection) by Residue. It takes a mutable reference of a PDB struct, the desired value q should
@@ -19,42 +24,43 @@ pub fn edit_qm_residues(
     qm_val: f64,
     list: Vec<isize>,
     // region: &str,
-    partial: &str,
+    // partial: &str,
+    partial: Partial,
 ) -> Result<()> {
-    let amino_list = [
-        "ARG", "HIS", "HIP", "HID", "HIM", "HIE", "LYS", "LYN", "ASP", "ASH", "GLU", "GLH", "SER",
-        "THR", "ASN", "GLN", "CYS", "CYX", "SEC", "GLY", "PRO", "ALA", "VAL", "ILE", "LEU", "MET",
-        "PHE", "TYR", "TRP",
-    ];
-    let backbone_atoms = ["C", "O", "N", "H", "CA", "HA", "HA2", "HA3"];
+    // let amino_list = [
+    //     "ARG", "HIS", "HIP", "HID", "HIM", "HIE", "LYS", "LYN", "ASP", "ASH", "GLU", "GLH", "SER",
+    //     "THR", "ASN", "GLN", "CYS", "CYX", "SEC", "GLY", "PRO", "ALA", "VAL", "ILE", "LEU", "MET",
+    //     "PHE", "TYR", "TRP",
+    // ];
+    // let backbone_atoms = ["C", "O", "N", "H", "CA", "HA", "HA2", "HA3"];
 
     for residue in pdb.residues_mut() {
         let serial_number = residue.serial_number();
         let name = residue.name().ok_or("No Residue Name")?.to_string();
         for atom in residue.atoms_mut() {
             match partial {
-                "None" => {
+                Partial::None => {
                     if list.contains(&serial_number) {
                         atom.set_occupancy(qm_val)?;
                     }
                 }
-                "Sidechain" => {
+                Partial::Sidechain => {
                     if list.contains(&serial_number)
-                        && amino_list.contains(&name.as_str())
-                        && !backbone_atoms.contains(&atom.name())
+                        && AMINOS.contains(&name.as_str())
+                        && !BACKBONE_ATOMS.contains(&atom.name())
                     {
                         atom.set_occupancy(qm_val)?;
                     }
                 }
-                "Backbone" => {
+                Partial::Backbone => {
                     if list.contains(&serial_number)
-                        && amino_list.contains(&name.as_str())
-                        && backbone_atoms.contains(&atom.name())
+                        && AMINOS.contains(&name.as_str())
+                        && BACKBONE_ATOMS.contains(&atom.name())
                     {
                         atom.set_occupancy(qm_val)?;
                     }
                 }
-                &_ => return Err("Passed argument 'partial' not recognized".into()),
+                // &_ => return Err("Passed argument 'partial' not recognized".into()),
             }
         }
     }
@@ -71,14 +77,15 @@ pub fn edit_active_residues(
     qm_val: f64,
     list: Vec<isize>,
     // region: &str,
-    partial: &str,
+    // partial: &str,
+    partial: Partial,
 ) -> Result<()> {
-    let amino_list = [
-        "ARG", "HIS", "HIP", "HID", "HIM", "HIE", "LYS", "LYN", "ASP", "ASH", "GLU", "GLH", "SER",
-        "THR", "ASN", "GLN", "CYS", "CYX", "SEC", "GLY", "PRO", "ALA", "VAL", "ILE", "LEU", "MET",
-        "PHE", "TYR", "TRP",
-    ];
-    let backbone_atoms = ["C", "O", "N", "H", "CA", "HA", "HA2", "HA3"];
+    // let amino_list = [
+    //     "ARG", "HIS", "HIP", "HID", "HIM", "HIE", "LYS", "LYN", "ASP", "ASH", "GLU", "GLH", "SER",
+    //     "THR", "ASN", "GLN", "CYS", "CYX", "SEC", "GLY", "PRO", "ALA", "VAL", "ILE", "LEU", "MET",
+    //     "PHE", "TYR", "TRP",
+    // ];
+    // let backbone_atoms = ["C", "O", "N", "H", "CA", "HA", "HA2", "HA3"];
 
     for residue in pdb.residues_mut() {
         let serial_number = residue.serial_number();
@@ -86,28 +93,28 @@ pub fn edit_active_residues(
 
         for atom in residue.atoms_mut() {
             match partial {
-                "None" => {
+                Partial::None => {
                     if list.contains(&serial_number) {
                         atom.set_b_factor(qm_val)?;
                     }
                 }
-                "Sidechain" => {
+                Partial::Sidechain => {
                     if list.contains(&serial_number)
-                        && amino_list.contains(&name.as_str())
-                        && !backbone_atoms.contains(&atom.name())
+                        && AMINOS.contains(&name.as_str())
+                        && !BACKBONE_ATOMS.contains(&atom.name())
                     {
                         atom.set_b_factor(qm_val)?;
                     }
                 }
-                "Backbone" => {
+                Partial::Backbone => {
                     if list.contains(&serial_number)
-                        && amino_list.contains(&name.as_str())
-                        && backbone_atoms.contains(&atom.name())
+                        && AMINOS.contains(&name.as_str())
+                        && BACKBONE_ATOMS.contains(&atom.name())
                     {
                         atom.set_b_factor(qm_val)?;
                     }
                 }
-                &_ => return Err("Passed argument 'partial' not recognized".into()),
+                // &_ => return Err("Passed argument 'partial' not recognized".into()),
             }
         }
     }
@@ -242,17 +249,6 @@ pub fn calc_residue_sphere(
 /// 'contact' is given by the 'level' arg which is 1.0A for 'level' = 0 and the
 /// respective atomic radius for 'level' = 1.
 pub fn find_contacts(pdb: &PDB, level: u8) -> Result<Table> {
-    let mut vdw_radii = HashMap::new();
-    vdw_radii.insert("H".to_string(), 1.54);
-    vdw_radii.insert("C".to_string(), 1.90);
-    vdw_radii.insert("N".to_string(), 1.79);
-    vdw_radii.insert("O".to_string(), 1.71);
-    vdw_radii.insert("P".to_string(), 2.23);
-    vdw_radii.insert("S".to_string(), 2.14);
-    vdw_radii.insert("CL".to_string(), 2.06);
-    vdw_radii.insert("NA".to_string(), 2.25);
-    vdw_radii.insert("CU".to_string(), 2.17);
-
     let mut table = Table::new();
     table.set_format(*format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
     table.set_titles(row![
@@ -281,12 +277,7 @@ pub fn find_contacts(pdb: &PDB, level: u8) -> Result<Table> {
         for atom in residue.atoms() {
             let radius: f64 = match level {
                 0 => 1.0,
-                1 => {
-                    let rad = vdw_radii
-                        .get(&atom.element().to_uppercase())
-                        .expect("No Radius fiund for given element.");
-                    rad * rad
-                }
+                1 => atom.atomic_radius().ok_or("No atomic radius found for Atom type!")?.powf(2.0),
                 _ => return Err("Too high level given!".into()),
             };
             let contacts = tree.locate_within_distance([atom.x(), atom.y(), atom.z()], radius);
@@ -728,8 +719,8 @@ mod tests {
         let mut pdb = test_pdb("tests/test_blank.pdb");
         let res_id_list = vec![2, 4];
 
-        edit_qm_residues(&mut pdb, 2.00, res_id_list.clone(), "None").unwrap();
-        edit_active_residues(&mut pdb, 1.00, res_id_list.clone(), "None").unwrap();
+        edit_qm_residues(&mut pdb, 2.00, res_id_list.clone(), Partial::None).unwrap();
+        edit_active_residues(&mut pdb, 1.00, res_id_list.clone(), Partial::None).unwrap();
 
         let res_list = pdb
             .residues()
@@ -747,10 +738,10 @@ mod tests {
     fn edit_residues_test_side() {
         let mut pdb = test_pdb("tests/test_blank.pdb");
         let res_id_list = vec![2, 4];
-        let backbone_atoms = ["C", "O", "N", "H", "CA", "HA", "HA2", "HA3"];
+        // let backbone_atoms = ["C", "O", "N", "H", "CA", "HA", "HA2", "HA3"];
 
-        edit_qm_residues(&mut pdb, 2.00, res_id_list.clone(), "Sidechain").unwrap();
-        edit_active_residues(&mut pdb, 1.00, res_id_list.clone(), "Sidechain").unwrap();
+        edit_qm_residues(&mut pdb, 2.00, res_id_list.clone(), Partial::Sidechain).unwrap();
+        edit_active_residues(&mut pdb, 1.00, res_id_list.clone(), Partial::Sidechain).unwrap();
 
         let res_list = pdb
             .residues()
@@ -759,7 +750,7 @@ mod tests {
         let atom_list = res_list
             .map(|x| x.atoms())
             .flatten()
-            .filter(|x| !backbone_atoms.contains(&x.name()));
+            .filter(|x| !BACKBONE_ATOMS.contains(&x.name()));
 
         for atom in atom_list {
             assert_eq!(atom.occupancy(), 2.00);
@@ -771,9 +762,9 @@ mod tests {
     fn edit_residues_test_back() {
         let mut pdb = test_pdb("tests/test_blank.pdb");
         let res_id_list = vec![2, 4];
-        let backbone_atoms = ["C", "O", "N", "H", "CA", "HA", "HA2", "HA3"];
-        edit_qm_residues(&mut pdb, 2.00, res_id_list.clone(), "Backbone").unwrap();
-        edit_active_residues(&mut pdb, 1.00, res_id_list.clone(), "Backbone").unwrap();
+        // let backbone_atoms = ["C", "O", "N", "H", "CA", "HA", "HA2", "HA3"];
+        edit_qm_residues(&mut pdb, 2.00, res_id_list.clone(), Partial::Backbone).unwrap();
+        edit_active_residues(&mut pdb, 1.00, res_id_list.clone(), Partial::Backbone).unwrap();
 
         let res_list = pdb
             .residues()
@@ -781,7 +772,7 @@ mod tests {
         let atom_list = res_list
             .map(|x| x.atoms())
             .flatten()
-            .filter(|x| backbone_atoms.contains(&x.name()));
+            .filter(|x| BACKBONE_ATOMS.contains(&x.name()));
 
         for atom in atom_list {
             assert_eq!(atom.occupancy(), 2.00);

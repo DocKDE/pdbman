@@ -64,9 +64,10 @@ pub fn run() -> Result<()> {
         }
     }
 
-    for i in pdbtbx::validate_pdb(&pdb).iter() {
-        println!("{}", i)
-    }
+    pdbtbx::validate_pdb(&pdb).iter().for_each(|x| println!("{}", x));
+    // for i in pdbtbx::validate_pdb(&pdb).iter() {
+    //     println!("{}", i)
+    // }
 
     match mode.clone() {
         Mode::Query { source, target } => match source {
@@ -229,7 +230,7 @@ pub fn run() -> Result<()> {
                                     .unwrap(),
                                 &pdb_copy,
                             )?,
-                            &partial.to_string(),
+                            partial,
                             // matches
                             //     .subcommand_matches(mode.to_string())
                             //     .unwrap()
@@ -250,7 +251,7 @@ pub fn run() -> Result<()> {
                             //     .subcommand_matches(mode.to_string())
                             //     .unwrap()
                             //     .values_of_t("List")?,
-                            &partial.to_string(),
+                            partial,
                         )?,
                         Region::None => return Err("Please give a region to modify.".into()),
                     },
