@@ -46,7 +46,6 @@ pub mod functions;
 pub fn run() -> Result<(), Box<dyn Error>> {
     let matches = parse_args()?;
     let mode = Rc::new(Mode::new(&matches)?);
-    // let mode = Mode::new(&matches)?;
     let filename = matches.value_of("INPUT").ok_or("No input file given")?;
     let mut pdb;
 
@@ -80,9 +79,9 @@ pub fn run() -> Result<(), Box<dyn Error>> {
             Source::Sphere => {
                 let sphere: Vec<_> = matches
                     .subcommand_matches("Query")
-                    .unwrap()
+                    .ok_or("Something wrong with subcommand 'Query'")?
                     .values_of("Sphere")
-                    .unwrap()
+                    .ok_or("Something wrong with option 'Sphere'")?
                     .collect();
 
                 let (origin_id, radius): (usize, f64) = if let [o, r] = sphere[..] {
@@ -99,8 +98,9 @@ pub fn run() -> Result<(), Box<dyn Error>> {
                 let list = match target {
                     Target::Atoms => calc_atom_sphere(&pdb, origin_atom, radius, false)?,
                     Target::Residues => calc_residue_sphere(&pdb, origin_atom, radius, false)?,
-                    _ => return Err("No target was given!".into()),
+                    Target::None => return Err("No target was given!".into()),
                 };
+
                 query_atoms(&pdb, list)?;
             }
             _ => println!("Please specifiy another input for a query."),
@@ -115,6 +115,7 @@ pub fn run() -> Result<(), Box<dyn Error>> {
                 Target::Residues => 1,
                 _ => 0,
             };
+
             functions::analyze(&pdb, &region.to_string(), verbosity)?;
             match distance {
                 Distance::Clashes => find_contacts(&pdb, 0)?.printstd(),
@@ -136,7 +137,6 @@ pub fn run() -> Result<(), Box<dyn Error>> {
             partial,
             output: _,
         } => {
-            let pdb_copy = pdb.clone();
             let edit_value = match *mode {
                 Mode::Remove { .. } => 0.00,
                 Mode::Add { .. } => match region {
@@ -158,48 +158,45 @@ pub fn run() -> Result<(), Box<dyn Error>> {
                         .ok_or("Something wrong with subcommand 'Add' or 'Remove'")?
                         .value_of("List")
                         .ok_or("Something wrong with option 'List'")?;
+
                 match target {
-                    Target::Atoms => match region {
-                        Region::QM1 | Region::QM2 => edit_qm_atoms(
-                            &mut pdb,
-                            edit_value,
-                            parse_atomic_list(
-                                list,
-                                &pdb_copy,
+                    Target::Atoms => {
+                        let atomic_list = parse_atomic_list(list, &pdb)?;
+
+                        match region {
+                            Region::QM1 | Region::QM2 => edit_qm_atoms(
+                                &mut pdb,
+                                edit_value,
+                                atomic_list,
                             )?,
-                        )?,
-                        Region::Active => edit_active_atoms(
-                            &mut pdb,
-                            edit_value,
-                            parse_atomic_list(
-                                list,
-                                &pdb_copy,
+                            Region::Active => edit_active_atoms(
+                                &mut pdb,
+                                edit_value,
+                                atomic_list,
                             )?,
-                        )?,
-                        Region::None => {
-                            return Err("Please give a region to add atoms or residues to.".into());
+                            Region::None => {
+                                return Err("Please give a region to add atoms or residues to.".into());
+                            }
                         }
                     },
-                    Target::Residues => match region {
-                        Region::QM1 | Region::QM2 => edit_qm_residues(
-                            &mut pdb,
-                            edit_value,
-                            parse_residue_list(
-                                list,
-                                &pdb_copy,
+                    Target::Residues => {
+                        let residue_list = parse_residue_list(list, &pdb)?;
+
+                        match region {
+                            Region::QM1 | Region::QM2 => edit_qm_residues(
+                                &mut pdb,
+                                edit_value,
+                                residue_list,
+                                partial,
                             )?,
-                            partial,
-                        )?,
-                        Region::Active => edit_active_residues(
-                            &mut pdb,
-                            edit_value,
-                            parse_residue_list(
-                                list,
-                                &pdb_copy,
+                            Region::Active => edit_active_residues(
+                                &mut pdb,
+                                edit_value,
+                                residue_list,
+                                partial,
                             )?,
-                            partial,
-                        )?,
-                        Region::None => return Err("Please give a region to modify.".into()),
+                            Region::None => return Err("Please give a region to modify.".into()),
+                        }
                     },
                     Target::None => {
                         return Err("Please give either an 'Atoms' or 'Residues' flag.".into())
