@@ -30,9 +30,9 @@ extern crate clap;
 #[macro_use]
 extern crate prettytable;
 
+use pdbtbx::StrictnessLevel;
 use std::error::Error;
 use std::fs;
-use pdbtbx::StrictnessLevel;
 
 use crate::argparse::*;
 use crate::functions::*;
@@ -48,64 +48,36 @@ pub fn run() -> Result<()> {
     let matches = parse_args()?;
     let mode = Mode::new(&matches)?;
     // let mode = Rc::new(Mode::new(&matches)?);
-    let filename = matches.value_of("INPUT").unwrap();
+    let filename = matches.value_of("INPUT").ok_or("No input file given")?;
     let mut pdb;
-    // println!("{:?}", matches.subcommand_matches("Add").unwrap().value_of("List").unwrap());
 
     match pdbtbx::open_pdb(filename, StrictnessLevel::Strict) {
-        Ok(result) => pdb = result.0,
-        Err(e) => {
-            let err_string = e
-                .iter()
-                .map(|x| x.short_description())
-                .collect::<Vec<&str>>()
-                .join("\n");
-            return Err(err_string.into());
+        Ok((pdb_read, errors)) => {
+            pdb = pdb_read;
+            errors.iter().for_each(|x| println!("{}", x))
+        }
+        Err(errors) => {
+            errors.iter().for_each(|x| println!("{}", x));
+            return Err("Breaking error detected!".into());
         }
     }
 
-    pdbtbx::validate_pdb(&pdb).iter().for_each(|x| println!("{}", x));
-    // for i in pdbtbx::validate_pdb(&pdb).iter() {
-    //     println!("{}", i)
-    // }
-
     match mode.clone() {
         Mode::Query { source, target } => match source {
-            Source::List => match target {
-                Target::Atoms => query_atoms(
-                    &pdb,
-                    parse_atomic_list(
-                        matches
-                            .subcommand_matches("Query")
-                            .unwrap()
-                            .value_of("List")
-                            .unwrap(),
-                        &pdb,
-                    )?,
-                    // matches
-                    //     .subcommand_matches("Query")
-                    //     .unwrap()
-                    //     .values_of_t("List")?,
-                )?,
-                Target::Residues => query_residues(
-                    &pdb,
-                    parse_residue_list(
-                        matches
-                            .subcommand_matches("Query")
-                            .unwrap()
-                            .value_of("List")
-                            .unwrap(),
-                        &pdb,
-                    )?,
-                    // matches
-                    //     .subcommand_matches("Query")
-                    //     .unwrap()
-                    //     .values_of_t("List")?,
-                )?,
+            Source::List => {
+                let list = matches
+                    .subcommand_matches("Query")
+                    .ok_or("Something wrong with subcommand 'Query'")?
+                    .value_of("List")
+                    .ok_or("Something wrong with option 'List'")?;
+                match target {
+
+                Target::Atoms => query_atoms(&pdb, parse_atomic_list(list, &pdb)?)?,
+                Target::Residues => query_residues(&pdb, parse_residue_list(list, &pdb)?)?,
                 Target::None => {
                     return Err("Please provide either the 'atoms' or 'residues' flag.".into())
                 }
-            },
+            }},
             Source::Sphere => {
                 let sphere: Vec<_> = matches
                     .subcommand_matches("Query")
@@ -176,43 +148,34 @@ pub fn run() -> Result<()> {
                 },
                 _ => return Err("A mode must be selected".into()),
             };
+
             match source {
                 Source::Infile => {
                     println!("This is not implemented yet.")
                 }
-                Source::List => match target {
+                Source::List =>  {
+                    let list = matches
+                        .subcommand_matches(mode.to_string())
+                        .ok_or("Something wrong with subcommand 'Add' or 'Remove'")?
+                        .value_of("List")
+                        .ok_or("Something wrong with option 'List'")?;
+                match target {
                     Target::Atoms => match region {
                         Region::QM1 | Region::QM2 => edit_qm_atoms(
                             &mut pdb,
                             edit_value,
                             parse_atomic_list(
-                                matches
-                                    .subcommand_matches(mode.to_string())
-                                    .unwrap()
-                                    .value_of("List")
-                                    .unwrap(),
+                                list,
                                 &pdb_copy,
                             )?,
-                            // matches
-                            //     .subcommand_matches(mode.to_string())
-                            //     .unwrap()
-                            //     .values_of_t("List")?,
                         )?,
                         Region::Active => edit_active_atoms(
                             &mut pdb,
                             edit_value,
                             parse_atomic_list(
-                                matches
-                                    .subcommand_matches(mode.to_string())
-                                    .unwrap()
-                                    .value_of("List")
-                                    .unwrap(),
+                                list,
                                 &pdb_copy,
                             )?,
-                            // matches
-                            //     .subcommand_matches(mode.to_string())
-                            //     .unwrap()
-                            //     .values_of_t("List")?,
                         )?,
                         Region::None => {
                             return Err("Please give a region to add atoms or residues to.".into());
@@ -223,34 +186,18 @@ pub fn run() -> Result<()> {
                             &mut pdb,
                             edit_value,
                             parse_residue_list(
-                                matches
-                                    .subcommand_matches(mode.to_string())
-                                    .unwrap()
-                                    .value_of("List")
-                                    .unwrap(),
+                                list,
                                 &pdb_copy,
                             )?,
                             partial,
-                            // matches
-                            //     .subcommand_matches(mode.to_string())
-                            //     .unwrap()
-                            //     .values_of_t("List")?,
                         )?,
                         Region::Active => edit_active_residues(
                             &mut pdb,
                             edit_value,
                             parse_residue_list(
-                                matches
-                                    .subcommand_matches(mode.to_string())
-                                    .unwrap()
-                                    .value_of("List")
-                                    .unwrap(),
+                                list,
                                 &pdb_copy,
                             )?,
-                            // matches
-                            //     .subcommand_matches(mode.to_string())
-                            //     .unwrap()
-                            //     .values_of_t("List")?,
                             partial,
                         )?,
                         Region::None => return Err("Please give a region to modify.".into()),
@@ -258,13 +205,13 @@ pub fn run() -> Result<()> {
                     Target::None => {
                         return Err("Please give either an 'Atoms' or 'Residues' flag.".into())
                     }
-                },
+                }},
                 Source::Sphere => {
                     let sphere: Vec<_> = matches
                         .subcommand_matches(mode.to_string())
-                        .unwrap()
+                        .ok_or("Something wrong with subcommand 'Add' or 'Remove'")?
                         .values_of("Sphere")
-                        .unwrap()
+                        .ok_or("Something wrong with option 'Sphere'")?
                         .collect();
 
                     let (origin_id, radius): (usize, f64) = if let [o, r] = sphere[..] {
@@ -281,7 +228,7 @@ pub fn run() -> Result<()> {
                     let list = match target {
                         Target::Atoms => calc_atom_sphere(&pdb, origin_atom, radius, true)?,
                         Target::Residues => calc_residue_sphere(&pdb, origin_atom, radius, true)?,
-                        _ => return Err("No target was given!".into()),
+                        Target::None => return Err("No target was given!".into()),
                     };
 
                     match region {
@@ -291,7 +238,7 @@ pub fn run() -> Result<()> {
                     }
                 }
                 Source::None => {
-                    if mode.to_string() == *"Remove"
+                    if mode.to_string() == "Remove"
                         && region == Region::None
                         && target == Target::None
                     {
@@ -307,7 +254,7 @@ pub fn run() -> Result<()> {
         }
     }
 
-    if mode.to_string() == *"Add" || mode.to_string() == *"Remove" {
+    if mode.to_string() == "Add" || mode.to_string() == "Remove" {
         if matches
             .subcommand_matches(mode.to_string())
             .unwrap()

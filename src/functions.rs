@@ -4,15 +4,17 @@ use std::error::Error;
 use pdbtbx::{Atom, Residue, PDB};
 use prettytable::{format, Table};
 // use regex::Regex;
-use rstar::{RTree, primitives::PointWithData};
 use crate::Partial;
+use rstar::{primitives::PointWithData, RTree};
 
-type Result<T> = std::result::Result<T, Box<dyn Error>>;
+// type Result<T> = std::result::Result<T, Box<dyn Error>>;
 
-const AMINOS: [&str; 29] = ["ARG", "HIS", "HIP", "HID", "HIM", "HIE", "LYS", "LYN", "ASP", "ASH", "GLU", "GLH", "SER",
-        "THR", "ASN", "GLN", "CYS", "CYX", "SEC", "GLY", "PRO", "ALA", "VAL", "ILE", "LEU", "MET",
-        "PHE", "TYR", "TRP",];
-const BACKBONE_ATOMS: [&str; 8] = ["C", "O", "N", "H", "CA", "HA", "HA2", "HA3",];
+const AMINOS: [&str; 29] = [
+    "ARG", "HIS", "HIP", "HID", "HIM", "HIE", "LYS", "LYN", "ASP", "ASH", "GLU", "GLH", "SER",
+    "THR", "ASN", "GLN", "CYS", "CYX", "SEC", "GLY", "PRO", "ALA", "VAL", "ILE", "LEU", "MET",
+    "PHE", "TYR", "TRP",
+];
+const BACKBONE_ATOMS: [&str; 8] = ["C", "O", "N", "H", "CA", "HA", "HA2", "HA3"];
 
 /// This function edits the q value of the Molecule (used by ORCA as input for QM section
 /// selection) by Residue. It takes a mutable reference of a PDB struct, the desired value q should
@@ -26,14 +28,7 @@ pub fn edit_qm_residues(
     // region: &str,
     // partial: &str,
     partial: Partial,
-) -> Result<()> {
-    // let amino_list = [
-    //     "ARG", "HIS", "HIP", "HID", "HIM", "HIE", "LYS", "LYN", "ASP", "ASH", "GLU", "GLH", "SER",
-    //     "THR", "ASN", "GLN", "CYS", "CYX", "SEC", "GLY", "PRO", "ALA", "VAL", "ILE", "LEU", "MET",
-    //     "PHE", "TYR", "TRP",
-    // ];
-    // let backbone_atoms = ["C", "O", "N", "H", "CA", "HA", "HA2", "HA3"];
-
+) -> Result<(), Box<dyn Error>> {
     for residue in pdb.residues_mut() {
         let serial_number = residue.serial_number();
         let name = residue.name().ok_or("No Residue Name")?.to_string();
@@ -47,6 +42,7 @@ pub fn edit_qm_residues(
                 Partial::Sidechain => {
                     if list.contains(&serial_number)
                         && AMINOS.contains(&name.as_str())
+                        // && AMINOS.binary_search(&"test").is_ok()
                         && !BACKBONE_ATOMS.contains(&atom.name())
                     {
                         atom.set_occupancy(qm_val)?;
@@ -60,7 +56,6 @@ pub fn edit_qm_residues(
                         atom.set_occupancy(qm_val)?;
                     }
                 }
-                // &_ => return Err("Passed argument 'partial' not recognized".into()),
             }
         }
     }
@@ -79,14 +74,7 @@ pub fn edit_active_residues(
     // region: &str,
     // partial: &str,
     partial: Partial,
-) -> Result<()> {
-    // let amino_list = [
-    //     "ARG", "HIS", "HIP", "HID", "HIM", "HIE", "LYS", "LYN", "ASP", "ASH", "GLU", "GLH", "SER",
-    //     "THR", "ASN", "GLN", "CYS", "CYX", "SEC", "GLY", "PRO", "ALA", "VAL", "ILE", "LEU", "MET",
-    //     "PHE", "TYR", "TRP",
-    // ];
-    // let backbone_atoms = ["C", "O", "N", "H", "CA", "HA", "HA2", "HA3"];
-
+) -> Result<(), Box<dyn Error>> {
     for residue in pdb.residues_mut() {
         let serial_number = residue.serial_number();
         let name = residue.name().ok_or("No Residue Name")?.to_string();
@@ -114,7 +102,6 @@ pub fn edit_active_residues(
                         atom.set_b_factor(qm_val)?;
                     }
                 }
-                // &_ => return Err("Passed argument 'partial' not recognized".into()),
             }
         }
     }
@@ -124,7 +111,7 @@ pub fn edit_active_residues(
 /// This functions edits the q value of the PDB file (used by ORCA as input for QM region
 /// selection) by Atom. It takes a mutable reference to a PDB struct, the desired value
 /// q should be set to and a vector of Atom IDs.
-pub fn edit_qm_atoms(pdb: &mut PDB, qm_val: f64, list: Vec<usize>) -> Result<()> {
+pub fn edit_qm_atoms(pdb: &mut PDB, qm_val: f64, list: Vec<usize>) -> Result<(), Box<dyn Error>> {
     for atom in pdb.atoms_mut() {
         if list.contains(&atom.serial_number()) {
             atom.set_occupancy(qm_val)?
@@ -136,7 +123,11 @@ pub fn edit_qm_atoms(pdb: &mut PDB, qm_val: f64, list: Vec<usize>) -> Result<()>
 /// This functions edits the b value of the PDB file (used by ORCA as input for QM region
 /// selection) by Atom. It takes a mutable reference to a PDB struct, the desired value
 /// b should be set to and a vector of Atom IDs.
-pub fn edit_active_atoms(pdb: &mut PDB, active_val: f64, list: Vec<usize>) -> Result<()> {
+pub fn edit_active_atoms(
+    pdb: &mut PDB,
+    active_val: f64,
+    list: Vec<usize>,
+) -> Result<(), Box<dyn Error>> {
     for atom in pdb.atoms_mut() {
         if list.contains(&atom.serial_number()) {
             atom.set_b_factor(active_val)?
@@ -146,7 +137,7 @@ pub fn edit_active_atoms(pdb: &mut PDB, active_val: f64, list: Vec<usize>) -> Re
 }
 
 /// Sets all q and b values to zero which serves as a fresh start.
-pub fn remove_all(pdb: &mut PDB) -> Result<()> {
+pub fn remove_all(pdb: &mut PDB) -> Result<(), Box<dyn Error>> {
     for atom in pdb.atoms_mut() {
         atom.set_occupancy(0.00)?;
         atom.set_b_factor(0.00)?;
@@ -157,7 +148,7 @@ pub fn remove_all(pdb: &mut PDB) -> Result<()> {
 /// Prints all Atoms in Molecule to stdout in PDB file format This can be redirected
 /// to a file if desired. This may be obsolete as the functionality of printing to a file
 /// already exists with a separate flag.
-pub fn print_to_stdout(pdb: &PDB) -> Result<()> {
+pub fn print_to_stdout(pdb: &PDB) -> Result<(), Box<dyn Error>> {
     for residue in pdb.residues() {
         for atom in residue.atoms() {
             println!("ATOM  {:>5} {:<4} {:>3}  {:>4}    {:>8.3}{:>8.3}{:>8.3}{:>6.2}{:>6.2}          {:>2}", 
@@ -175,7 +166,7 @@ pub fn calc_atom_sphere(
     origin: &Atom,
     radius: f64,
     include_self: bool,
-) -> Result<Vec<usize>> {
+) -> Result<Vec<usize>, Box<dyn Error>> {
     let mut sphere_atoms: Vec<usize> = Vec::new();
 
     for atom in pdb.atoms() {
@@ -204,7 +195,7 @@ pub fn calc_residue_sphere(
     origin: &Atom,
     radius: f64,
     include_self: bool,
-) -> Result<Vec<usize>> {
+) -> Result<Vec<usize>, Box<dyn Error>> {
     let mut sphere_atoms: Vec<usize> = Vec::new();
     let mut sphere_residues: Vec<&Residue> = Vec::new();
 
@@ -248,7 +239,7 @@ pub fn calc_residue_sphere(
 /// Finds and prints all contacts present in the PDB file structure. Definition of
 /// 'contact' is given by the 'level' arg which is 1.0A for 'level' = 0 and the
 /// respective atomic radius for 'level' = 1.
-pub fn find_contacts(pdb: &PDB, level: u8) -> Result<Table> {
+pub fn find_contacts(pdb: &PDB, level: u8) -> Result<Table, Box<dyn Error>> {
     let mut table = Table::new();
     table.set_format(*format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
     table.set_titles(row![
@@ -277,10 +268,14 @@ pub fn find_contacts(pdb: &PDB, level: u8) -> Result<Table> {
         for atom in residue.atoms() {
             let radius: f64 = match level {
                 0 => 1.0,
-                1 => atom.atomic_radius().ok_or("No atomic radius found for Atom type!")?.powf(2.0),
+                1 => atom
+                    .atomic_radius()
+                    .ok_or("No atomic radius found for Atom type!")?
+                    .powf(2.0),
                 _ => return Err("Too high level given!".into()),
             };
             let contacts = tree.locate_within_distance([atom.x(), atom.y(), atom.z()], radius);
+
             for PointWithData {
                 data: (other_atom, other_residue),
                 ..
@@ -344,17 +339,17 @@ pub fn find_contacts(pdb: &PDB, level: u8) -> Result<Table> {
 }
 
 // ///Input may contain only one instance of a range-indicating character
-fn expand_range(input: &str) -> Vec<usize> {
+fn expand_range(input: &str) -> Result<Vec<usize>, std::num::ParseIntError> {
     let vector: Vec<usize> = input
         .split(&['-', ':'][..])
-        .map(|x| x.parse().expect("Parsing of String into usize failed!"))
-        .collect();
-    (vector[0]..=vector[1]).collect()
+        .map(|x| x.parse())
+        .collect::<Result<_, _>>()?;
+    Ok((vector[0]..=vector[1]).collect())
 }
 
 /// Takes a comma-separated list (usually from command line input) as string and parses it into
 /// a vector of Atom IDs. The Input may be atom IDs or Atom Names
-pub fn parse_atomic_list(input: &str, pdb: &PDB) -> Result<Vec<usize>> {
+pub fn parse_atomic_list(input: &str, pdb: &PDB) -> Result<Vec<usize>, Box<dyn Error>> {
     let mut output_vec: Vec<usize> = vec![];
 
     match input
@@ -366,7 +361,7 @@ pub fn parse_atomic_list(input: &str, pdb: &PDB) -> Result<Vec<usize>> {
 
             for i in input_vec {
                 if i.contains(&['-', ':'][..]) {
-                    output_vec.extend(expand_range(i))
+                    output_vec.extend(expand_range(i)?)
                 } else {
                     output_vec.push(i.parse()?)
                 }
@@ -391,7 +386,7 @@ pub fn parse_atomic_list(input: &str, pdb: &PDB) -> Result<Vec<usize>> {
     Ok(output_vec)
 }
 
-pub fn parse_residue_list(input: &str, pdb: &PDB) -> Result<Vec<isize>> {
+pub fn parse_residue_list(input: &str, pdb: &PDB) -> Result<Vec<isize>, Box<dyn Error>> {
     let mut output_vec: Vec<isize> = vec![];
 
     match input
@@ -404,17 +399,11 @@ pub fn parse_residue_list(input: &str, pdb: &PDB) -> Result<Vec<isize>> {
             for i in input_vec {
                 if i.contains(&['-', ':'][..]) {
                     output_vec.extend(
-                        expand_range(i)
+                        expand_range(i)?
                             .into_iter()
-                            .map(|x| isize::try_from(x).unwrap())
-                            .collect::<Vec<isize>>(),
+                            .map(|x| isize::try_from(x))
+                            .collect::<Result<Vec<isize>, _>>()?,
                     )
-                    // let extension: Vec<isize> = expand_range(i).iter().map(|&x| isize::try_from(x).unwrap()).collect();
-                    // let extension = expand_range(i).iter().for_each(|x| &isize::try_from(x)?);
-                    // let test = expand_range(i);
-                    // for j in test {
-                    //     let test2 = isize::try_from(j)?;
-                    // }
                 } else {
                     output_vec.push(i.parse()?)
                 }
@@ -428,9 +417,16 @@ pub fn parse_residue_list(input: &str, pdb: &PDB) -> Result<Vec<isize>> {
                 let input_vec: Vec<String> = input.split(',').map(|x| x.to_lowercase()).collect();
                 output_vec = pdb
                     .residues()
-                    .filter(|x| input_vec.contains(&x.name().unwrap().to_lowercase()))
-                    .map(|x| x.serial_number())
-                    .collect();
+                    .map(|x| {
+                        Ok(input_vec
+                            .contains(&x.name().ok_or("No Residue Name")?.to_lowercase())
+                            .then(|| x.serial_number()))
+                    })
+                    .filter_map(Result::transpose)
+                    .collect::<Result<Vec<isize>, Box<dyn Error>>>()?;
+                // .filter(|x| input_vec.contains(&x.name().unwrap().to_lowercase()))
+                // .map(|x| x.serial_number())
+                // .collect();
             }
             false => return Err("Input List contains mixed types which is not supported.".into()),
         },
@@ -441,7 +437,7 @@ pub fn parse_residue_list(input: &str, pdb: &PDB) -> Result<Vec<isize>> {
 
 /// Query Molecule for information. Depending on the input this will print a table of
 /// Residues and/or Atoms will available information that were asked for.
-pub fn query_atoms(pdb: &PDB, atom_list: Vec<usize>) -> Result<()> {
+pub fn query_atoms(pdb: &PDB, atom_list: Vec<usize>) -> Result<(), Box<dyn Error>> {
     let mut table = Table::new();
     table.add_row(row![
         "Atom ID",
@@ -475,7 +471,7 @@ pub fn query_atoms(pdb: &PDB, atom_list: Vec<usize>) -> Result<()> {
     }
 }
 
-pub fn query_residues(pdb: &PDB, residue_list: Vec<isize>) -> Result<()> {
+pub fn query_residues(pdb: &PDB, residue_list: Vec<isize>) -> Result<(), Box<dyn Error>> {
     let mut table = Table::new();
     table.add_row(row![
         "Atom ID",
@@ -510,7 +506,7 @@ pub fn query_residues(pdb: &PDB, residue_list: Vec<isize>) -> Result<()> {
     }
 }
 
-pub fn analyze(pdb: &PDB, region: &str, verbosity: u8) -> Result<()> {
+pub fn analyze(pdb: &PDB, region: &str, verbosity: u8) -> Result<(), Box<dyn Error>> {
     let mut qm1_residue_list = Vec::new();
     let mut qm1_atom_list = Vec::new();
     let mut qm2_residue_list = Vec::new();
