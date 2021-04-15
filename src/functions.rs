@@ -4,7 +4,7 @@ use std::error::Error;
 use pdbtbx::{Atom, Residue, PDB};
 use prettytable::{format, Table};
 // use regex::Regex;
-use crate::{Partial, Mode};
+use crate::{Mode, Partial, Region, Target};
 use rstar::{primitives::PointWithData, RTree};
 
 // type Result<T> = std::result::Result<T, Box<dyn Error>>;
@@ -18,15 +18,19 @@ const BACKBONE_ATOMS: [&str; 8] = ["C", "O", "N", "H", "CA", "HA", "HA2", "HA3"]
 
 #[derive(PartialEq, Debug, Clone)]
 pub struct Sphere<'a> {
-    pub origin: &'a  pdbtbx::Atom,
+    pub origin: &'a pdbtbx::Atom,
     pub radius: f64,
 }
 
 /// This function parses the values of option 'Sphere' into a usize and an f64 and returns
-/// a reference to the corresponding Atom and the radius. The return values are organized 
+/// a reference to the corresponding Atom and the radius. The return values are organized
 /// in a Sphere struct to facilitate usage of the return values.
 impl<'a> Sphere<'a> {
-    pub fn from_str(matches: &clap::ArgMatches, mode: &Mode, pdb: &'a PDB) -> Result<Sphere<'a>, Box<dyn Error>> {
+    pub fn from_str(
+        matches: &clap::ArgMatches,
+        mode: &Mode,
+        pdb: &'a PDB,
+    ) -> Result<Sphere<'a>, Box<dyn Error>> {
         let sphere: Vec<_> = matches
             .subcommand_matches(mode.to_string())
             .ok_or("Something wrong with subcommand 'Query' in 'from_str'")?
@@ -44,8 +48,11 @@ impl<'a> Sphere<'a> {
             .atoms()
             .find(|x| x.serial_number() == origin_id)
             .ok_or("No atom corresponding to the given ID could be found.")?;
-        
-        Ok(Sphere {origin: origin_atom, radius: radius})
+
+        Ok(Sphere {
+            origin: origin_atom,
+            radius: radius,
+        })
     }
 }
 
@@ -517,7 +524,6 @@ pub fn query_residues(pdb: &PDB, residue_list: Vec<isize>) -> Result<(), Box<dyn
 
     for residue in pdb.residues() {
         for atom in residue.atoms() {
-            // if residue_list.contains(&usize::try_from(residue.serial_number())?) {
             if residue_list.contains(&residue.serial_number()) {
                 table.add_row(row![
                     atom.serial_number(),
@@ -539,7 +545,7 @@ pub fn query_residues(pdb: &PDB, residue_list: Vec<isize>) -> Result<(), Box<dyn
     }
 }
 
-pub fn analyze(pdb: &PDB, region: &str, verbosity: u8) -> Result<(), Box<dyn Error>> {
+pub fn analyze(pdb: &PDB, region: Region, target: Target) -> Result<(), Box<dyn Error>> {
     let mut qm1_residue_list = Vec::new();
     let mut qm1_atom_list = Vec::new();
     let mut qm2_residue_list = Vec::new();
@@ -581,12 +587,12 @@ pub fn analyze(pdb: &PDB, region: &str, verbosity: u8) -> Result<(), Box<dyn Err
 
     basic_table.printstd();
 
-    if verbosity == 1 {
+    if target == Target::Residues {
         let residue_list = match region {
-            "QM1" => qm1_residue_list,
-            "QM2" => qm2_residue_list,
-            "Active" => active_residue_list,
-            &_ => return Err("Invalid argument for 'region'".into()),
+            Region::QM1 => qm1_residue_list,
+            Region::QM2 => qm2_residue_list,
+            Region::Active => active_residue_list,
+            Region::None => return Err("Invalid argument for 'region'".into()),
         };
         if !residue_list.is_empty() {
             let mut residue_table = Table::new();
@@ -595,10 +601,10 @@ pub fn analyze(pdb: &PDB, region: &str, verbosity: u8) -> Result<(), Box<dyn Err
                 "Residue Name",
                 "# of Atoms",
                 match region {
-                    "QM1" => "# of QM1 Atoms",
-                    "QM2" => "# of QM2 Atoms",
-                    "Active" => "# of Active Atoms",
-                    &_ => return Err("Invalid argument for 'region'".into()),
+                    Region::QM1 => "# of QM1 Atoms",
+                    Region::QM2 => "# of QM2 Atoms",
+                    Region::Active => "# of Active Atoms",
+                    Region::None => return Err("Invalid argument for 'region'".into()),
                 }
             ]);
 
@@ -607,11 +613,11 @@ pub fn analyze(pdb: &PDB, region: &str, verbosity: u8) -> Result<(), Box<dyn Err
                 let mut atom_counter = 0;
                 for atom in residue.atoms() {
                     atom_counter += 1;
-                    if region == "QM1" && atom.occupancy() == 1.00 {
+                    if region == Region::QM1 && atom.occupancy() == 1.00 {
                         resid_atoms += 1;
-                    } else if region == "QM2" && atom.occupancy() == 2.00 {
+                    } else if region == Region::QM2 && atom.occupancy() == 2.00 {
                         resid_atoms += 1;
-                    } else if region == "Active" && atom.b_factor() == 1.00 {
+                    } else if region == Region::Active && atom.b_factor() == 1.00 {
                         resid_atoms += 1;
                     }
                 }
@@ -623,17 +629,17 @@ pub fn analyze(pdb: &PDB, region: &str, verbosity: u8) -> Result<(), Box<dyn Err
                     resid_atoms,
                 ]);
             }
-            println!("\n{} Residues", region);
+            println!("\n{} Residues", region.to_string());
             residue_table.printstd();
         } else {
             return Err("No Residues found in given region!".into());
         }
-    } else if verbosity == 2 {
+    } else if target == Target::Atoms {
         let (atom_list, residue_list) = match region {
-            "QM1" => (qm1_atom_list, qm1_residue_list),
-            "QM2" => (qm2_atom_list, qm2_residue_list),
-            "Active" => (active_atom_list, active_residue_list),
-            &_ => return Err("Invalid argument for 'region'".into()),
+            Region::QM1 => (qm1_atom_list, qm1_residue_list),
+            Region::QM2 => (qm2_atom_list, qm2_residue_list),
+            Region::Active => (active_atom_list, active_residue_list),
+            Region::None => return Err("Invalid argument for 'region'".into()),
         };
 
         if !atom_list.is_empty() {
@@ -661,7 +667,7 @@ pub fn analyze(pdb: &PDB, region: &str, verbosity: u8) -> Result<(), Box<dyn Err
                     }
                 }
             }
-            println!("\n{} Atoms", region);
+            println!("\n{} Atoms", region.to_string());
             atom_table.printstd();
         } else {
             return Err("No Atoms found in given region!".into());

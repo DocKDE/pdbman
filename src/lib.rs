@@ -77,23 +77,6 @@ pub fn run() -> Result<(), Box<dyn Error>> {
                 }
             }},
             Source::Sphere => {
-                // let sphere: Vec<_> = matches
-                //     .subcommand_matches("Query")
-                //     .ok_or("Something wrong with subcommand 'Query'")?
-                //     .values_of("Sphere")
-                //     .ok_or("Something wrong with option 'Sphere'")?
-                //     .collect();
-
-                // let (origin_id, radius): (usize, f64) = if let [o, r] = sphere[..] {
-                //     (o.parse()?, r.parse()?)
-                // } else {
-                //     return Err("Error parsing sphere values!".into());
-                // };
-
-                // let origin_atom = pdb
-                //     .atoms()
-                //     .find(|x| x.serial_number() == origin_id)
-                //     .ok_or("No atom corresponding to the given ID could be found.")?;
                 let sphere = Sphere::from_str(&matches, &mode, &pdb)?;
 
                 let list = match target {
@@ -111,13 +94,7 @@ pub fn run() -> Result<(), Box<dyn Error>> {
             target,
             distance,
         } => {
-            let verbosity = match target {
-                Target::Atoms => 2,
-                Target::Residues => 1,
-                _ => 0,
-            };
-
-            functions::analyze(&pdb, &region.to_string(), verbosity)?;
+            analyze(&pdb, region, target)?;
             match distance {
                 Distance::Clashes => find_contacts(&pdb, 0)?.printstd(),
                 Distance::Contacts => find_contacts(&pdb, 1)?.printstd(),
@@ -204,24 +181,6 @@ pub fn run() -> Result<(), Box<dyn Error>> {
                     }
                 }},
                 Source::Sphere => {
-                    // let sphere: Vec<_> = matches
-                    //     .subcommand_matches(mode.to_string())
-                    //     .ok_or("Something wrong with subcommand 'Add' or 'Remove'")?
-                    //     .values_of("Sphere")
-                    //     .ok_or("Something wrong with option 'Sphere'")?
-                    //     .collect();
-
-                    // let (origin_id, radius): (usize, f64) = if let [o, r] = sphere[..] {
-                    //     (o.parse()?, r.parse()?)
-                    // } else {
-                    //     return Err("Error parsing sphere values!".into());
-                    // };
-
-                    // let origin_atom = pdb
-                    //     .atoms()
-                    //     .find(|x| x.serial_number() == origin_id)
-                    //     .ok_or("No atom corresponding to the given ID could be found.")?;
-
                     let sphere = Sphere::from_str(&matches, &mode, &pdb)?;
 
                     let list = match target {
@@ -238,7 +197,7 @@ pub fn run() -> Result<(), Box<dyn Error>> {
                 }
                 Source::None => {
                     if mode.to_string() == "Remove"
-                        && region == Region::None 
+                        && region == Region::None
                         && target == Target::None
                     {
                         remove_all(&mut pdb)?

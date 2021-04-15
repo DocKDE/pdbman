@@ -86,203 +86,205 @@ impl Mode {
     /// where the given command line options are stored for later use.
     pub fn new(matches: &clap::ArgMatches) -> Result<Mode> {
         match matches.subcommand_name() {
-        Some("Query") => {
-            let mut passed_source = Source::None;
-            for source in Source::VARIANTS {
-                if matches
-                    .subcommand_matches("Query")
-                    .unwrap()
-                    .is_present(source)
-                {
-                    passed_source = Source::from_str(source)?;
+            Some("Query") => {
+                let mut passed_source = Source::None;
+                for source in Source::VARIANTS {
+                    if matches
+                        .subcommand_matches("Query")
+                        .unwrap()
+                        .is_present(source)
+                    {
+                        passed_source = Source::from_str(source)?;
+                    }
                 }
-            }
 
-            let mut passed_target = Target::None;
-            for target in Target::VARIANTS {
-                if matches
-                    .subcommand_matches("Query")
-                    .unwrap()
-                    .is_present(target)
-                {
-                    passed_target = Target::from_str(target)?;
+                let mut passed_target = Target::None;
+                for target in Target::VARIANTS {
+                    if matches
+                        .subcommand_matches("Query")
+                        .unwrap()
+                        .is_present(target)
+                    {
+                        passed_target = Target::from_str(target)?;
+                    }
                 }
-            }
 
-            Ok(Mode::Query {
-                source: passed_source,
-                target: passed_target,
-            })
+                Ok(Mode::Query {
+                    source: passed_source,
+                    target: passed_target,
+                })
+            }
+            Some("Analyze") => {
+                let mut passed_region = Region::None;
+                for region in Region::VARIANTS {
+                    if matches
+                        .subcommand_matches("Analyze")
+                        .unwrap()
+                        .is_present(region)
+                    {
+                        passed_region = Region::from_str(region)?;
+                    }
+                }
+
+                let mut passed_target = Target::None;
+                for target in Target::VARIANTS {
+                    if matches
+                        .subcommand_matches("Analyze")
+                        .unwrap()
+                        .is_present(target)
+                    {
+                        passed_target = Target::from_str(target)?;
+                    }
+                }
+
+                let mut passed_distance = Distance::None;
+                for distance in Distance::VARIANTS {
+                    if matches
+                        .subcommand_matches("Analyze")
+                        .unwrap()
+                        .is_present(distance)
+                    {
+                        passed_distance = Distance::from_str(distance)?;
+                    }
+                }
+                Ok(Mode::Analyze {
+                    region: passed_region,
+                    target: passed_target,
+                    distance: passed_distance,
+                })
+            }
+            Some("Add") => {
+                let mut passed_region = Region::None;
+                for region in Region::VARIANTS {
+                    if matches
+                        .subcommand_matches("Add")
+                        .unwrap()
+                        .is_present(region)
+                    {
+                        passed_region = Region::from_str(region)?;
+                    }
+                }
+
+                let mut passed_source = Source::None;
+                for source in Source::VARIANTS {
+                    if matches
+                        .subcommand_matches("Add")
+                        .unwrap()
+                        .is_present(source)
+                    {
+                        passed_source = Source::from_str(source)?;
+                    }
+                }
+
+                let mut passed_target = Target::None;
+                for target in Target::VARIANTS {
+                    if matches
+                        .subcommand_matches("Add")
+                        .unwrap()
+                        .is_present(target)
+                    {
+                        passed_target = Target::from_str(target)?;
+                    }
+                }
+
+                let mut passed_partial = Partial::None;
+                for partial in Partial::VARIANTS {
+                    if matches
+                        .subcommand_matches("Add")
+                        .unwrap()
+                        .is_present(partial)
+                    {
+                        passed_partial = Partial::from_str(partial)?;
+                    }
+                }
+
+                let mut passed_output = Output::None;
+                for output in Output::VARIANTS {
+                    if matches
+                        .subcommand_matches("Add")
+                        .unwrap()
+                        .is_present(output)
+                    {
+                        passed_output = Output::from_str(output)?;
+                    }
+                }
+
+                Ok(Mode::Add {
+                    region: passed_region,
+                    source: passed_source,
+                    target: passed_target,
+                    partial: passed_partial,
+                    output: passed_output,
+                })
+            }
+            Some("Remove") => {
+                let mut passed_region = Region::None;
+                for region in Region::VARIANTS {
+                    if matches
+                        .subcommand_matches("Remove")
+                        .unwrap()
+                        .is_present(region)
+                    {
+                        passed_region = Region::from_str(region)?;
+                    }
+                }
+
+                let mut passed_source = Source::None;
+                for source in Source::VARIANTS {
+                    if matches
+                        .subcommand_matches("Remove")
+                        .unwrap()
+                        .is_present(source)
+                    {
+                        passed_source = Source::from_str(source)?;
+                    }
+                }
+
+                let mut passed_target = Target::None;
+                for target in Target::VARIANTS {
+                    if matches
+                        .subcommand_matches("Remove")
+                        .unwrap()
+                        .is_present(target)
+                    {
+                        passed_target = Target::from_str(target)?;
+                    }
+                }
+
+                let mut passed_partial = Partial::None;
+                for partial in Partial::VARIANTS {
+                    if matches
+                        .subcommand_matches("Remove")
+                        .unwrap()
+                        .is_present(partial)
+                    {
+                        passed_partial = Partial::from_str(partial)?;
+                    }
+                }
+
+                let mut passed_output = Output::None;
+                for output in Output::VARIANTS {
+                    if matches
+                        .subcommand_matches("Remove")
+                        .unwrap()
+                        .is_present(output)
+                    {
+                        passed_output = Output::from_str(output)?;
+                    }
+                }
+                Ok(Mode::Remove {
+                    region: passed_region,
+                    source: passed_source,
+                    target: passed_target,
+                    partial: passed_partial,
+                    output: passed_output,
+                })
+            }
+            Some(&_) => Err("This is impossible".into()),
+            None => {
+                Err("Please choose a subcommand: 'Query', 'Analyze', 'Add' or 'Remove'.".into())
+            }
         }
-        Some("Analyze") => {
-            let mut passed_region = Region::None;
-            for region in Region::VARIANTS {
-                if matches
-                    .subcommand_matches("Analyze")
-                    .unwrap()
-                    .is_present(region)
-                {
-                    passed_region = Region::from_str(region)?;
-                }
-            }
-
-            let mut passed_target = Target::None;
-            for target in Target::VARIANTS {
-                if matches
-                    .subcommand_matches("Analyze")
-                    .unwrap()
-                    .is_present(target)
-                {
-                    passed_target = Target::from_str(target)?;
-                }
-            }
-
-            let mut passed_distance = Distance::None;
-            for distance in Distance::VARIANTS {
-                if matches
-                    .subcommand_matches("Analyze")
-                    .unwrap()
-                    .is_present(distance)
-                {
-                    passed_distance = Distance::from_str(distance)?;
-                }
-            }
-            Ok(Mode::Analyze {
-                region: passed_region,
-                target: passed_target,
-                distance: passed_distance,
-            })
-        }
-        Some("Add") => {
-            let mut passed_region = Region::None;
-            for region in Region::VARIANTS {
-                if matches
-                    .subcommand_matches("Add")
-                    .unwrap()
-                    .is_present(region)
-                {
-                    passed_region = Region::from_str(region)?;
-                }
-            }
-
-            let mut passed_source = Source::None;
-            for source in Source::VARIANTS {
-                if matches
-                    .subcommand_matches("Add")
-                    .unwrap()
-                    .is_present(source)
-                {
-                    passed_source = Source::from_str(source)?;
-                }
-            }
-
-            let mut passed_target = Target::None;
-            for target in Target::VARIANTS {
-                if matches
-                    .subcommand_matches("Add")
-                    .unwrap()
-                    .is_present(target)
-                {
-                    passed_target = Target::from_str(target)?;
-                }
-            }
-
-            let mut passed_partial = Partial::None;
-            for partial in Partial::VARIANTS {
-                if matches
-                    .subcommand_matches("Add")
-                    .unwrap()
-                    .is_present(partial)
-                {
-                    passed_partial = Partial::from_str(partial)?;
-                }
-            }
-
-            let mut passed_output = Output::None;
-            for output in Output::VARIANTS {
-                if matches
-                    .subcommand_matches("Add")
-                    .unwrap()
-                    .is_present(output)
-                {
-                    passed_output = Output::from_str(output)?;
-                }
-            }
-
-            Ok(Mode::Add {
-                region: passed_region,
-                source: passed_source,
-                target: passed_target,
-                partial: passed_partial,
-                output: passed_output,
-            })
-        }
-        Some("Remove") => {
-            let mut passed_region = Region::None;
-            for region in Region::VARIANTS {
-                if matches
-                    .subcommand_matches("Remove")
-                    .unwrap()
-                    .is_present(region)
-                {
-                    passed_region = Region::from_str(region)?;
-                }
-            }
-
-            let mut passed_source = Source::None;
-            for source in Source::VARIANTS {
-                if matches
-                    .subcommand_matches("Remove")
-                    .unwrap()
-                    .is_present(source)
-                {
-                    passed_source = Source::from_str(source)?;
-                }
-            }
-
-            let mut passed_target = Target::None;
-            for target in Target::VARIANTS {
-                if matches
-                    .subcommand_matches("Remove")
-                    .unwrap()
-                    .is_present(target)
-                {
-                    passed_target = Target::from_str(target)?;
-                }
-            }
-
-            let mut passed_partial = Partial::None;
-            for partial in Partial::VARIANTS {
-                if matches
-                    .subcommand_matches("Remove")
-                    .unwrap()
-                    .is_present(partial)
-                {
-                    passed_partial = Partial::from_str(partial)?;
-                }
-            }
-
-            let mut passed_output = Output::None;
-            for output in Output::VARIANTS {
-                if matches
-                    .subcommand_matches("Remove")
-                    .unwrap()
-                    .is_present(output)
-                {
-                    passed_output = Output::from_str(output)?;
-                }
-            }
-            Ok(Mode::Remove {
-                region: passed_region,
-                source: passed_source,
-                target: passed_target,
-                partial: passed_partial,
-                output: passed_output,
-            })
-        }
-        Some(&_) => Err("This is impossible".into()),
-        None => Err("Please choose a subcommand: 'Query', 'Analyze', 'Add' or 'Remove'.".into()),
-    }
     }
 }
 
