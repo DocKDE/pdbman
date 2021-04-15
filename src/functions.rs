@@ -4,7 +4,7 @@ use std::error::Error;
 use pdbtbx::{Atom, Residue, PDB};
 use prettytable::{format, Table};
 // use regex::Regex;
-use crate::Partial;
+use crate::{Partial, Mode};
 use rstar::{primitives::PointWithData, RTree};
 
 // type Result<T> = std::result::Result<T, Box<dyn Error>>;
@@ -15,6 +15,39 @@ const AMINOS: [&str; 29] = [
     "PHE", "TYR", "TRP",
 ];
 const BACKBONE_ATOMS: [&str; 8] = ["C", "O", "N", "H", "CA", "HA", "HA2", "HA3"];
+
+#[derive(PartialEq, Debug, Clone)]
+pub struct Sphere<'a> {
+    pub origin: &'a  pdbtbx::Atom,
+    pub radius: f64,
+}
+
+/// This function parses the values of option 'Sphere' into a usize and an f64 and returns
+/// a reference to the corresponding Atom and the radius. The return values are organized 
+/// in a Sphere struct to facilitate usage of the return values.
+impl<'a> Sphere<'a> {
+    pub fn from_str(matches: &clap::ArgMatches, mode: &Mode, pdb: &'a PDB) -> Result<Sphere<'a>, Box<dyn Error>> {
+        let sphere: Vec<_> = matches
+            .subcommand_matches(mode.to_string())
+            .ok_or("Something wrong with subcommand 'Query' in 'from_str'")?
+            .values_of("Sphere")
+            .ok_or("Something wrong with option 'Sphere'")?
+            .collect();
+
+        let (origin_id, radius): (usize, f64) = if let [o, r] = sphere[..] {
+            (o.parse()?, r.parse()?)
+        } else {
+            return Err("Error parsing sphere values!".into());
+        };
+
+        let origin_atom = pdb
+            .atoms()
+            .find(|x| x.serial_number() == origin_id)
+            .ok_or("No atom corresponding to the given ID could be found.")?;
+        
+        Ok(Sphere {origin: origin_atom, radius: radius})
+    }
+}
 
 /// This function edits the q value of the Molecule (used by ORCA as input for QM section
 /// selection) by Residue. It takes a mutable reference of a PDB struct, the desired value q should

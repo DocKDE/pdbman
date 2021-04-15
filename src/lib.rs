@@ -77,27 +77,28 @@ pub fn run() -> Result<(), Box<dyn Error>> {
                 }
             }},
             Source::Sphere => {
-                let sphere: Vec<_> = matches
-                    .subcommand_matches("Query")
-                    .ok_or("Something wrong with subcommand 'Query'")?
-                    .values_of("Sphere")
-                    .ok_or("Something wrong with option 'Sphere'")?
-                    .collect();
+                // let sphere: Vec<_> = matches
+                //     .subcommand_matches("Query")
+                //     .ok_or("Something wrong with subcommand 'Query'")?
+                //     .values_of("Sphere")
+                //     .ok_or("Something wrong with option 'Sphere'")?
+                //     .collect();
 
-                let (origin_id, radius): (usize, f64) = if let [o, r] = sphere[..] {
-                    (o.parse()?, r.parse()?)
-                } else {
-                    return Err("Error parsing sphere values!".into());
-                };
+                // let (origin_id, radius): (usize, f64) = if let [o, r] = sphere[..] {
+                //     (o.parse()?, r.parse()?)
+                // } else {
+                //     return Err("Error parsing sphere values!".into());
+                // };
 
-                let origin_atom = pdb
-                    .atoms()
-                    .find(|x| x.serial_number() == origin_id)
-                    .ok_or("No atom corresponding to the given ID could be found.")?;
+                // let origin_atom = pdb
+                //     .atoms()
+                //     .find(|x| x.serial_number() == origin_id)
+                //     .ok_or("No atom corresponding to the given ID could be found.")?;
+                let sphere = Sphere::from_str(&matches, &mode, &pdb)?;
 
                 let list = match target {
-                    Target::Atoms => calc_atom_sphere(&pdb, origin_atom, radius, false)?,
-                    Target::Residues => calc_residue_sphere(&pdb, origin_atom, radius, false)?,
+                    Target::Atoms => calc_atom_sphere(&pdb, sphere.origin, sphere.radius, false)?,
+                    Target::Residues => calc_residue_sphere(&pdb, sphere.origin, sphere.radius, false)?,
                     Target::None => return Err("No target was given!".into()),
                 };
 
@@ -203,39 +204,41 @@ pub fn run() -> Result<(), Box<dyn Error>> {
                     }
                 }},
                 Source::Sphere => {
-                    let sphere: Vec<_> = matches
-                        .subcommand_matches(mode.to_string())
-                        .ok_or("Something wrong with subcommand 'Add' or 'Remove'")?
-                        .values_of("Sphere")
-                        .ok_or("Something wrong with option 'Sphere'")?
-                        .collect();
+                    // let sphere: Vec<_> = matches
+                    //     .subcommand_matches(mode.to_string())
+                    //     .ok_or("Something wrong with subcommand 'Add' or 'Remove'")?
+                    //     .values_of("Sphere")
+                    //     .ok_or("Something wrong with option 'Sphere'")?
+                    //     .collect();
 
-                    let (origin_id, radius): (usize, f64) = if let [o, r] = sphere[..] {
-                        (o.parse()?, r.parse()?)
-                    } else {
-                        return Err("Error parsing sphere values!".into());
-                    };
+                    // let (origin_id, radius): (usize, f64) = if let [o, r] = sphere[..] {
+                    //     (o.parse()?, r.parse()?)
+                    // } else {
+                    //     return Err("Error parsing sphere values!".into());
+                    // };
 
-                    let origin_atom = pdb
-                        .atoms()
-                        .find(|x| x.serial_number() == origin_id)
-                        .ok_or("No atom corresponding to the given ID could be found.")?;
+                    // let origin_atom = pdb
+                    //     .atoms()
+                    //     .find(|x| x.serial_number() == origin_id)
+                    //     .ok_or("No atom corresponding to the given ID could be found.")?;
+
+                    let sphere = Sphere::from_str(&matches, &mode, &pdb)?;
 
                     let list = match target {
-                        Target::Atoms => calc_atom_sphere(&pdb, origin_atom, radius, true)?,
-                        Target::Residues => calc_residue_sphere(&pdb, origin_atom, radius, true)?,
+                        Target::Atoms => calc_atom_sphere(&pdb, sphere.origin, sphere.radius, true)?,
+                        Target::Residues => calc_residue_sphere(&pdb, sphere.origin, sphere.radius, true)?,
                         Target::None => return Err("No target was given!".into()),
                     };
 
                     match region {
                         Region::QM1 | Region::QM2 => edit_qm_atoms(&mut pdb, edit_value, list)?,
                         Region::Active => edit_active_atoms(&mut pdb, edit_value, list)?,
-                        Region::None => return Err("Please give a target region.".into()),
+                        Region::None => return Err("Please give a region.".into()),
                     }
                 }
                 Source::None => {
                     if mode.to_string() == "Remove"
-                        && region == Region::None
+                        && region == Region::None 
                         && target == Target::None
                     {
                         remove_all(&mut pdb)?
@@ -253,28 +256,33 @@ pub fn run() -> Result<(), Box<dyn Error>> {
     if mode.to_string() == "Add" || mode.to_string() == "Remove" {
         if matches
             .subcommand_matches(mode.to_string())
-            .unwrap()
-            .is_present("Outfile")
-        {
-            pdbtbx::save_pdb(
-                pdb,
-                matches
-                    .subcommand_matches(mode.to_string())
-                    .unwrap()
-                    .value_of("Outfile")
-                    .ok_or("Value for Outfile could not be parsed")?,
-                StrictnessLevel::Loose,
-            )
-            .unwrap();
-        } else if matches
-            .subcommand_matches(mode.to_string())
-            .unwrap()
+            .ok_or("Something wrong with mode 'Add' or 'Remove'")?
             .is_present("Overwrite")
         {
             let filename_new = &(filename.to_string() + "_new");
-            pdbtbx::save_pdb(pdb, filename_new, StrictnessLevel::Loose).unwrap();
+
+            if let Err(e) = pdbtbx::save_pdb(pdb, filename_new, StrictnessLevel::Loose) {
+                e.iter().for_each(|x| println!("{}", x))
+            };
+
             fs::remove_file(filename)?;
             fs::rename(filename_new, filename)?;
+        } else if matches
+            .subcommand_matches(mode.to_string())
+            .ok_or("Something wrong with mode 'Add' or 'Remove'")?
+            .is_present("Outfile")
+        {
+            if let Err(e) = pdbtbx::save_pdb(
+                pdb,
+                matches
+                    .subcommand_matches(mode.to_string())
+                    .ok_or("Something wrong with mode 'Add' or 'Remove'")?
+                    .value_of("Outfile")
+                    .ok_or("Value for Outfile could not be parsed")?,
+                StrictnessLevel::Loose,
+            ) {
+                e.iter().for_each(|x| println!("{}", x))
+            }
         } else {
             print_to_stdout(&pdb)?;
         }
