@@ -61,9 +61,10 @@ impl<'a> Sphere<'a> {
 /// be set to and a list of Residue serial numbers for the Atoms to edit.
 /// The last option recognizes 'backbone', 'sidechain' and 'None' as options and will select the
 /// correspdonding Atoms from each Residue.
-pub fn edit_qm_residues(
+pub fn edit_qm_residues<'a>(
     pdb: &mut PDB,
     qm_val: f64,
+    // list: impl Iterator<Item=Residue>,
     list: Vec<isize>,
     // region: &str,
     // partial: &str,
@@ -78,11 +79,14 @@ pub fn edit_qm_residues(
                     if list.contains(&serial_number) {
                         atom.set_occupancy(qm_val)?;
                     }
+                    // if list.find(|x| x == residue).is_some() {
+                    //     atom.set_occupancy(qm_val)?;
+                    // }
                 }
                 Partial::Sidechain => {
                     if list.contains(&serial_number)
+                    // if list.find(|x| x == residue).is_some()
                         && AMINOS.contains(&name.as_str())
-                        // && AMINOS.binary_search(&"test").is_ok()
                         && !BACKBONE_ATOMS.contains(&atom.name())
                     {
                         atom.set_occupancy(qm_val)?;
@@ -90,6 +94,7 @@ pub fn edit_qm_residues(
                 }
                 Partial::Backbone => {
                     if list.contains(&serial_number)
+                    // if list.find(|x| x == residue).is_some()
                         && AMINOS.contains(&name.as_str())
                         && BACKBONE_ATOMS.contains(&atom.name())
                     {
@@ -153,6 +158,7 @@ pub fn edit_active_residues(
 /// q should be set to and a vector of Atom IDs.
 pub fn edit_qm_atoms(pdb: &mut PDB, qm_val: f64, list: Vec<usize>) -> Result<(), Box<dyn Error>> {
     for atom in pdb.atoms_mut() {
+        // if list.find(|x| x == atom).is_some() {
         if list.contains(&atom.serial_number()) {
             atom.set_occupancy(qm_val)?
         }
@@ -201,13 +207,20 @@ pub fn print_to_stdout(pdb: &PDB) -> Result<(), Box<dyn Error>> {
 
 /// Takes an Atom struct as point of origin and a radius in A. Returns a Vector of Atom IDs
 /// of Atoms within the given radius wrapped in a Result. Origin can be included or excluded.
-pub fn calc_atom_sphere(
+pub fn calc_atom_sphere<'a>(
     pdb: &PDB,
     origin: &Atom,
     radius: f64,
     include_self: bool,
 ) -> Result<Vec<usize>, Box<dyn Error>> {
+// ) -> Result<impl Iterator<Item = &'a Atom>, Box<dyn Error>> {
     let mut sphere_atoms: Vec<usize> = Vec::new();
+
+    // if include_self {
+    //     return Ok(pdb.atoms().filter(|x| x.distance(origin) <= radius))
+    // } else {
+    //     return Ok(pdb.atoms().filter(|x| {x.distance(origin) <= radius && x != &origin}))
+    // }
 
     for atom in pdb.atoms() {
         if include_self {
