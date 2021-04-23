@@ -15,6 +15,7 @@ strum = "0.20.0"
 strum_macros = "0.20.1"
 #anyhow = "^1.0"
 rstar = "0.8.2"
-pdbtbx = "^0.6.2"
+#pdbtbx = "^0.6.2"
 regex = "^1.4"
-#pdbtbx = {path = "/home/floeserb/Nextcloud/Code/rust/pdbtbx"}
+itertools = "*"
+pdbtbx = {path = "/home/floeserb/Nextcloud/Code/rust/pdbtbx"}

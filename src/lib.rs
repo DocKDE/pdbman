@@ -77,7 +77,12 @@ pub fn run() -> Result<(), Box<dyn Error>> {
                 }
             }},
             Source::Sphere => {
-                let sphere = Sphere::from_str(&matches, &mode, &pdb)?;
+                let sphere = Sphere::new(
+                    matches.subcommand_matches("Query")
+                        .ok_or("Somethings wrong with option 'Query'")?
+                        .values_of("Sphere")
+                        .ok_or("Something wrong with option 'Sphere'")?,
+                    &pdb)?;
 
                 let list = match target {
                     Target::Atoms => calc_atom_sphere(&pdb, sphere.origin, sphere.radius, false)?,
@@ -96,8 +101,7 @@ pub fn run() -> Result<(), Box<dyn Error>> {
         } => {
             analyze(&pdb, region, target)?;
             match distance {
-                Distance::Clashes => find_contacts(&pdb, 0)?.printstd(),
-                Distance::Contacts => find_contacts(&pdb, 1)?.printstd(),
+                Distance::Clashes | Distance::Contacts => find_contacts(&pdb, distance)?.printstd(),
                 Distance::None => 0,
             };
         }
@@ -181,7 +185,7 @@ pub fn run() -> Result<(), Box<dyn Error>> {
                     }
                 }},
                 Source::Sphere => {
-                    let sphere = Sphere::from_str(&matches, &mode, &pdb)?;
+                    let sphere = Sphere::new(matches.subcommand_matches(mode.to_string()).ok_or("Something wrong with option 'Add' or 'Remove'")?.values_of("Sphere").ok_or("Something wrong with option 'Sphere'")?, &pdb)?;
 
                     let list = match target {
                         Target::Atoms => calc_atom_sphere(&pdb, sphere.origin, sphere.radius, true)?,

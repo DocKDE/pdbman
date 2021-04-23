@@ -288,11 +288,24 @@ impl Mode {
     }
 }
 
+fn sphere_valid(v: &str) -> Result<()> {
+    let re = Regex::new(r"[\d\.]")?;
+
+    for i in v.chars() {
+        if !re.is_match(&i.to_string()) {
+            return Err(format!("Unsupported input character: '{}'", i).into());
+        }
+    }
+    Ok(())
+}
+
 fn list_valid(v: &str) -> Result<()> {
     let re = Regex::new(r"[-:A-Za-z\d,]")?;
 
-    if !v.chars().all(|x| re.is_match(&x.to_string())) {
-        return Err("Unsupported input characters detected!".into());
+    for i in v.chars() {
+        if !re.is_match(&i.to_string()) {
+            return Err(format!("Unsupported input character: '{}'", i).into());
+        }
     }
     Ok(())
 }
@@ -349,7 +362,8 @@ pub fn parse_args() -> Result<clap::ArgMatches> {
                     .takes_value(true)
                     .number_of_values(2)
                     .value_names(&["Atom ID", "Radius"])
-                    .conflicts_with_all(&["Sidechain", "Backbone"]),
+                    .conflicts_with_all(&["Sidechain", "Backbone"])
+                    .validator(sphere_valid),
             )
             .group(ArgGroup::new("target").args(&["Residues", "Atoms"]).required(true))
             .group(ArgGroup::new("source").args(&["Infile", "List", "Sphere"]).required(true))
@@ -443,7 +457,8 @@ pub fn parse_args() -> Result<clap::ArgMatches> {
                     .takes_value(true)
                     .number_of_values(2)
                     .value_names(&["Atom ID", "Radius"])
-                    .conflicts_with_all(&["Sidechain", "Backbone"]),
+                    .conflicts_with_all(&["Sidechain", "Backbone"])
+                    .validator(sphere_valid),
             )
             .arg(
                 Arg::new("QM1")
@@ -538,7 +553,8 @@ pub fn parse_args() -> Result<clap::ArgMatches> {
                     .takes_value(true)
                     .number_of_values(2)
                     .value_names(&["Atom ID", "Radius"])
-                    .conflicts_with_all(&["Sidechain", "Backbone"]),
+                    .conflicts_with_all(&["Sidechain", "Backbone"])
+                    .validator(sphere_valid),
             )
             .arg(
                 Arg::new("QM1")

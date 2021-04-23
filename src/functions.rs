@@ -4,7 +4,7 @@ use std::error::Error;
 use pdbtbx::{Atom, Residue, PDB};
 use prettytable::{format, Table};
 // use regex::Regex;
-use crate::{Mode, Partial, Region, Target};
+use crate::{Distance, Partial, Region, Target};
 use rstar::{primitives::PointWithData, RTree};
 
 // type Result<T> = std::result::Result<T, Box<dyn Error>>;
@@ -24,25 +24,24 @@ pub struct Sphere<'a> {
 
 /// This function parses the values of option 'Sphere' into a usize and an f64 and returns
 /// a reference to the corresponding Atom and the radius. The return values are organized
-/// in a Sphere struct to facilitate usage of the return values.
+/// in a Sphere struct to facilitate usage. 
 impl<'a> Sphere<'a> {
-    pub fn from_str(
-        matches: &clap::ArgMatches,
-        mode: &Mode,
-        pdb: &'a PDB,
-    ) -> Result<Sphere<'a>, Box<dyn Error>> {
-        let sphere: Vec<_> = matches
-            .subcommand_matches(mode.to_string())
-            .ok_or("Something wrong with subcommand 'Query' in 'from_str'")?
-            .values_of("Sphere")
-            .ok_or("Something wrong with option 'Sphere'")?
-            .collect();
+    pub fn new(mut inp_str: clap::Values, pdb: &'a PDB) -> Result<Sphere<'a>, Box<dyn Error>> {
+        let origin_str = inp_str.next().ok_or("No origin string present")?;
+        let radius_str = inp_str.next().ok_or("No radius string present")?;
 
-        let (origin_id, radius): (usize, f64) = if let [o, r] = sphere[..] {
-            (o.parse()?, r.parse()?)
-        } else {
-            return Err("Error parsing sphere values!".into());
+        // The sphere validator rejects anything containing something else than digits and dots.
+        // Since it validates both values the same, it will not reject a decimal point in the Atom
+        // ID which is taken care of here.
+        let origin_id: usize = match origin_str.parse() {
+            Ok(v) => v,
+            Err(_) => return Err("Decimal points are not allowed in Atom IDs.".into())
         };
+
+        // No more error handling should be necessary since the sphere validator already
+        // takes care of everything that is not a float. Everything that can be constructed
+        // with dots and digits is valid input for radius.
+        let radius: f64 = radius_str.parse()?;
 
         let origin_atom = pdb
             .atoms()
@@ -213,7 +212,7 @@ pub fn calc_atom_sphere<'a>(
     radius: f64,
     include_self: bool,
 ) -> Result<Vec<usize>, Box<dyn Error>> {
-// ) -> Result<impl Iterator<Item = &'a Atom>, Box<dyn Error>> {
+    // ) -> Result<impl Iterator<Item = &'a Atom>, Box<dyn Error>> {
     let mut sphere_atoms: Vec<usize> = Vec::new();
 
     // if include_self {
@@ -292,7 +291,7 @@ pub fn calc_residue_sphere(
 /// Finds and prints all contacts present in the PDB file structure. Definition of
 /// 'contact' is given by the 'level' arg which is 1.0A for 'level' = 0 and the
 /// respective atomic radius for 'level' = 1.
-pub fn find_contacts(pdb: &PDB, level: u8) -> Result<Table, Box<dyn Error>> {
+pub fn find_contacts(pdb: &PDB, level: Distance) -> Result<Table, Box<dyn Error>> {
     let mut table = Table::new();
     table.set_format(*format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
     table.set_titles(row![
@@ -310,7 +309,8 @@ pub fn find_contacts(pdb: &PDB, level: u8) -> Result<Table, Box<dyn Error>> {
         for atom in residue.atoms() {
             treevec.push(PointWithData::new(
                 (atom, residue),
-                [atom.x(), atom.y(), atom.z()],
+                // [atom.x(), atom.y(), atom.z()],
+                atom.pos_array(),
             ))
         }
     }
@@ -320,14 +320,14 @@ pub fn find_contacts(pdb: &PDB, level: u8) -> Result<Table, Box<dyn Error>> {
     for residue in pdb.residues() {
         for atom in residue.atoms() {
             let radius: f64 = match level {
-                0 => 1.0,
-                1 => atom
+                Distance::Clashes => 1.0,
+                Distance::Contacts => atom
                     .atomic_radius()
                     .ok_or("No atomic radius found for Atom type!")?
                     .powf(2.0),
-                _ => return Err("Too high level given!".into()),
+                _ => return Err("No Valid 'level' argument".into()),
             };
-            let contacts = tree.locate_within_distance([atom.x(), atom.y(), atom.z()], radius);
+            let contacts = tree.locate_within_distance(atom.pos_array(), radius);
 
             for PointWithData {
                 data: (other_atom, other_residue),
@@ -380,9 +380,9 @@ pub fn find_contacts(pdb: &PDB, level: u8) -> Result<Table, Box<dyn Error>> {
         }
     }
     if !table.is_empty() {
-        if level == 0 {
+        if level == Distance::Clashes {
             println!("\nClash Analysis");
-        } else if level == 1 {
+        } else if level == Distance::Contacts {
             println!("\nContact Analysis");
         }
         Ok(table)
@@ -842,8 +842,8 @@ mod tests {
     #[test]
     fn contacts_test() {
         let pdb = test_pdb("tests/test_clash.pdb");
-        let clashes = find_contacts(&pdb, 0).unwrap();
-        let contacts = find_contacts(&pdb, 1).unwrap();
+        let clashes = find_contacts(&pdb, Distance::Clashes).unwrap();
+        let contacts = find_contacts(&pdb, Distance::Contacts).unwrap();
 
         // Because prettytable table formatting differs between tables created from
         // scratch and tables read from csv the test is run by creating a table, saving
