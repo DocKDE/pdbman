@@ -5,6 +5,7 @@ use pdbtbx::{Atom, Residue, PDB};
 use prettytable::{format, Table};
 // use regex::Regex;
 use crate::{Distance, Partial, Region, Target};
+use itertools::Itertools;
 use rstar::{primitives::PointWithData, RTree};
 
 // type Result<T> = std::result::Result<T, Box<dyn Error>>;
@@ -24,18 +25,18 @@ pub struct Sphere<'a> {
 
 /// This function parses the values of option 'Sphere' into a usize and an f64 and returns
 /// a reference to the corresponding Atom and the radius. The return values are organized
-/// in a Sphere struct to facilitate usage. 
+/// in a Sphere struct to facilitate usage.
 impl<'a> Sphere<'a> {
     pub fn new(mut inp_str: clap::Values, pdb: &'a PDB) -> Result<Sphere<'a>, Box<dyn Error>> {
-        let origin_str = inp_str.next().ok_or("No origin string present")?;
-        let radius_str = inp_str.next().ok_or("No radius string present")?;
+        let (origin_str, radius_str) =
+            inp_str.next_tuple().ok_or("Problem with 'Sphere' option")?;
 
         // The sphere validator rejects anything containing something else than digits and dots.
         // Since it validates both values the same, it will not reject a decimal point in the Atom
         // ID which is taken care of here.
         let origin_id: usize = match origin_str.parse() {
             Ok(v) => v,
-            Err(_) => return Err("Decimal points are not allowed in Atom IDs.".into())
+            Err(_) => return Err("Decimal points are not allowed in Atom IDs.".into()),
         };
 
         // No more error handling should be necessary since the sphere validator already
@@ -43,15 +44,12 @@ impl<'a> Sphere<'a> {
         // with dots and digits is valid input for radius.
         let radius: f64 = radius_str.parse()?;
 
-        let origin_atom = pdb
+        let origin = pdb
             .atoms()
             .find(|x| x.serial_number() == origin_id)
             .ok_or("No atom corresponding to the given ID could be found.")?;
 
-        Ok(Sphere {
-            origin: origin_atom,
-            radius: radius,
-        })
+        Ok(Sphere { origin, radius })
     }
 }
 
@@ -65,8 +63,6 @@ pub fn edit_qm_residues<'a>(
     qm_val: f64,
     // list: impl Iterator<Item=Residue>,
     list: Vec<isize>,
-    // region: &str,
-    // partial: &str,
     partial: Partial,
 ) -> Result<(), Box<dyn Error>> {
     for residue in pdb.residues_mut() {
@@ -309,8 +305,8 @@ pub fn find_contacts(pdb: &PDB, level: Distance) -> Result<Table, Box<dyn Error>
         for atom in residue.atoms() {
             treevec.push(PointWithData::new(
                 (atom, residue),
-                // [atom.x(), atom.y(), atom.z()],
-                atom.pos_array(),
+                [atom.x(), atom.y(), atom.z()],
+                // atom.pos_array(),
             ))
         }
     }
@@ -327,7 +323,7 @@ pub fn find_contacts(pdb: &PDB, level: Distance) -> Result<Table, Box<dyn Error>
                     .powf(2.0),
                 _ => return Err("No Valid 'level' argument".into()),
             };
-            let contacts = tree.locate_within_distance(atom.pos_array(), radius);
+            let contacts = tree.locate_within_distance([atom.x(), atom.y(), atom.z()], radius);
 
             for PointWithData {
                 data: (other_atom, other_residue),

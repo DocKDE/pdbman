@@ -69,24 +69,28 @@ pub fn run() -> Result<(), Box<dyn Error>> {
                     .value_of("List")
                     .ok_or("Something wrong with option 'List'")?;
                 match target {
-
-                Target::Atoms => query_atoms(&pdb, parse_atomic_list(list, &pdb)?)?,
-                Target::Residues => query_residues(&pdb, parse_residue_list(list, &pdb)?)?,
-                Target::None => {
-                    return Err("Please provide either the 'atoms' or 'residues' flag.".into())
+                    Target::Atoms => query_atoms(&pdb, parse_atomic_list(list, &pdb)?)?,
+                    Target::Residues => query_residues(&pdb, parse_residue_list(list, &pdb)?)?,
+                    Target::None => {
+                        return Err("Please provide either the 'atoms' or 'residues' flag.".into())
+                    }
                 }
-            }},
+            }
             Source::Sphere => {
                 let sphere = Sphere::new(
-                    matches.subcommand_matches("Query")
+                    matches
+                        .subcommand_matches("Query")
                         .ok_or("Somethings wrong with option 'Query'")?
                         .values_of("Sphere")
                         .ok_or("Something wrong with option 'Sphere'")?,
-                    &pdb)?;
+                    &pdb,
+                )?;
 
                 let list = match target {
                     Target::Atoms => calc_atom_sphere(&pdb, sphere.origin, sphere.radius, false)?,
-                    Target::Residues => calc_residue_sphere(&pdb, sphere.origin, sphere.radius, false)?,
+                    Target::Residues => {
+                        calc_residue_sphere(&pdb, sphere.origin, sphere.radius, false)?
+                    }
                     Target::None => return Err("No target was given!".into()),
                 };
 
@@ -134,62 +138,71 @@ pub fn run() -> Result<(), Box<dyn Error>> {
                 Source::Infile => {
                     println!("This is not implemented yet.")
                 }
-                Source::List =>  {
+                Source::List => {
                     let list = matches
                         .subcommand_matches(mode.to_string())
                         .ok_or("Something wrong with subcommand 'Add' or 'Remove'")?
                         .value_of("List")
                         .ok_or("Something wrong with option 'List'")?;
 
-                match target {
-                    Target::Atoms => {
-                        let atomic_list = parse_atomic_list(list, &pdb)?;
+                    match target {
+                        Target::Atoms => {
+                            let atomic_list = parse_atomic_list(list, &pdb)?;
 
-                        match region {
-                            Region::QM1 | Region::QM2 => edit_qm_atoms(
-                                &mut pdb,
-                                edit_value,
-                                atomic_list,
-                            )?,
-                            Region::Active => edit_active_atoms(
-                                &mut pdb,
-                                edit_value,
-                                atomic_list,
-                            )?,
-                            Region::None => {
-                                return Err("Please give a region to add atoms or residues to.".into());
+                            match region {
+                                Region::QM1 | Region::QM2 => {
+                                    edit_qm_atoms(&mut pdb, edit_value, atomic_list)?
+                                }
+                                Region::Active => {
+                                    edit_active_atoms(&mut pdb, edit_value, atomic_list)?
+                                }
+                                Region::None => {
+                                    return Err(
+                                        "Please give a region to add atoms or residues to.".into(),
+                                    );
+                                }
                             }
                         }
-                    },
-                    Target::Residues => {
-                        let residue_list = parse_residue_list(list, &pdb)?;
+                        Target::Residues => {
+                            let residue_list = parse_residue_list(list, &pdb)?;
 
-                        match region {
-                            Region::QM1 | Region::QM2 => edit_qm_residues(
-                                &mut pdb,
-                                edit_value,
-                                residue_list,
-                                partial,
-                            )?,
-                            Region::Active => edit_active_residues(
-                                &mut pdb,
-                                edit_value,
-                                residue_list,
-                                partial,
-                            )?,
-                            Region::None => return Err("Please give a region to modify.".into()),
+                            match region {
+                                Region::QM1 | Region::QM2 => {
+                                    edit_qm_residues(&mut pdb, edit_value, residue_list, partial)?
+                                }
+                                Region::Active => edit_active_residues(
+                                    &mut pdb,
+                                    edit_value,
+                                    residue_list,
+                                    partial,
+                                )?,
+                                Region::None => {
+                                    return Err("Please give a region to modify.".into())
+                                }
+                            }
                         }
-                    },
-                    Target::None => {
-                        return Err("Please give either an 'Atoms' or 'Residues' flag.".into())
+                        Target::None => {
+                            return Err("Please give either an 'Atoms' or 'Residues' flag.".into())
+                        }
                     }
-                }},
+                }
                 Source::Sphere => {
-                    let sphere = Sphere::new(matches.subcommand_matches(mode.to_string()).ok_or("Something wrong with option 'Add' or 'Remove'")?.values_of("Sphere").ok_or("Something wrong with option 'Sphere'")?, &pdb)?;
+                    let sphere = Sphere::new(
+                        matches
+                            .subcommand_matches(mode.to_string())
+                            .ok_or("Something wrong with option 'Add' or 'Remove'")?
+                            .values_of("Sphere")
+                            .ok_or("Something wrong with option 'Sphere'")?,
+                        &pdb,
+                    )?;
 
                     let list = match target {
-                        Target::Atoms => calc_atom_sphere(&pdb, sphere.origin, sphere.radius, true)?,
-                        Target::Residues => calc_residue_sphere(&pdb, sphere.origin, sphere.radius, true)?,
+                        Target::Atoms => {
+                            calc_atom_sphere(&pdb, sphere.origin, sphere.radius, true)?
+                        }
+                        Target::Residues => {
+                            calc_residue_sphere(&pdb, sphere.origin, sphere.radius, true)?
+                        }
                         Target::None => return Err("No target was given!".into()),
                     };
 
@@ -212,7 +225,8 @@ pub fn run() -> Result<(), Box<dyn Error>> {
             }
         }
         Mode::None => {
-            return Err("Please choose either 'Add', 'Analyze', 'Query' or 'Remove' mode using the respective subcommand.".into())
+            // return Err("Please choose either 'Add', 'Analyze', 'Query' or 'Remove' mode using the respective subcommand.".into())
+            unreachable!()
         }
     }
 

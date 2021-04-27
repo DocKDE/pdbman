@@ -1,6 +1,6 @@
 [package]
 name = "pdbman"
-version = "0.3.3"
+version = "0.3.4"
 authors = ["Benedikt M. Flöser <benedikt.floeser@cec.mpg.de>"]
 edition = "2018"
 description = "Analyzes and edits PDB files for usage in QM/MM calculations with the ORCA Quantum Chemistry package"
@@ -15,7 +15,8 @@ strum = "0.20.0"
 strum_macros = "0.20.1"
 #anyhow = "^1.0"
 rstar = "0.8.2"
-#pdbtbx = "^0.6.2"
+pdbtbx = "^0.6.2"
 regex = "^1.4"
 itertools = "*"
-pdbtbx = {path = "/home/floeserb/Nextcloud/Code/rust/pdbtbx"}
+#rayon = "1.5"
+#pdbtbx = {path = "/home/floeserb/Nextcloud/Code/rust/pdbtbx"}
