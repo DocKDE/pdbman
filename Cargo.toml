@@ -15,8 +15,9 @@ strum = "0.20.0"
 strum_macros = "0.20.1"
 #anyhow = "^1.0"
 rstar = "0.8.2"
-pdbtbx = "^0.6.2"
+#pdbtbx = "^0.6.2"
 regex = "^1.4"
 itertools = "*"
-#rayon = "1.5"
+rayon = "1.5"
 #pdbtbx = {path = "/home/floeserb/Nextcloud/Code/rust/pdbtbx"}
+pdbtbx = {git = "https://github.com/DocKDE/pdbtbx", branch = "master"}

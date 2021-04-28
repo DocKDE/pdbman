@@ -6,7 +6,6 @@ use prettytable::{format, Table};
 // use regex::Regex;
 use crate::{Distance, Partial, Region, Target};
 use itertools::Itertools;
-use rstar::{primitives::PointWithData, RTree};
 
 // type Result<T> = std::result::Result<T, Box<dyn Error>>;
 
@@ -245,34 +244,40 @@ pub fn calc_residue_sphere(
     include_self: bool,
 ) -> Result<Vec<usize>, Box<dyn Error>> {
     let mut sphere_atoms: Vec<usize> = Vec::new();
-    let mut sphere_residues: Vec<&Residue> = Vec::new();
 
-    let mut origin_res_id = 0;
-    for residue in pdb.residues() {
-        for atom in residue.atoms() {
-            if atom.serial_number() == origin.serial_number() {
-                origin_res_id = residue.serial_number();
+    let origin_res_id = pdb.model(0).unwrap().atoms_full_hierarchy()
+        .find(|x| origin.serial_number() == x.atom.serial_number())
+        .unwrap()
+        .residue
+        .serial_number();
+
+    let atoms_hier = pdb.model(0).unwrap().atoms_full_hierarchy();
+
+    for atom_hier in atoms_hier {
+        if include_self {
+            if atom_hier.atom.distance(origin) <= radius {
+                sphere_atoms.extend(atom_hier.residue.atoms().map(|x| x.serial_number()))
             }
+        } else if atom_hier.atom.distance(origin) <= radius
+            && atom_hier.residue.serial_number() != origin_res_id
+        {
+            sphere_atoms.extend(atom_hier.residue.atoms().map(|x| x.serial_number()))
         }
     }
 
-    for residue in pdb.residues() {
-        for atom in residue.atoms() {
-            if include_self {
-                if atom.distance(origin) <= radius {
-                    sphere_residues.push(residue);
-                }
-            } else if atom.distance(origin) <= radius && residue.serial_number() != origin_res_id {
-                sphere_residues.push(residue)
-            }
-        }
-    }
-
-    for residue in sphere_residues {
-        for atom in residue.atoms() {
-            sphere_atoms.push(atom.serial_number());
-        }
-    }
+    // for residue in pdb.residues() {
+    //     for atom in residue.atoms() {
+    //         if include_self {
+    //             if atom.distance(origin) <= radius {
+    //                 // sphere_residues.push(residue);
+    //                 sphere_atoms.extend(residue.atoms().map(|x| x.serial_number()))
+    //             }
+    //         } else if atom.distance(origin) <= radius && residue.serial_number() != origin_res_id {
+    //             // sphere_residues.push(residue)
+    //             sphere_atoms.extend(residue.atoms().map(|x| x.serial_number()))
+    //         }
+    //     }
+    // }
 
     sphere_atoms.sort_unstable();
     sphere_atoms.dedup();
@@ -300,81 +305,75 @@ pub fn find_contacts(pdb: &PDB, level: Distance) -> Result<Table, Box<dyn Error>
         "Distance"
     ]);
 
-    let mut treevec = Vec::new();
-    for residue in pdb.residues() {
-        for atom in residue.atoms() {
-            treevec.push(PointWithData::new(
-                (atom, residue),
-                [atom.x(), atom.y(), atom.z()],
-                // atom.pos_array(),
-            ))
-        }
-    }
+    // let mut treevec = Vec::new();
+    // for residue in pdb.residues() {
+    //     for atom in residue.atoms() {
+    //         treevec.push(PointWithData::new(
+    //             (atom, residue),
+    //             [atom.x(), atom.y(), atom.z()],
+    //             // atom.pos_array(),
+    //         ))
+    //     }
+    // }
 
-    let tree = RTree::bulk_load(treevec);
+    let tree = pdb.create_full_hierarchy_rtree().ok_or("Error creating the RTree")?;
 
-    for residue in pdb.residues() {
-        for atom in residue.atoms() {
-            let radius: f64 = match level {
-                Distance::Clashes => 1.0,
-                Distance::Contacts => atom
-                    .atomic_radius()
-                    .ok_or("No atomic radius found for Atom type!")?
-                    .powf(2.0),
-                _ => return Err("No Valid 'level' argument".into()),
-            };
-            let contacts = tree.locate_within_distance([atom.x(), atom.y(), atom.z()], radius);
+    for atom_hier in pdb.model(0).unwrap().atoms_full_hierarchy() {
+        let radius: f64 = match level {
+            Distance::Clashes => 1.0,
+            Distance::Contacts => atom_hier.atom.atomic_radius().unwrap().powf(2.0),
+            _ => return Err("Invalid".into()),
+        };
 
-            for PointWithData {
-                data: (other_atom, other_residue),
-                ..
-            } in contacts
+        let contacts = tree.locate_within_distance(atom_hier.atom.pos_array(), radius);
+
+        for other_atom_hier in contacts {
+            if other_atom_hier.atom < atom_hier.atom
+                && other_atom_hier.residue != atom_hier.residue
+                && !(other_atom_hier.atom.name() == "C"
+                    && atom_hier.atom.name() == "N"
+                    && other_atom_hier.residue.serial_number() + 1
+                        == atom_hier.residue.serial_number())
             {
-                if other_atom < &atom
-                    && !(other_residue.name() == residue.name()
-                        && other_residue.serial_number() == residue.serial_number())
-                    && !(other_atom.name() == "C"
-                        && atom.name() == "N"
-                        && other_residue.serial_number() + 1 == residue.serial_number())
-                {
-                    let distance = other_atom.distance(atom);
-                    if distance <= 0.75 && distance > 0.5 {
-                        table.add_row(row![
-                            bByFd =>
-                            other_atom.serial_number(),
-                            other_atom.name(),
-                            other_residue.name().ok_or("No Residue Name.")?,
-                            atom.serial_number(),
-                            atom.name(),
-                            residue.name().ok_or("No Residue Name")?,
-                            format!("{:.2}", distance)
-                        ]);
-                    } else if distance <= 0.5 {
-                        table.add_row(row![
-                            bBrFd =>
-                            other_atom.serial_number(),
-                            other_atom.name(),
-                            other_residue.name().ok_or("No Residue Name.")?,
-                            atom.serial_number(),
-                            atom.name(),
-                            residue.name().ok_or("No Residue Name")?,
-                            format!("{:.2}", distance)
-                        ]);
-                    } else {
-                        table.add_row(row![
-                            other_atom.serial_number(),
-                            other_atom.name(),
-                            other_residue.name().ok_or("No Residue Name.")?,
-                            atom.serial_number(),
-                            atom.name(),
-                            residue.name().ok_or("No Residue Name")?,
-                            format!("{:.2}", distance)
-                        ]);
-                    }
+                let distance = other_atom_hier.atom.distance(atom_hier.atom);
+
+                if distance <= 0.75 && distance > 0.5 {
+                    table.add_row(row![
+                        bByFd =>
+                        other_atom_hier.atom.serial_number(),
+                        other_atom_hier.atom.name(),
+                        other_atom_hier.residue.name().ok_or("No Residue Name.")?,
+                        atom_hier.atom.serial_number(),
+                        atom_hier.atom.name(),
+                        atom_hier.residue.name().ok_or("No Residue Name")?,
+                        format!("{:.2}", distance)
+                    ]);
+                } else if distance <= 0.5 {
+                    table.add_row(row![
+                        bBrFd =>
+                        other_atom_hier.atom.serial_number(),
+                        other_atom_hier.atom.name(),
+                        other_atom_hier.residue.name().ok_or("No Residue Name.")?,
+                        atom_hier.atom.serial_number(),
+                        atom_hier.atom.name(),
+                        atom_hier.residue.name().ok_or("No Residue Name")?,
+                        format!("{:.2}", distance)
+                    ]);
+                } else {
+                    table.add_row(row![
+                        other_atom_hier.atom.serial_number(),
+                        other_atom_hier.atom.name(),
+                        other_atom_hier.residue.name().ok_or("No Residue Name.")?,
+                        atom_hier.atom.serial_number(),
+                        atom_hier.atom.name(),
+                        atom_hier.residue.name().ok_or("No Residue Name")?,
+                        format!("{:.2}", distance)
+                    ]);
                 }
             }
         }
     }
+
     if !table.is_empty() {
         if level == Distance::Clashes {
             println!("\nClash Analysis");
@@ -385,6 +384,79 @@ pub fn find_contacts(pdb: &PDB, level: Distance) -> Result<Table, Box<dyn Error>
     } else {
         Err("No contacts found!".into())
     }
+
+    // for residue in pdb.residues() {
+    //     for atom in residue.atoms() {
+    //         let radius: f64 = match level {
+    //             Distance::Clashes => 1.0,
+    //             Distance::Contacts => atom
+    //                 .atomic_radius()
+    //                 .ok_or("No atomic radius found for Atom type!")?
+    //                 .powf(2.0),
+    //             _ => return Err("No Valid 'level' argument".into()),
+    //         };
+    //         let contacts = tree.locate_within_distance([atom.x(), atom.y(), atom.z()], radius);
+
+    //         for PointWithData {
+    //             data: (other_atom, other_residue),
+    //             ..
+    //         } in contacts
+    //         {
+    //             if other_atom < &atom
+    //                 && !(other_residue.name() == residue.name()
+    //                     && other_residue.serial_number() == residue.serial_number())
+    //                 && !(other_atom.name() == "C"
+    //                     && atom.name() == "N"
+    //                     && other_residue.serial_number() + 1 == residue.serial_number())
+    //             {
+    //                 let distance = other_atom.distance(atom);
+    //                 if distance <= 0.75 && distance > 0.5 {
+    //                     table.add_row(row![
+    //                         bByFd =>
+    //                         other_atom.serial_number(),
+    //                         other_atom.name(),
+    //                         other_residue.name().ok_or("No Residue Name.")?,
+    //                         atom.serial_number(),
+    //                         atom.name(),
+    //                         residue.name().ok_or("No Residue Name")?,
+    //                         format!("{:.2}", distance)
+    //                     ]);
+    //                 } else if distance <= 0.5 {
+    //                     table.add_row(row![
+    //                         bBrFd =>
+    //                         other_atom.serial_number(),
+    //                         other_atom.name(),
+    //                         other_residue.name().ok_or("No Residue Name.")?,
+    //                         atom.serial_number(),
+    //                         atom.name(),
+    //                         residue.name().ok_or("No Residue Name")?,
+    //                         format!("{:.2}", distance)
+    //                     ]);
+    //                 } else {
+    //                     table.add_row(row![
+    //                         other_atom.serial_number(),
+    //                         other_atom.name(),
+    //                         other_residue.name().ok_or("No Residue Name.")?,
+    //                         atom.serial_number(),
+    //                         atom.name(),
+    //                         residue.name().ok_or("No Residue Name")?,
+    //                         format!("{:.2}", distance)
+    //                     ]);
+    //                 }
+    //             }
+    //         }
+    //     }
+    // }
+    // if !table.is_empty() {
+    //     if level == Distance::Clashes {
+    //         println!("\nClash Analysis");
+    //     } else if level == Distance::Contacts {
+    //         println!("\nContact Analysis");
+    //     }
+    //     Ok(table)
+    // } else {
+    //     Err("No contacts found!".into())
+    // }
 }
 
 // ///Input may contain only one instance of a range-indicating character
