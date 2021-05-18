@@ -1,24 +1,27 @@
 use std::convert::TryFrom;
 use std::error::Error;
 
-use pdbtbx::{Atom, Residue, PDB};
+use pdbtbx::{AtomWithHierarchy, PDB};
 use prettytable::{format, Table};
 // use regex::Regex;
 use crate::{Distance, Partial, Region, Target};
 use itertools::Itertools;
+use rayon::prelude::*;
 
 // type Result<T> = std::result::Result<T, Box<dyn Error>>;
 
-const AMINOS: [&str; 29] = [
-    "ARG", "HIS", "HIP", "HID", "HIM", "HIE", "LYS", "LYN", "ASP", "ASH", "GLU", "GLH", "SER",
-    "THR", "ASN", "GLN", "CYS", "CYX", "SEC", "GLY", "PRO", "ALA", "VAL", "ILE", "LEU", "MET",
-    "PHE", "TYR", "TRP",
-];
-const BACKBONE_ATOMS: [&str; 8] = ["C", "O", "N", "H", "CA", "HA", "HA2", "HA3"];
+/// Includes Amber-specific naming conventions for (de-)protonated versions, CYS involved in
+/// disulfide bonding and the like.
+// const AMINOS: [&str; 29] = [
+//     "ARG", "HIS", "HIP", "HID", "HIM", "HIE", "LYS", "LYN", "ASP", "ASH", "GLU", "GLH", "SER",
+//     "THR", "ASN", "GLN", "CYS", "CYX", "SEC", "GLY", "PRO", "ALA", "VAL", "ILE", "LEU", "MET",
+//     "PHE", "TYR", "TRP",
+// ];
+// const BACKBONE_ATOMS: [&str; 8] = ["C", "O", "N", "H", "CA", "HA", "HA2", "HA3"];
 
 #[derive(PartialEq, Debug, Clone)]
 pub struct Sphere<'a> {
-    pub origin: &'a pdbtbx::Atom,
+    pub origin: pdbtbx::AtomWithHierarchy<'a>,
     pub radius: f64,
 }
 
@@ -44,11 +47,14 @@ impl<'a> Sphere<'a> {
         let radius: f64 = radius_str.parse()?;
 
         let origin = pdb
-            .atoms()
-            .find(|x| x.serial_number() == origin_id)
+            .par_atoms_with_hierarchy()
+            .find_any(|x| x.atom.serial_number() == origin_id)
             .ok_or("No atom corresponding to the given ID could be found.")?;
 
-        Ok(Sphere { origin, radius })
+        Ok(Sphere {
+            origin,
+            radius,
+        })
     }
 }
 
@@ -57,7 +63,7 @@ impl<'a> Sphere<'a> {
 /// be set to and a list of Residue serial numbers for the Atoms to edit.
 /// The last option recognizes 'backbone', 'sidechain' and 'None' as options and will select the
 /// correspdonding Atoms from each Residue.
-pub fn edit_qm_residues<'a>(
+pub fn edit_qm_residues(
     pdb: &mut PDB,
     qm_val: f64,
     // list: impl Iterator<Item=Residue>,
@@ -66,7 +72,7 @@ pub fn edit_qm_residues<'a>(
 ) -> Result<(), Box<dyn Error>> {
     for residue in pdb.residues_mut() {
         let serial_number = residue.serial_number();
-        let name = residue.name().ok_or("No Residue Name")?.to_string();
+        // let name = residue.name().ok_or("No Residue Name")?.to_string();
         for atom in residue.atoms_mut() {
             match partial {
                 Partial::None => {
@@ -80,8 +86,9 @@ pub fn edit_qm_residues<'a>(
                 Partial::Sidechain => {
                     if list.contains(&serial_number)
                     // if list.find(|x| x == residue).is_some()
-                        && AMINOS.contains(&name.as_str())
-                        && !BACKBONE_ATOMS.contains(&atom.name())
+                        // && AMINOS.contains(&name.as_str())
+                        // && !BACKBONE_ATOMS.contains(&atom.name())
+                        && !atom.is_backbone()
                     {
                         atom.set_occupancy(qm_val)?;
                     }
@@ -89,8 +96,9 @@ pub fn edit_qm_residues<'a>(
                 Partial::Backbone => {
                     if list.contains(&serial_number)
                     // if list.find(|x| x == residue).is_some()
-                        && AMINOS.contains(&name.as_str())
-                        && BACKBONE_ATOMS.contains(&atom.name())
+                        // && AMINOS.contains(&name.as_str())
+                        // && BACKBONE_ATOMS.contains(&atom.name())
+                        && atom.is_backbone()
                     {
                         atom.set_occupancy(qm_val)?;
                     }
@@ -116,7 +124,7 @@ pub fn edit_active_residues(
 ) -> Result<(), Box<dyn Error>> {
     for residue in pdb.residues_mut() {
         let serial_number = residue.serial_number();
-        let name = residue.name().ok_or("No Residue Name")?.to_string();
+        // let name = residue.name().ok_or("No Residue Name")?.to_string();
 
         for atom in residue.atoms_mut() {
             match partial {
@@ -127,16 +135,18 @@ pub fn edit_active_residues(
                 }
                 Partial::Sidechain => {
                     if list.contains(&serial_number)
-                        && AMINOS.contains(&name.as_str())
-                        && !BACKBONE_ATOMS.contains(&atom.name())
+                        // && AMINOS.contains(&name.as_str())
+                        // && !BACKBONE_ATOMS.contains(&atom.name())
+                        && !atom.is_backbone()
                     {
                         atom.set_b_factor(qm_val)?;
                     }
                 }
                 Partial::Backbone => {
                     if list.contains(&serial_number)
-                        && AMINOS.contains(&name.as_str())
-                        && BACKBONE_ATOMS.contains(&atom.name())
+                        // && AMINOS.contains(&name.as_str())
+                        // && BACKBONE_ATOMS.contains(&atom.name())
+                        && atom.is_backbone()
                     {
                         atom.set_b_factor(qm_val)?;
                     }
@@ -157,6 +167,12 @@ pub fn edit_qm_atoms(pdb: &mut PDB, qm_val: f64, list: Vec<usize>) -> Result<(),
             atom.set_occupancy(qm_val)?
         }
     }
+
+    // pdb.par_atoms_mut().for_each(|atom| {
+    //     Ok(if list.contains(&atom.serial_number()) {
+    //         atom.set_occupancy(qm_val)?
+    //     });
+    // });
     Ok(())
 }
 
@@ -182,6 +198,9 @@ pub fn remove_all(pdb: &mut PDB) -> Result<(), Box<dyn Error>> {
         atom.set_occupancy(0.00)?;
         atom.set_b_factor(0.00)?;
     }
+    // pdb.par_atoms_mut().for_each(|atom| {
+    //     Ok(atom.set_occupancy(0.00)?);
+    // });
     Ok(())
 }
 
@@ -189,43 +208,45 @@ pub fn remove_all(pdb: &mut PDB) -> Result<(), Box<dyn Error>> {
 /// to a file if desired. This may be obsolete as the functionality of printing to a file
 /// already exists with a separate flag.
 pub fn print_to_stdout(pdb: &PDB) -> Result<(), Box<dyn Error>> {
-    for residue in pdb.residues() {
-        for atom in residue.atoms() {
-            println!("ATOM  {:>5} {:<4} {:>3}  {:>4}    {:>8.3}{:>8.3}{:>8.3}{:>6.2}{:>6.2}          {:>2}", 
-                atom.serial_number(), atom.name(), residue.name().ok_or("No Residue Name")?, residue.serial_number(), atom.x(),
-                atom.y(), atom.z(), atom.occupancy(), atom.b_factor(), atom.element());
-        }
+    for atom_hier in pdb.atoms_with_hierarchy() {
+        println!(
+            "ATOM  {:>5} {:<4} {:>3}  {:>4}    {:>8.3}{:>8.3}{:>8.3}{:>6.2}{:>6.2}          {:>2}",
+            atom_hier.atom.serial_number(),
+            atom_hier.atom.name(),
+            atom_hier.residue.name().ok_or("No Residue Name")?,
+            atom_hier.residue.serial_number(),
+            atom_hier.atom.x(),
+            atom_hier.atom.y(),
+            atom_hier.atom.z(),
+            atom_hier.atom.occupancy(),
+            atom_hier.atom.b_factor(),
+            atom_hier.atom.element()
+        );
     }
     Ok(())
 }
 
 /// Takes an Atom struct as point of origin and a radius in A. Returns a Vector of Atom IDs
 /// of Atoms within the given radius wrapped in a Result. Origin can be included or excluded.
-pub fn calc_atom_sphere<'a>(
+pub fn calc_atom_sphere(
     pdb: &PDB,
-    origin: &Atom,
+    origin: &AtomWithHierarchy,
     radius: f64,
     include_self: bool,
 ) -> Result<Vec<usize>, Box<dyn Error>> {
     // ) -> Result<impl Iterator<Item = &'a Atom>, Box<dyn Error>> {
-    let mut sphere_atoms: Vec<usize> = Vec::new();
 
-    // if include_self {
-    //     return Ok(pdb.atoms().filter(|x| x.distance(origin) <= radius))
-    // } else {
-    //     return Ok(pdb.atoms().filter(|x| {x.distance(origin) <= radius && x != &origin}))
-    // }
+    let tree = pdb.create_atom_rtree();
+    let mut sphere_atoms: Vec<usize> = tree
+        .locate_within_distance(origin.atom.pos_array(), radius.powf(2.0))
+        .map(|atom| atom.serial_number())
+        .collect();
 
-    for atom in pdb.atoms() {
-        if include_self {
-            if atom.distance(origin) <= radius {
-                sphere_atoms.push(atom.serial_number())
-            }
-        } else if atom.distance(origin) <= radius && atom.serial_number() != origin.serial_number()
-        {
-            sphere_atoms.push(atom.serial_number())
-        }
+    if !include_self {
+        sphere_atoms.retain(|&x| x != origin.atom.serial_number())
     }
+
+    sphere_atoms.sort_unstable();
 
     if !sphere_atoms.is_empty() {
         Ok(sphere_atoms)
@@ -239,45 +260,26 @@ pub fn calc_atom_sphere<'a>(
 /// Origin can be included or excluded.
 pub fn calc_residue_sphere(
     pdb: &PDB,
-    origin: &Atom,
+    origin: &AtomWithHierarchy,
     radius: f64,
     include_self: bool,
 ) -> Result<Vec<usize>, Box<dyn Error>> {
-    let mut sphere_atoms: Vec<usize> = Vec::new();
+    let tree = pdb.create_atom_with_hierarchy_rtree();
 
-    let origin_res_id = pdb.model(0).unwrap().atoms_full_hierarchy()
-        .find(|x| origin.serial_number() == x.atom.serial_number())
-        .unwrap()
+    let mut sphere_atoms: Vec<usize> = tree
+        .locate_within_distance(origin.atom.pos_array(), radius.powf(2.0))
+        .flat_map(|atom_hier| atom_hier.residue.atoms().map(|atom| atom.serial_number()))
+        .collect();
+
+    let origin_res_atoms: Vec<usize> = origin
         .residue
-        .serial_number();
+        .atoms()
+        .map(|atom| atom.serial_number())
+        .collect();
 
-    let atoms_hier = pdb.model(0).unwrap().atoms_full_hierarchy();
-
-    for atom_hier in atoms_hier {
-        if include_self {
-            if atom_hier.atom.distance(origin) <= radius {
-                sphere_atoms.extend(atom_hier.residue.atoms().map(|x| x.serial_number()))
-            }
-        } else if atom_hier.atom.distance(origin) <= radius
-            && atom_hier.residue.serial_number() != origin_res_id
-        {
-            sphere_atoms.extend(atom_hier.residue.atoms().map(|x| x.serial_number()))
-        }
+    if !include_self {
+        sphere_atoms.retain(|x| !origin_res_atoms.contains(x))
     }
-
-    // for residue in pdb.residues() {
-    //     for atom in residue.atoms() {
-    //         if include_self {
-    //             if atom.distance(origin) <= radius {
-    //                 // sphere_residues.push(residue);
-    //                 sphere_atoms.extend(residue.atoms().map(|x| x.serial_number()))
-    //             }
-    //         } else if atom.distance(origin) <= radius && residue.serial_number() != origin_res_id {
-    //             // sphere_residues.push(residue)
-    //             sphere_atoms.extend(residue.atoms().map(|x| x.serial_number()))
-    //         }
-    //     }
-    // }
 
     sphere_atoms.sort_unstable();
     sphere_atoms.dedup();
@@ -285,7 +287,7 @@ pub fn calc_residue_sphere(
     if !sphere_atoms.is_empty() {
         Ok(sphere_atoms)
     } else {
-        Err("Calculated sphere doesn't contain any atoms.sphere_atoms".into())
+        Err("Calculated sphere doesn't contain any atoms.".into())
     }
 }
 
@@ -305,23 +307,19 @@ pub fn find_contacts(pdb: &PDB, level: Distance) -> Result<Table, Box<dyn Error>
         "Distance"
     ]);
 
-    // let mut treevec = Vec::new();
-    // for residue in pdb.residues() {
-    //     for atom in residue.atoms() {
-    //         treevec.push(PointWithData::new(
-    //             (atom, residue),
-    //             [atom.x(), atom.y(), atom.z()],
-    //             // atom.pos_array(),
-    //         ))
-    //     }
-    // }
+    let tree = pdb.create_atom_with_hierarchy_rtree();
 
-    let tree = pdb.create_full_hierarchy_rtree().ok_or("Error creating the RTree")?;
-
-    for atom_hier in pdb.model(0).unwrap().atoms_full_hierarchy() {
+    for atom_hier in pdb.atoms_with_hierarchy() {
         let radius: f64 = match level {
             Distance::Clashes => 1.0,
-            Distance::Contacts => atom_hier.atom.atomic_radius().unwrap().powf(2.0),
+            Distance::Contacts => atom_hier
+                .atom
+                .atomic_radius()
+                .ok_or(format!(
+                    "No radius found for given atom: {}",
+                    atom_hier.atom
+                ))?
+                .powf(2.0),
             _ => return Err("Invalid".into()),
         };
 
@@ -384,79 +382,6 @@ pub fn find_contacts(pdb: &PDB, level: Distance) -> Result<Table, Box<dyn Error>
     } else {
         Err("No contacts found!".into())
     }
-
-    // for residue in pdb.residues() {
-    //     for atom in residue.atoms() {
-    //         let radius: f64 = match level {
-    //             Distance::Clashes => 1.0,
-    //             Distance::Contacts => atom
-    //                 .atomic_radius()
-    //                 .ok_or("No atomic radius found for Atom type!")?
-    //                 .powf(2.0),
-    //             _ => return Err("No Valid 'level' argument".into()),
-    //         };
-    //         let contacts = tree.locate_within_distance([atom.x(), atom.y(), atom.z()], radius);
-
-    //         for PointWithData {
-    //             data: (other_atom, other_residue),
-    //             ..
-    //         } in contacts
-    //         {
-    //             if other_atom < &atom
-    //                 && !(other_residue.name() == residue.name()
-    //                     && other_residue.serial_number() == residue.serial_number())
-    //                 && !(other_atom.name() == "C"
-    //                     && atom.name() == "N"
-    //                     && other_residue.serial_number() + 1 == residue.serial_number())
-    //             {
-    //                 let distance = other_atom.distance(atom);
-    //                 if distance <= 0.75 && distance > 0.5 {
-    //                     table.add_row(row![
-    //                         bByFd =>
-    //                         other_atom.serial_number(),
-    //                         other_atom.name(),
-    //                         other_residue.name().ok_or("No Residue Name.")?,
-    //                         atom.serial_number(),
-    //                         atom.name(),
-    //                         residue.name().ok_or("No Residue Name")?,
-    //                         format!("{:.2}", distance)
-    //                     ]);
-    //                 } else if distance <= 0.5 {
-    //                     table.add_row(row![
-    //                         bBrFd =>
-    //                         other_atom.serial_number(),
-    //                         other_atom.name(),
-    //                         other_residue.name().ok_or("No Residue Name.")?,
-    //                         atom.serial_number(),
-    //                         atom.name(),
-    //                         residue.name().ok_or("No Residue Name")?,
-    //                         format!("{:.2}", distance)
-    //                     ]);
-    //                 } else {
-    //                     table.add_row(row![
-    //                         other_atom.serial_number(),
-    //                         other_atom.name(),
-    //                         other_residue.name().ok_or("No Residue Name.")?,
-    //                         atom.serial_number(),
-    //                         atom.name(),
-    //                         residue.name().ok_or("No Residue Name")?,
-    //                         format!("{:.2}", distance)
-    //                     ]);
-    //                 }
-    //             }
-    //         }
-    //     }
-    // }
-    // if !table.is_empty() {
-    //     if level == Distance::Clashes {
-    //         println!("\nClash Analysis");
-    //     } else if level == Distance::Contacts {
-    //         println!("\nContact Analysis");
-    //     }
-    //     Ok(table)
-    // } else {
-    //     Err("No contacts found!".into())
-    // }
 }
 
 // ///Input may contain only one instance of a range-indicating character
@@ -522,7 +447,7 @@ pub fn parse_residue_list(input: &str, pdb: &PDB) -> Result<Vec<isize>, Box<dyn 
                     output_vec.extend(
                         expand_range(i)?
                             .into_iter()
-                            .map(|x| isize::try_from(x))
+                            .map(isize::try_from)
                             .collect::<Result<Vec<isize>, _>>()?,
                     )
                 } else {
@@ -545,9 +470,6 @@ pub fn parse_residue_list(input: &str, pdb: &PDB) -> Result<Vec<isize>, Box<dyn 
                     })
                     .filter_map(Result::transpose)
                     .collect::<Result<Vec<isize>, Box<dyn Error>>>()?;
-                // .filter(|x| input_vec.contains(&x.name().unwrap().to_lowercase()))
-                // .map(|x| x.serial_number())
-                // .collect();
             }
             false => return Err("Input List contains mixed types which is not supported.".into()),
         },
@@ -594,6 +516,7 @@ pub fn query_atoms(pdb: &PDB, atom_list: Vec<usize>) -> Result<(), Box<dyn Error
 
 pub fn query_residues(pdb: &PDB, residue_list: Vec<isize>) -> Result<(), Box<dyn Error>> {
     let mut table = Table::new();
+
     table.add_row(row![
         "Atom ID",
         "Atom name",
@@ -771,22 +694,22 @@ mod tests {
     #[test]
     fn atom_sphere_test() {
         let pdb = test_pdb("tests/test_blank.pdb");
-        let origin = pdb.atoms().find(|x| x.serial_number() == 26).unwrap();
+        let origin = pdb.atoms_with_hierarchy().find(|x| x.atom.serial_number() == 26).unwrap();
         let atom_list_incl = vec![21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 32, 45, 46];
         let atom_list_excl = vec![21, 22, 23, 24, 25, 27, 28, 29, 30, 32, 45, 46];
 
-        assert_eq!(calc_atom_sphere(&pdb, origin, 4.0, true).unwrap().len(), 22);
+        assert_eq!(calc_atom_sphere(&pdb, &origin, 4.0, true).unwrap().len(), 22);
         assert_eq!(
-            calc_atom_sphere(&pdb, origin, 3.0, true).unwrap(),
+            calc_atom_sphere(&pdb, &origin, 3.0, true).unwrap(),
             atom_list_incl
         );
 
         assert_eq!(
-            calc_atom_sphere(&pdb, origin, 4.0, false).unwrap().len(),
+            calc_atom_sphere(&pdb, &origin, 4.0, false).unwrap().len(),
             21
         );
         assert_eq!(
-            calc_atom_sphere(&pdb, origin, 3.0, false).unwrap(),
+            calc_atom_sphere(&pdb, &origin, 3.0, false).unwrap(),
             atom_list_excl
         );
     }
@@ -794,22 +717,22 @@ mod tests {
     #[test]
     fn residue_sphere_test() {
         let pdb = test_pdb("tests/test_blank.pdb");
-        let origin = pdb.atoms().find(|x| x.serial_number() == 26).unwrap();
+        let origin = pdb.atoms_with_hierarchy().find(|x| x.atom.serial_number() == 26).unwrap();
         let atom_list_excl = vec![
             19, 20, 21, 22, 23, 24, 25, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61,
             62,
         ];
 
         assert_eq!(
-            calc_residue_sphere(&pdb, origin, 4.0, true).unwrap().len(),
+            calc_residue_sphere(&pdb, &origin, 4.0, true).unwrap().len(),
             44
         );
         assert_eq!(
-            calc_residue_sphere(&pdb, origin, 4.0, false).unwrap().len(),
+            calc_residue_sphere(&pdb, &origin, 4.0, false).unwrap().len(),
             23
         );
         assert_eq!(
-            calc_residue_sphere(&pdb, origin, 4.0, false).unwrap(),
+            calc_residue_sphere(&pdb, &origin, 4.0, false).unwrap(),
             atom_list_excl
         );
     }
@@ -854,7 +777,6 @@ mod tests {
     fn edit_residues_test_side() {
         let mut pdb = test_pdb("tests/test_blank.pdb");
         let res_id_list = vec![2, 4];
-        // let backbone_atoms = ["C", "O", "N", "H", "CA", "HA", "HA2", "HA3"];
 
         edit_qm_residues(&mut pdb, 2.00, res_id_list.clone(), Partial::Sidechain).unwrap();
         edit_active_residues(&mut pdb, 1.00, res_id_list.clone(), Partial::Sidechain).unwrap();
@@ -864,9 +786,8 @@ mod tests {
             .filter(|x| res_id_list.contains(&x.serial_number()));
 
         let atom_list = res_list
-            .map(|x| x.atoms())
-            .flatten()
-            .filter(|x| !BACKBONE_ATOMS.contains(&x.name()));
+            .flat_map(|x| x.atoms())
+            .filter(|x| !x.is_backbone());
 
         for atom in atom_list {
             assert_eq!(atom.occupancy(), 2.00);
@@ -878,7 +799,6 @@ mod tests {
     fn edit_residues_test_back() {
         let mut pdb = test_pdb("tests/test_blank.pdb");
         let res_id_list = vec![2, 4];
-        // let backbone_atoms = ["C", "O", "N", "H", "CA", "HA", "HA2", "HA3"];
         edit_qm_residues(&mut pdb, 2.00, res_id_list.clone(), Partial::Backbone).unwrap();
         edit_active_residues(&mut pdb, 1.00, res_id_list.clone(), Partial::Backbone).unwrap();
 
@@ -886,9 +806,8 @@ mod tests {
             .residues()
             .filter(|x| res_id_list.contains(&x.serial_number()));
         let atom_list = res_list
-            .map(|x| x.atoms())
-            .flatten()
-            .filter(|x| BACKBONE_ATOMS.contains(&x.name()));
+            .flat_map(|x| x.atoms())
+            .filter(|x| x.is_backbone());
 
         for atom in atom_list {
             assert_eq!(atom.occupancy(), 2.00);
