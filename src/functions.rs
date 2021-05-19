@@ -1,7 +1,7 @@
 use std::convert::TryFrom;
 use std::error::Error;
 
-use pdbtbx::{AtomWithHierarchy, PDB};
+use pdbtbx::{Atom, AtomWithHierarchy, PDB};
 use prettytable::{format, Table};
 // use regex::Regex;
 use crate::{Distance, Partial, Region, Target};
@@ -51,10 +51,7 @@ impl<'a> Sphere<'a> {
             .find_any(|x| x.atom.serial_number() == origin_id)
             .ok_or("No atom corresponding to the given ID could be found.")?;
 
-        Ok(Sphere {
-            origin,
-            radius,
-        })
+        Ok(Sphere { origin, radius })
     }
 }
 
@@ -66,46 +63,80 @@ impl<'a> Sphere<'a> {
 pub fn edit_qm_residues(
     pdb: &mut PDB,
     qm_val: f64,
-    // list: impl Iterator<Item=Residue>,
     list: Vec<isize>,
     partial: Partial,
-) -> Result<(), Box<dyn Error>> {
-    for residue in pdb.residues_mut() {
-        let serial_number = residue.serial_number();
-        // let name = residue.name().ok_or("No Residue Name")?.to_string();
-        for atom in residue.atoms_mut() {
-            match partial {
-                Partial::None => {
-                    if list.contains(&serial_number) {
-                        atom.set_occupancy(qm_val)?;
-                    }
-                    // if list.find(|x| x == residue).is_some() {
-                    //     atom.set_occupancy(qm_val)?;
-                    // }
-                }
-                Partial::Sidechain => {
-                    if list.contains(&serial_number)
-                    // if list.find(|x| x == residue).is_some()
-                        // && AMINOS.contains(&name.as_str())
-                        // && !BACKBONE_ATOMS.contains(&atom.name())
-                        && !atom.is_backbone()
-                    {
-                        atom.set_occupancy(qm_val)?;
-                    }
-                }
-                Partial::Backbone => {
-                    if list.contains(&serial_number)
-                    // if list.find(|x| x == residue).is_some()
-                        // && AMINOS.contains(&name.as_str())
-                        // && BACKBONE_ATOMS.contains(&atom.name())
-                        && atom.is_backbone()
-                    {
-                        atom.set_occupancy(qm_val)?;
-                    }
-                }
-            }
-        }
-    }
+) -> Result<(), String> {
+    match partial {
+        Partial::None => pdb
+            .par_residues_mut()
+            .try_for_each(|res| -> Result<(), String> {
+                if list.contains(&res.serial_number()) {
+                    res.par_atoms_mut()
+                        .try_for_each(|atom| -> Result<(), String> {
+                            atom.set_occupancy(qm_val)?;
+                            Ok(())
+                        })?;
+                };
+                Ok(())
+            })?,
+        Partial::Sidechain => pdb
+            .par_residues_mut()
+            .try_for_each(|res| -> Result<(), String> {
+                if list.contains(&res.serial_number()) {
+                    res.par_atoms_mut()
+                        .try_for_each(|atom| -> Result<(), String> {
+                            if !atom.is_backbone() {
+                                atom.set_occupancy(qm_val)?
+                            };
+                            Ok(())
+                        })?;
+                };
+                Ok(())
+            })?,
+        Partial::Backbone => pdb
+            .par_residues_mut()
+            .try_for_each(|res| -> Result<(), String> {
+                if list.contains(&res.serial_number()) {
+                    res.par_atoms_mut()
+                        .try_for_each(|atom| -> Result<(), String> {
+                            if atom.is_backbone() {
+                                atom.set_occupancy(qm_val)?
+                            };
+                            Ok(())
+                        })?;
+                };
+                Ok(())
+            })?,
+    };
+
+    // for residue in pdb.residues_mut() {
+    //     let serial_number = residue.serial_number();
+    //     for atom in residue.atoms_mut() {
+    //         match partial {
+    //             Partial::None => {
+    //                 if list.contains(&serial_number) {
+    //                     atom.set_occupancy(qm_val)?;
+    //                 }
+    //                 //     atom.set_occupancy(qm_val)?;
+    //                 // }
+    //             }
+    //             Partial::Sidechain => {
+    //                 if list.contains(&serial_number)
+    //                     && !atom.is_backbone()
+    //                 {
+    //                     atom.set_occupancy(qm_val)?;
+    //                 }
+    //             }
+    //             Partial::Backbone => {
+    //                 if list.contains(&serial_number)
+    //                     && atom.is_backbone()
+    //                 {
+    //                     atom.set_occupancy(qm_val)?;
+    //                 }
+    //             }
+    //         }
+    //     }
+    // }
     Ok(())
 }
 
@@ -118,13 +149,10 @@ pub fn edit_active_residues(
     pdb: &mut PDB,
     qm_val: f64,
     list: Vec<isize>,
-    // region: &str,
-    // partial: &str,
     partial: Partial,
 ) -> Result<(), Box<dyn Error>> {
     for residue in pdb.residues_mut() {
         let serial_number = residue.serial_number();
-        // let name = residue.name().ok_or("No Residue Name")?.to_string();
 
         for atom in residue.atoms_mut() {
             match partial {
@@ -135,8 +163,6 @@ pub fn edit_active_residues(
                 }
                 Partial::Sidechain => {
                     if list.contains(&serial_number)
-                        // && AMINOS.contains(&name.as_str())
-                        // && !BACKBONE_ATOMS.contains(&atom.name())
                         && !atom.is_backbone()
                     {
                         atom.set_b_factor(qm_val)?;
@@ -144,8 +170,6 @@ pub fn edit_active_residues(
                 }
                 Partial::Backbone => {
                     if list.contains(&serial_number)
-                        // && AMINOS.contains(&name.as_str())
-                        // && BACKBONE_ATOMS.contains(&atom.name())
                         && atom.is_backbone()
                     {
                         atom.set_b_factor(qm_val)?;
@@ -161,18 +185,19 @@ pub fn edit_active_residues(
 /// selection) by Atom. It takes a mutable reference to a PDB struct, the desired value
 /// q should be set to and a vector of Atom IDs.
 pub fn edit_qm_atoms(pdb: &mut PDB, qm_val: f64, list: Vec<usize>) -> Result<(), Box<dyn Error>> {
-    for atom in pdb.atoms_mut() {
-        // if list.find(|x| x == atom).is_some() {
-        if list.contains(&atom.serial_number()) {
-            atom.set_occupancy(qm_val)?
-        }
-    }
-
-    // pdb.par_atoms_mut().for_each(|atom| {
-    //     Ok(if list.contains(&atom.serial_number()) {
+    // for atom in pdb.atoms_mut() {
+    //     if list.contains(&atom.serial_number()) {
     //         atom.set_occupancy(qm_val)?
-    //     });
-    // });
+    //     }
+    // }
+
+    pdb.par_atoms_mut()
+        .try_for_each(|atom: &mut Atom| -> Result<(), String> {
+            if list.contains(&atom.serial_number()) {
+                atom.set_occupancy(qm_val)?;
+            };
+            Ok(())
+        })?;
     Ok(())
 }
 
@@ -184,23 +209,35 @@ pub fn edit_active_atoms(
     active_val: f64,
     list: Vec<usize>,
 ) -> Result<(), Box<dyn Error>> {
-    for atom in pdb.atoms_mut() {
-        if list.contains(&atom.serial_number()) {
-            atom.set_b_factor(active_val)?
-        }
-    }
+    // for atom in pdb.atoms_mut() {
+    //     if list.contains(&atom.serial_number()) {
+    //         atom.set_b_factor(active_val)?
+    //     }
+    // }
+
+    pdb.par_atoms_mut()
+        .try_for_each(|atom: &mut Atom| -> Result<(), String> {
+            if list.contains(&atom.serial_number()) {
+                atom.set_b_factor(active_val)?;
+            };
+            Ok(())
+        })?;
     Ok(())
 }
 
 /// Sets all q and b values to zero which serves as a fresh start.
 pub fn remove_all(pdb: &mut PDB) -> Result<(), Box<dyn Error>> {
-    for atom in pdb.atoms_mut() {
-        atom.set_occupancy(0.00)?;
-        atom.set_b_factor(0.00)?;
-    }
-    // pdb.par_atoms_mut().for_each(|atom| {
-    //     Ok(atom.set_occupancy(0.00)?);
-    // });
+    // for atom in pdb.atoms_mut() {
+    //     atom.set_occupancy(0.00)?;
+    //     atom.set_b_factor(0.00)?;
+    // }
+
+    pdb.par_atoms_mut()
+        .try_for_each(|atom| -> Result<(), String> {
+            atom.set_occupancy(0.00)?;
+            atom.set_b_factor(0.00)?;
+            Ok(())
+        })?;
     Ok(())
 }
 
@@ -526,20 +563,33 @@ pub fn query_residues(pdb: &PDB, residue_list: Vec<isize>) -> Result<(), Box<dyn
         "Active"
     ]);
 
-    for residue in pdb.residues() {
-        for atom in residue.atoms() {
-            if residue_list.contains(&residue.serial_number()) {
-                table.add_row(row![
-                    atom.serial_number(),
-                    atom.name(),
-                    residue.serial_number(),
-                    residue.name().ok_or("No Residue name")?,
-                    atom.occupancy(),
-                    atom.b_factor(),
-                ]);
-            }
+    for atom_hier in pdb.atoms_with_hierarchy() {
+        if residue_list.contains(&atom_hier.residue.serial_number()) {
+            table.add_row(row![
+                atom_hier.atom.serial_number(),
+                atom_hier.atom.name(),
+                atom_hier.residue.serial_number(),
+                atom_hier.residue.name().ok_or("No Residue name")?,
+                atom_hier.atom.occupancy(),
+                atom_hier.atom.b_factor(),
+            ]);
         }
     }
+
+    // for residue in pdb.residues() {
+    //     for atom in residue.atoms() {
+    //         if residue_list.contains(&residue.serial_number()) {
+    //             table.add_row(row![
+    //                 atom.serial_number(),
+    //                 atom.name(),
+    //                 residue.serial_number(),
+    //                 residue.name().ok_or("No Residue name")?,
+    //                 atom.occupancy(),
+    //                 atom.b_factor(),
+    //             ]);
+    //         }
+    //     }
+    // }
 
     if !residue_list.is_empty() {
         table.printstd();
@@ -694,11 +744,17 @@ mod tests {
     #[test]
     fn atom_sphere_test() {
         let pdb = test_pdb("tests/test_blank.pdb");
-        let origin = pdb.atoms_with_hierarchy().find(|x| x.atom.serial_number() == 26).unwrap();
+        let origin = pdb
+            .atoms_with_hierarchy()
+            .find(|x| x.atom.serial_number() == 26)
+            .unwrap();
         let atom_list_incl = vec![21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 32, 45, 46];
         let atom_list_excl = vec![21, 22, 23, 24, 25, 27, 28, 29, 30, 32, 45, 46];
 
-        assert_eq!(calc_atom_sphere(&pdb, &origin, 4.0, true).unwrap().len(), 22);
+        assert_eq!(
+            calc_atom_sphere(&pdb, &origin, 4.0, true).unwrap().len(),
+            22
+        );
         assert_eq!(
             calc_atom_sphere(&pdb, &origin, 3.0, true).unwrap(),
             atom_list_incl
@@ -717,7 +773,10 @@ mod tests {
     #[test]
     fn residue_sphere_test() {
         let pdb = test_pdb("tests/test_blank.pdb");
-        let origin = pdb.atoms_with_hierarchy().find(|x| x.atom.serial_number() == 26).unwrap();
+        let origin = pdb
+            .atoms_with_hierarchy()
+            .find(|x| x.atom.serial_number() == 26)
+            .unwrap();
         let atom_list_excl = vec![
             19, 20, 21, 22, 23, 24, 25, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61,
             62,
@@ -728,7 +787,9 @@ mod tests {
             44
         );
         assert_eq!(
-            calc_residue_sphere(&pdb, &origin, 4.0, false).unwrap().len(),
+            calc_residue_sphere(&pdb, &origin, 4.0, false)
+                .unwrap()
+                .len(),
             23
         );
         assert_eq!(
@@ -805,9 +866,7 @@ mod tests {
         let res_list = pdb
             .residues()
             .filter(|x| res_id_list.contains(&x.serial_number()));
-        let atom_list = res_list
-            .flat_map(|x| x.atoms())
-            .filter(|x| x.is_backbone());
+        let atom_list = res_list.flat_map(|x| x.atoms()).filter(|x| x.is_backbone());
 
         for atom in atom_list {
             assert_eq!(atom.occupancy(), 2.00);
