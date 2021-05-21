@@ -108,6 +108,7 @@ pub fn edit_qm_residues(
                 Ok(())
             })?,
     };
+    Ok(())
 
     // for residue in pdb.residues_mut() {
     //     let serial_number = residue.serial_number();
@@ -137,7 +138,6 @@ pub fn edit_qm_residues(
     //         }
     //     }
     // }
-    Ok(())
 }
 
 /// This function edits the b value of the Molecule (used by ORCA as input for active section
@@ -147,38 +147,83 @@ pub fn edit_qm_residues(
 /// correspdonding Atoms from each Residue.
 pub fn edit_active_residues(
     pdb: &mut PDB,
-    qm_val: f64,
+    active_val: f64,
     list: Vec<isize>,
     partial: Partial,
-) -> Result<(), Box<dyn Error>> {
-    for residue in pdb.residues_mut() {
-        let serial_number = residue.serial_number();
-
-        for atom in residue.atoms_mut() {
-            match partial {
-                Partial::None => {
-                    if list.contains(&serial_number) {
-                        atom.set_b_factor(qm_val)?;
-                    }
-                }
-                Partial::Sidechain => {
-                    if list.contains(&serial_number)
-                        && !atom.is_backbone()
-                    {
-                        atom.set_b_factor(qm_val)?;
-                    }
-                }
-                Partial::Backbone => {
-                    if list.contains(&serial_number)
-                        && atom.is_backbone()
-                    {
-                        atom.set_b_factor(qm_val)?;
-                    }
-                }
-            }
-        }
-    }
+) -> Result<(), String> {
+    match partial {
+        Partial::None => pdb
+            .par_residues_mut()
+            .try_for_each(|res| -> Result<(), String> {
+                if list.contains(&res.serial_number()) {
+                    res.par_atoms_mut()
+                        .try_for_each(|atom| -> Result<(), String> {
+                            atom.set_occupancy(active_val)?;
+                            Ok(())
+                        })?;
+                };
+                Ok(())
+            })?,
+        Partial::Sidechain => pdb
+            .par_residues_mut()
+            .try_for_each(|res| -> Result<(), String> {
+                if list.contains(&res.serial_number()) {
+                    res.par_atoms_mut()
+                        .try_for_each(|atom| -> Result<(), String> {
+                            if !atom.is_backbone() {
+                                atom.set_occupancy(active_val)?
+                            };
+                            Ok(())
+                        })?;
+                };
+                Ok(())
+            })?,
+        Partial::Backbone => pdb
+            .par_residues_mut()
+            .try_for_each(|res| -> Result<(), String> {
+                if list.contains(&res.serial_number()) {
+                    res.par_atoms_mut()
+                        .try_for_each(|atom| -> Result<(), String> {
+                            if atom.is_backbone() {
+                                atom.set_occupancy(active_val)?
+                            };
+                            Ok(())
+                        })?;
+                };
+                Ok(())
+            })?,
+    };
     Ok(())
+
+
+    // for residue in pdb.residues_mut() {
+    //     let serial_number = residue.serial_number();
+
+    //     for atom in residue.atoms_mut() {
+    //         match partial {
+    //             Partial::None => {
+    //                 if list.contains(&serial_number) {
+    //                     atom.set_b_factor(active_val)?;
+    //                 }
+    //             }
+    //             Partial::Sidechain => {
+    //                 if list.contains(&serial_number)
+    //                     && !atom.is_backbone()
+    //                 {
+    //                     atom.set_b_factor(active_val)?;
+    //                 }
+    //             }
+    //             Partial::Backbone => {
+    //                 if list.contains(&serial_number)
+    //                     && atom.is_backbone()
+    //                 {
+    //                     atom.set_b_factor(active_val)?;
+    //                 }
+    //             }
+    //         }
+    //     }
+    // }
+    // Ok(())
 }
 
 /// This functions edits the q value of the PDB file (used by ORCA as input for QM region
@@ -270,7 +315,7 @@ pub fn calc_atom_sphere(
     origin: &AtomWithHierarchy,
     radius: f64,
     include_self: bool,
-) -> Result<Vec<usize>, Box<dyn Error>> {
+) -> Result<Vec<usize>, String> {
     // ) -> Result<impl Iterator<Item = &'a Atom>, Box<dyn Error>> {
 
     let tree = pdb.create_atom_rtree();
@@ -300,7 +345,7 @@ pub fn calc_residue_sphere(
     origin: &AtomWithHierarchy,
     radius: f64,
     include_self: bool,
-) -> Result<Vec<usize>, Box<dyn Error>> {
+) -> Result<Vec<usize>, String> {
     let tree = pdb.create_atom_with_hierarchy_rtree();
 
     let mut sphere_atoms: Vec<usize> = tree
@@ -331,7 +376,7 @@ pub fn calc_residue_sphere(
 /// Finds and prints all contacts present in the PDB file structure. Definition of
 /// 'contact' is given by the 'level' arg which is 1.0A for 'level' = 0 and the
 /// respective atomic radius for 'level' = 1.
-pub fn find_contacts(pdb: &PDB, level: Distance) -> Result<Table, Box<dyn Error>> {
+pub fn find_contacts(pdb: &PDB, level: Distance) -> Result<Table, String> {
     let mut table = Table::new();
     table.set_format(*format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
     table.set_titles(row![
@@ -517,7 +562,7 @@ pub fn parse_residue_list(input: &str, pdb: &PDB) -> Result<Vec<isize>, Box<dyn 
 
 /// Query Molecule for information. Depending on the input this will print a table of
 /// Residues and/or Atoms will available information that were asked for.
-pub fn query_atoms(pdb: &PDB, atom_list: Vec<usize>) -> Result<(), Box<dyn Error>> {
+pub fn query_atoms(pdb: &PDB, atom_list: Vec<usize>) -> Result<(), String> {
     let mut table = Table::new();
     table.add_row(row![
         "Atom ID",
@@ -551,7 +596,7 @@ pub fn query_atoms(pdb: &PDB, atom_list: Vec<usize>) -> Result<(), Box<dyn Error
     }
 }
 
-pub fn query_residues(pdb: &PDB, residue_list: Vec<isize>) -> Result<(), Box<dyn Error>> {
+pub fn query_residues(pdb: &PDB, residue_list: Vec<isize>) -> Result<(), String> {
     let mut table = Table::new();
 
     table.add_row(row![
@@ -599,7 +644,7 @@ pub fn query_residues(pdb: &PDB, residue_list: Vec<isize>) -> Result<(), Box<dyn
     }
 }
 
-pub fn analyze(pdb: &PDB, region: Region, target: Target) -> Result<(), Box<dyn Error>> {
+pub fn analyze(pdb: &PDB, region: Region, target: Target) -> Result<(), String> {
     let mut qm1_residue_list = Vec::new();
     let mut qm1_atom_list = Vec::new();
     let mut qm2_residue_list = Vec::new();
