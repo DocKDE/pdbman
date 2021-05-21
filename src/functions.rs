@@ -195,7 +195,6 @@ pub fn edit_active_residues(
     };
     Ok(())
 
-
     // for residue in pdb.residues_mut() {
     //     let serial_number = residue.serial_number();
 
@@ -573,18 +572,16 @@ pub fn query_atoms(pdb: &PDB, atom_list: Vec<usize>) -> Result<(), String> {
         "Active"
     ]);
 
-    for residue in pdb.residues() {
-        for atom in residue.atoms() {
-            if atom_list.contains(&atom.serial_number()) {
-                table.add_row(row![
-                    atom.serial_number(),
-                    atom.name(),
-                    residue.serial_number(),
-                    residue.name().ok_or("No Residue Name")?,
-                    atom.occupancy(),
-                    atom.b_factor(),
-                ]);
-            }
+    for atom_hier in pdb.atoms_with_hierarchy() {
+        if atom_list.contains(&atom_hier.atom.serial_number()) {
+            table.add_row(row![
+                atom_hier.atom.serial_number(),
+                atom_hier.atom.name(),
+                atom_hier.residue.serial_number(),
+                atom_hier.residue.name().ok_or("No Residue Name")?,
+                atom_hier.atom.occupancy(),
+                atom_hier.atom.b_factor(),
+            ]);
         }
     }
 
@@ -620,21 +617,6 @@ pub fn query_residues(pdb: &PDB, residue_list: Vec<isize>) -> Result<(), String>
             ]);
         }
     }
-
-    // for residue in pdb.residues() {
-    //     for atom in residue.atoms() {
-    //         if residue_list.contains(&residue.serial_number()) {
-    //             table.add_row(row![
-    //                 atom.serial_number(),
-    //                 atom.name(),
-    //                 residue.serial_number(),
-    //                 residue.name().ok_or("No Residue name")?,
-    //                 atom.occupancy(),
-    //                 atom.b_factor(),
-    //             ]);
-    //         }
-    //     }
-    // }
 
     if !residue_list.is_empty() {
         table.printstd();

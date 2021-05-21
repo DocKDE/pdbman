@@ -72,9 +72,7 @@ pub fn run() -> Result<(), Box<dyn Error>> {
                 match target {
                     Target::Atoms => query_atoms(&pdb, parse_atomic_list(list, &pdb)?)?,
                     Target::Residues => query_residues(&pdb, parse_residue_list(list, &pdb)?)?,
-                    Target::None => {
-                        return Err("Please provide either the 'atoms' or 'residues' flag.".into())
-                    }
+                    Target::None => unreachable!()
                 }
             }
             Source::Sphere => {
@@ -92,7 +90,7 @@ pub fn run() -> Result<(), Box<dyn Error>> {
                     Target::Residues => {
                         calc_residue_sphere(&pdb, &sphere.origin, sphere.radius, false)?
                     }
-                    Target::None => return Err("No target was given!".into()),
+                    Target::None => unreachable!(),
                 };
 
                 query_atoms(&pdb, list)?;
@@ -132,7 +130,7 @@ pub fn run() -> Result<(), Box<dyn Error>> {
                     Region::QM2 => 2.00,
                     Region::None => return Err("Region input is needed".into()),
                 },
-                _ => return Err("A mode must be selected".into()),
+                _ => unreachable!(),
             };
 
             match source {
@@ -157,11 +155,7 @@ pub fn run() -> Result<(), Box<dyn Error>> {
                                 Region::Active => {
                                     edit_active_atoms(&mut pdb, edit_value, atomic_list)?
                                 }
-                                Region::None => {
-                                    return Err(
-                                        "Please give a region to add atoms or residues to.".into(),
-                                    );
-                                }
+                                Region::None => unreachable!()
                             }
                         }
                         Target::Residues => {
@@ -177,9 +171,7 @@ pub fn run() -> Result<(), Box<dyn Error>> {
                                     residue_list,
                                     partial,
                                 )?,
-                                Region::None => {
-                                    return Err("Please give a region to modify.".into())
-                                }
+                                Region::None => unreachable!()
                             }
                         }
                         Target::None => {
@@ -204,13 +196,13 @@ pub fn run() -> Result<(), Box<dyn Error>> {
                         Target::Residues => {
                             calc_residue_sphere(&pdb, &sphere.origin, sphere.radius, true)?
                         }
-                        Target::None => return Err("No target was given!".into()),
+                        Target::None => unreachable!(),
                     };
 
                     match region {
                         Region::QM1 | Region::QM2 => edit_qm_atoms(&mut pdb, edit_value, list)?,
                         Region::Active => edit_active_atoms(&mut pdb, edit_value, list)?,
-                        Region::None => return Err("Please give a region.".into()),
+                        Region::None => unreachable!(),
                     }
                 }
                 Source::None => {
@@ -220,13 +212,12 @@ pub fn run() -> Result<(), Box<dyn Error>> {
                     {
                         remove_all(&mut pdb)?
                     } else {
-                        return Err("Please provide a source (input file, list or sphere) for the addition of atoms or residues.".into());
+                        return Err("Please provide the approprate options (see --help).".into());
                     }
                 }
             }
         }
         Mode::None => {
-            // return Err("Please choose either 'Add', 'Analyze', 'Query' or 'Remove' mode using the respective subcommand.".into())
             unreachable!()
         }
     }
