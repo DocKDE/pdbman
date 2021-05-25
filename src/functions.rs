@@ -1,12 +1,12 @@
 use std::convert::TryFrom;
 use std::error::Error;
 
-use pdbtbx::{Atom, AtomWithHierarchy, PDB};
-use prettytable::{format, Table};
-// use regex::Regex;
 use crate::{Distance, Partial, Region, Target};
 use itertools::Itertools;
+use pdbtbx::{Atom, AtomWithHierarchy, PDB};
+use prettytable::{format, Table};
 use rayon::prelude::*;
+use regex::Regex;
 
 // type Result<T> = std::result::Result<T, Box<dyn Error>>;
 
@@ -159,7 +159,7 @@ pub fn edit_active_residues(
                 if list.contains(&res.serial_number()) {
                     res.par_atoms_mut()
                         .try_for_each(|atom| -> Result<(), String> {
-                            atom.set_occupancy(active_val)?;
+                            atom.set_b_factor(active_val)?;
                             Ok(())
                         })?;
                 };
@@ -172,7 +172,7 @@ pub fn edit_active_residues(
                     res.par_atoms_mut()
                         .try_for_each(|atom| -> Result<(), String> {
                             if !atom.is_backbone() {
-                                atom.set_occupancy(active_val)?
+                                atom.set_b_factor(active_val)?
                             };
                             Ok(())
                         })?;
@@ -186,7 +186,7 @@ pub fn edit_active_residues(
                     res.par_atoms_mut()
                         .try_for_each(|atom| -> Result<(), String> {
                             if atom.is_backbone() {
-                                atom.set_occupancy(active_val)?
+                                atom.set_b_factor(active_val)?
                             };
                             Ok(())
                         })?;
@@ -467,7 +467,11 @@ pub fn find_contacts(pdb: &PDB, level: Distance) -> Result<Table, String> {
 }
 
 // ///Input may contain only one instance of a range-indicating character
-fn expand_range(input: &str) -> Result<Vec<usize>, std::num::ParseIntError> {
+fn expand_range(input: &str) -> Result<Vec<usize>, Box<dyn Error>> {
+    // let re_num =
+    //     Regex::new(r"^(?<id1>\d+)(?<insert1>[A-Za-z]?)[:-](?<id2>\d+)(?<insert2>[A-Za-z]?)$")?;
+    // let caps = re_num.captures(input).unwrap();
+
     let vector: Vec<usize> = input
         .split(&['-', ':'][..])
         .map(|x| x.parse())

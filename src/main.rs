@@ -72,7 +72,7 @@ pub fn run() -> Result<(), Box<dyn Error>> {
                 match target {
                     Target::Atoms => query_atoms(&pdb, parse_atomic_list(list, &pdb)?)?,
                     Target::Residues => query_residues(&pdb, parse_residue_list(list, &pdb)?)?,
-                    Target::None => unreachable!()
+                    Target::None => unreachable!(),
                 }
             }
             Source::Sphere => {
@@ -155,7 +155,7 @@ pub fn run() -> Result<(), Box<dyn Error>> {
                                 Region::Active => {
                                     edit_active_atoms(&mut pdb, edit_value, atomic_list)?
                                 }
-                                Region::None => unreachable!()
+                                Region::None => unreachable!(),
                             }
                         }
                         Target::Residues => {
@@ -171,7 +171,7 @@ pub fn run() -> Result<(), Box<dyn Error>> {
                                     residue_list,
                                     partial,
                                 )?,
-                                Region::None => unreachable!()
+                                Region::None => unreachable!(),
                             }
                         }
                         Target::None => {
