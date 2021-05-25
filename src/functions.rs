@@ -138,6 +138,7 @@ pub fn edit_qm_residues(
     //         }
     //     }
     // }
+    // Ok(())
 }
 
 /// This function edits the b value of the Molecule (used by ORCA as input for active section
@@ -338,7 +339,7 @@ pub fn calc_atom_sphere(
 
 /// Takes an Atom struct as point of origin, a radius in A. Returns a Vector of Atom IDs
 /// that belong to a Residue that had at least one Atom within the given radius wrapped in a Result.
-/// Origin can be included or excluded.
+/// Origin residue can be included or excluded.
 pub fn calc_residue_sphere(
     pdb: &PDB,
     origin: &AtomWithHierarchy,

@@ -300,14 +300,22 @@ fn sphere_valid(v: &str) -> Result<()> {
 }
 
 fn list_valid(v: &str) -> Result<()> {
-    let re = Regex::new(r"[-:A-Za-z\d,]")?;
-
-    for i in v.chars() {
-        if !re.is_match(&i.to_string()) {
-            return Err(format!("Unsupported input character: '{}'", i).into());
+    let re_num = Regex::new(r"^\d+[A-Za-z]?([:-]\d+[A-Za-z]?)?$")?;
+    let re_str = Regex::new(r"^[A-Za-z]+$")?;
+    for i in v.split(",") {
+        if !(re_num.is_match(i) || re_str.is_match(i)) {
+            return Err(format!("Invalid list input: '{}'", i).into())
         }
     }
     Ok(())
+    // let re = Regex::new(r"[-:A-Za-z\d,]")?;
+
+    // for i in v.chars() {
+    //     if !re.is_match(&i.to_string()) {
+    //         return Err(format!("Unsupported input character: '{}'", i).into());
+    //     }
+    // }
+    // Ok(())
 }
 
 /// Defines all Args, their configuration and all ArgGroups as defined by clap.
