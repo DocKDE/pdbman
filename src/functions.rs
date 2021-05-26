@@ -725,7 +725,6 @@ pub fn query_atoms(pdb: &PDB, atom_list: AtomList) -> Result<(), String> {
 
     if table.len() > 1 {
         table.printstd();
-        println!("{:?}", atom_list);
         Ok(())
     } else {
         Err("No Atoms found!".into())
