@@ -483,7 +483,7 @@ fn expand_atom_range(input: &str) -> Result<Vec<usize>, Box<dyn Error>> {
         .split(&['-', ':'][..])
         .map(|x| x.parse())
         .collect::<Result<_, _>>()?;
-    Ok((vector[0]..=vector[1]).collect())
+    Ok((vector[0]..vector[1]+1).collect())
 }
 
 fn expand_residue_range<'a>(
@@ -595,10 +595,10 @@ pub fn parse_residue_list<'a>(
                 if i.contains(&[':', '-'][..]) {
                     output_vec.extend(expand_residue_range(i, pdb)?);
                 } else {
-                    let re = Regex::new(r"^(?P<resid>\d+)(?P<insert>[A-Za-z])?$")?;
-                    let caps = re.captures(i).unwrap();
-                    let resid: isize = caps.name("resid").unwrap().as_str().parse()?;
-                    let insert = caps.name("insert").map(|x| x.as_str());
+                    // let re = Regex::new(r"^(?P<resid>\d+)(?P<insert>[A-Za-z])?$")?;
+                    let caps = re_num.captures(i).unwrap();
+                    let resid: isize = caps.name("id1").unwrap().as_str().parse()?;
+                    let insert = caps.name("insert1").map(|x| x.as_str());
                     output_vec.push((resid, insert));
                 }
             }
@@ -617,6 +617,8 @@ pub fn parse_residue_list<'a>(
                 .collect::<Result<Vec<(isize, Option<&str>)>, Box<dyn Error>>>()?;
         }
     };
+
+    Ok(output_vec)
 
     // if re_num.is_match(input) {
     //     let input_vec: Vec<&str> = input.split(',').collect();
@@ -686,7 +688,7 @@ pub fn parse_residue_list<'a>(
     //     },
     // }
 
-    Ok(output_vec)
+    // Ok(output_vec)
 }
 
 /// Query Molecule for information. Depending on the input this will print a table of
@@ -715,8 +717,9 @@ pub fn query_atoms(pdb: &PDB, atom_list: Vec<usize>) -> Result<(), String> {
         }
     }
 
-    if !atom_list.is_empty() {
+    if table.len() > 1 {
         table.printstd();
+        println!("{:?}", atom_list);
         Ok(())
     } else {
         Err("No Atoms found!".into())
@@ -753,7 +756,7 @@ pub fn query_residues(pdb: &PDB, residue_list: Vec<(isize, Option<&str>)>) -> Re
         }
     }
 
-    if !residue_list.is_empty() {
+    if table.len() > 1 {
         table.printstd();
         Ok(())
     } else {

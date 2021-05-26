@@ -1,29 +1,27 @@
-/*!
-This crate serves as a command line utility to handle PDB files for use with the Quantum
-Chemistry package ORCA. Its capabilities include querying the file for residues and atoms,
-analyzing the defined QM and Active regions (according to ORCA nomenclature using the
-occupancy and B values) and editing these same regions so the PDB file can be used as input
-in a QM/MM calculation.
-
-# Example usage:
-Query for atoms with the name 'Cu':
-
-`pdbman myfile.pdb Query -tl Cu`
-
-Analyze QM residues:
-
-`pdbman myfile.pdb Analyze -rq`
-
-Remove all QM and Active atoms and overwrite input file:
-
-`pdbman myfile.pdb Remove -w`
-
-Add atoms in a sphere around a given atom to Active region:
-
-`pdbman myfile.pdb Add -raws 2589 10`
-
-The `--sphere` or `-s` flag takes an atom ID and a radius in Angstrom as arguments.
-*/
+//! This crate serves as a command line utility to handle PDB files for use with the Quantum
+//! Chemistry package ORCA. Its capabilities include querying the file for residues and atoms,
+//! analyzing the defined QM and Active regions (according to ORCA nomenclature using the
+//! occupancy and B values) and editing these same regions so the PDB file can be used as input
+//! in a QM/MM calculation.
+//!
+//! # Example usage:
+//! Query for atoms with the name 'Cu':
+//!
+//! `pdbman myfile.pdb Query -tl Cu`
+//!
+//! Analyze QM residues:
+//!
+//! `pdbman myfile.pdb Analyze -rq`
+//!
+//! Remove all QM and Active atoms and overwrite input file:
+//!
+//! `pdbman myfile.pdb Remove -w`
+//!
+//! Add atoms in a sphere around a given atom to Active region:
+//!
+//! `pdbman myfile.pdb Add -raws 2589 10`
+//!
+//! The `--sphere` or `-s` flag takes an atom ID and a radius in Angstrom as arguments.
 
 // #![allow(dead_code)]
 #[macro_use]
