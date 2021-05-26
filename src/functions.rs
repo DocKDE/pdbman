@@ -7,16 +7,9 @@ use prettytable::{format, Table};
 use rayon::prelude::*;
 use regex::Regex;
 
-// type Result<T> = std::result::Result<T, Box<dyn Error>>;
-
-/// Includes Amber-specific naming conventions for (de-)protonated versions, CYS involved in
-/// disulfide bonding and the like.
-// const AMINOS: [&str; 29] = [
-//     "ARG", "HIS", "HIP", "HID", "HIM", "HIE", "LYS", "LYN", "ASP", "ASH", "GLU", "GLH", "SER",
-//     "THR", "ASN", "GLN", "CYS", "CYX", "SEC", "GLY", "PRO", "ALA", "VAL", "ILE", "LEU", "MET",
-//     "PHE", "TYR", "TRP",
-// ];
-// const BACKBONE_ATOMS: [&str; 8] = ["C", "O", "N", "H", "CA", "HA", "HA2", "HA3"];
+type GenErr = Box<dyn Error>;
+type AtomList = Vec<usize>;
+type ResidueList<'a> = Vec<(isize, Option<&'a str>)>;
 
 #[derive(PartialEq, Debug, Clone)]
 pub struct Sphere<'a> {
@@ -28,7 +21,7 @@ pub struct Sphere<'a> {
 /// a reference to the corresponding Atom and the radius. The return values are organized
 /// in a Sphere struct to facilitate usage.
 impl<'a> Sphere<'a> {
-    pub fn new(mut inp_str: clap::Values, pdb: &'a PDB) -> Result<Sphere<'a>, Box<dyn Error>> {
+    pub fn new(mut inp_str: clap::Values, pdb: &'a PDB) -> Result<Sphere<'a>, GenErr> {
         let (origin_str, radius_str) =
             inp_str.next_tuple().ok_or("Problem with 'Sphere' option")?;
 
@@ -62,7 +55,7 @@ impl<'a> Sphere<'a> {
 pub fn edit_qm_residues(
     pdb: &mut PDB,
     qm_val: f64,
-    list: Vec<(isize, Option<&str>)>,
+    list: ResidueList,
     partial: Partial,
 ) -> Result<(), String> {
     match partial {
@@ -154,7 +147,7 @@ pub fn edit_qm_residues(
 pub fn edit_active_residues(
     pdb: &mut PDB,
     active_val: f64,
-    list: Vec<(isize, Option<&str>)>,
+    list: ResidueList,
     partial: Partial,
 ) -> Result<(), String> {
     match partial {
@@ -240,7 +233,7 @@ pub fn edit_active_residues(
 /// This functions edits the q value of the PDB file (used by ORCA as input for QM region
 /// selection) by Atom. It takes a mutable reference to a PDB struct, the desired value
 /// q should be set to and a vector of Atom IDs.
-pub fn edit_qm_atoms(pdb: &mut PDB, qm_val: f64, list: Vec<usize>) -> Result<(), Box<dyn Error>> {
+pub fn edit_qm_atoms(pdb: &mut PDB, qm_val: f64, list: AtomList) -> Result<(), GenErr> {
     // for atom in pdb.atoms_mut() {
     //     if list.contains(&atom.serial_number()) {
     //         atom.set_occupancy(qm_val)?
@@ -260,11 +253,7 @@ pub fn edit_qm_atoms(pdb: &mut PDB, qm_val: f64, list: Vec<usize>) -> Result<(),
 /// This functions edits the b value of the PDB file (used by ORCA as input for QM region
 /// selection) by Atom. It takes a mutable reference to a PDB struct, the desired value
 /// b should be set to and a vector of Atom IDs.
-pub fn edit_active_atoms(
-    pdb: &mut PDB,
-    active_val: f64,
-    list: Vec<usize>,
-) -> Result<(), Box<dyn Error>> {
+pub fn edit_active_atoms(pdb: &mut PDB, active_val: f64, list: AtomList) -> Result<(), GenErr> {
     // for atom in pdb.atoms_mut() {
     //     if list.contains(&atom.serial_number()) {
     //         atom.set_b_factor(active_val)?
@@ -282,7 +271,7 @@ pub fn edit_active_atoms(
 }
 
 /// Sets all q and b values to zero which serves as a fresh start.
-pub fn remove_all(pdb: &mut PDB) -> Result<(), Box<dyn Error>> {
+pub fn remove_all(pdb: &mut PDB) -> Result<(), GenErr> {
     // for atom in pdb.atoms_mut() {
     //     atom.set_occupancy(0.00)?;
     //     atom.set_b_factor(0.00)?;
@@ -300,7 +289,7 @@ pub fn remove_all(pdb: &mut PDB) -> Result<(), Box<dyn Error>> {
 /// Prints all Atoms in Molecule to stdout in PDB file format This can be redirected
 /// to a file if desired. This may be obsolete as the functionality of printing to a file
 /// already exists with a separate flag.
-pub fn print_to_stdout(pdb: &PDB) -> Result<(), Box<dyn Error>> {
+pub fn print_to_stdout(pdb: &PDB) -> Result<(), GenErr> {
     for atom_hier in pdb.atoms_with_hierarchy() {
         println!(
             "ATOM  {:>5} {:<4} {:>3}  {:>4}    {:>8.3}{:>8.3}{:>8.3}{:>6.2}{:>6.2}          {:>2}",
@@ -326,11 +315,11 @@ pub fn calc_atom_sphere(
     origin: &AtomWithHierarchy,
     radius: f64,
     include_self: bool,
-) -> Result<Vec<usize>, String> {
+) -> Result<AtomList, String> {
     // ) -> Result<impl Iterator<Item = &'a Atom>, Box<dyn Error>> {
 
     let tree = pdb.create_atom_rtree();
-    let mut sphere_atoms: Vec<usize> = tree
+    let mut sphere_atoms: AtomList = tree
         .locate_within_distance(origin.atom.pos_array(), radius.powf(2.0))
         .map(|atom| atom.serial_number())
         .collect();
@@ -356,15 +345,15 @@ pub fn calc_residue_sphere(
     origin: &AtomWithHierarchy,
     radius: f64,
     include_self: bool,
-) -> Result<Vec<usize>, String> {
+) -> Result<AtomList, String> {
     let tree = pdb.create_atom_with_hierarchy_rtree();
 
-    let mut sphere_atoms: Vec<usize> = tree
+    let mut sphere_atoms: AtomList = tree
         .locate_within_distance(origin.atom.pos_array(), radius.powf(2.0))
         .flat_map(|atom_hier| atom_hier.residue.atoms().map(|atom| atom.serial_number()))
         .collect();
 
-    let origin_res_atoms: Vec<usize> = origin
+    let origin_res_atoms: AtomList = origin
         .residue
         .atoms()
         .map(|atom| atom.serial_number())
@@ -477,19 +466,18 @@ pub fn find_contacts(pdb: &PDB, level: Distance) -> Result<Table, String> {
     }
 }
 
-///Input may contain only one instance of a range-indicating character
-fn expand_atom_range(input: &str) -> Result<Vec<usize>, Box<dyn Error>> {
-    let vector: Vec<usize> = input
+/// Takes a string of type '1-2' or '2:4' and returns a vector of all spanned numbers as usize
+fn expand_atom_range(input: &str) -> Result<AtomList, GenErr> {
+    let vector: AtomList = input
         .split(&['-', ':'][..])
         .map(|x| x.parse())
         .collect::<Result<_, _>>()?;
-    Ok((vector[0]..vector[1]+1).collect())
+    Ok((vector[0]..vector[1] + 1).collect())
 }
 
-fn expand_residue_range<'a>(
-    input: &str,
-    pdb: &'a PDB,
-) -> Result<Vec<(isize, Option<&'a str>)>, Box<dyn Error>> {
+/// Takes a string of type '1-2' or '2A:4A' (also accounting for residue insertion codes) and returns
+/// a vector containing the range of residues with their insertion codes in a tuple.
+fn expand_residue_range<'a>(input: &str, pdb: &'a PDB) -> Result<ResidueList<'a>, GenErr> {
     let re_num =
         Regex::new(r"^(?P<id1>\d+)(?P<insert1>[A-Za-z]?)[:-](?P<id2>\d+)(?P<insert2>[A-Za-z]?)$")?;
     let caps = re_num.captures(input).unwrap();
@@ -500,6 +488,7 @@ fn expand_residue_range<'a>(
         Some(x) => Some(x),
         _ => unreachable!(),
     };
+
     let id2: isize = caps.name("id2").unwrap().as_str().parse()?;
     let insert2 = match caps.name("insert2").map(|x| x.as_str()) {
         Some("") => None,
@@ -507,31 +496,48 @@ fn expand_residue_range<'a>(
         _ => unreachable!(),
     };
 
-    let mut output_vec: Vec<(isize, Option<&str>)> = vec![];
+    let start = pdb
+        .residues()
+        .position(|x| x.serial_number() == id1 && x.insertion_code() == insert1)
+        .ok_or(format!("No Residue found with serial number: {}", id1))?;
 
-    let mut parse = false;
-    for residue in pdb.residues() {
-        if residue.serial_number() == id1 && residue.insertion_code() == insert1 {
-            parse = true;
-        }
+    let end = pdb
+        .residues()
+        .position(|x| x.serial_number() == id2 && x.insertion_code() == insert2)
+        .ok_or(format!("No Residue found with serial number: {}", id2))?;
 
-        if parse {
-            output_vec.push((residue.serial_number(), residue.insertion_code()))
-        }
+    Ok(pdb
+        .residues()
+        .skip(start)
+        .take(end + 1 - start)
+        .map(|x| (x.serial_number(), x.insertion_code()))
+        .collect())
 
-        if residue.serial_number() == id2 && residue.insertion_code() == insert2 {
-            parse = false;
-            break;
-        }
-    }
+    // let mut output_vec: ResidueList = vec![];
 
-    Ok(output_vec)
+    // let mut parse = false;
+    // for residue in pdb.residues() {
+    //     if residue.serial_number() == id1 && residue.insertion_code() == insert1 {
+    //         parse = true;
+    //     }
+
+    //     if parse {
+    //         output_vec.push((residue.serial_number(), residue.insertion_code()))
+    //     }
+
+    //     if residue.serial_number() == id2 && residue.insertion_code() == insert2 {
+    //         parse = false;
+    //         break;
+    //     }
+    // }
+
+    // Ok(output_vec)
 }
 
 /// Takes a comma-separated list (usually from command line input) as string and parses it into
 /// a vector of Atom IDs. The Input may be atom IDs or Atom Names
-pub fn parse_atomic_list(input: &str, pdb: &PDB) -> Result<Vec<usize>, Box<dyn Error>> {
-    let mut output_vec: Vec<usize> = vec![];
+pub fn parse_atomic_list(input: &str, pdb: &PDB) -> Result<AtomList, GenErr> {
+    let mut output_vec: AtomList = vec![];
 
     match input
         .split(&[',', '-', ':'][..])
@@ -576,10 +582,10 @@ pub fn parse_atomic_list(input: &str, pdb: &PDB) -> Result<Vec<usize>, Box<dyn E
     Ok(output_vec)
 }
 
-pub fn parse_residue_list<'a>(
-    input: &'a str,
-    pdb: &'a PDB,
-) -> Result<Vec<(isize, Option<&'a str>)>, Box<dyn Error>> {
+/// Parses a string (usually taken from command line) and returns a list of residues given by a tuple
+/// of serial numbers and insertion codes. The input can be either a comma-separated list of serial numbers
+/// and insertion codes or residues names.
+pub fn parse_residue_list<'a>(input: &'a str, pdb: &'a PDB) -> Result<ResidueList<'a>, GenErr> {
     let re_num = Regex::new(
         r"^(?P<id1>\d+)(?P<insert1>[A-Za-z]?)([:-](?P<id2>\d+)(?P<insert2>[A-Za-z]?))?$",
     )?;
@@ -595,10 +601,10 @@ pub fn parse_residue_list<'a>(
                 if i.contains(&[':', '-'][..]) {
                     output_vec.extend(expand_residue_range(i, pdb)?);
                 } else {
-                    // let re = Regex::new(r"^(?P<resid>\d+)(?P<insert>[A-Za-z])?$")?;
-                    let caps = re_num.captures(i).unwrap();
-                    let resid: isize = caps.name("id1").unwrap().as_str().parse()?;
-                    let insert = caps.name("insert1").map(|x| x.as_str());
+                    let re = Regex::new(r"^(?P<resid>\d+)(?P<insert>[A-Za-z])?$")?;
+                    let caps = re.captures(i).unwrap();
+                    let resid: isize = caps.name("resid").unwrap().as_str().parse()?;
+                    let insert = caps.name("insert").map(|x| x.as_str());
                     output_vec.push((resid, insert));
                 }
             }
@@ -614,7 +620,7 @@ pub fn parse_residue_list<'a>(
                         .then(|| (x.serial_number(), x.insertion_code())))
                 })
                 .filter_map(Result::transpose)
-                .collect::<Result<Vec<(isize, Option<&str>)>, Box<dyn Error>>>()?;
+                .collect::<Result<Vec<(isize, Option<&str>)>, GenErr>>()?;
         }
     };
 
@@ -693,7 +699,7 @@ pub fn parse_residue_list<'a>(
 
 /// Query Molecule for information. Depending on the input this will print a table of
 /// Residues and/or Atoms will available information that were asked for.
-pub fn query_atoms(pdb: &PDB, atom_list: Vec<usize>) -> Result<(), String> {
+pub fn query_atoms(pdb: &PDB, atom_list: AtomList) -> Result<(), String> {
     let mut table = Table::new();
     table.add_row(row![
         "Atom ID",
@@ -832,12 +838,15 @@ pub fn analyze(pdb: &PDB, region: Region, target: Target) -> Result<(), String> 
                 let mut atom_counter = 0;
                 for atom in residue.atoms() {
                     atom_counter += 1;
-                    if region == Region::QM1 && atom.occupancy() == 1.00 {
+                    if (region == Region::QM1 && atom.occupancy() == 1.00)
+                        || (region == Region::QM2 && atom.occupancy() == 2.00)
+                        || (region == Region::Active && atom.b_factor() == 1.00)
+                    {
                         resid_atoms += 1;
-                    } else if region == Region::QM2 && atom.occupancy() == 2.00 {
-                        resid_atoms += 1;
-                    } else if region == Region::Active && atom.b_factor() == 1.00 {
-                        resid_atoms += 1;
+                        // } else if region == Region::QM2 && atom.occupancy() == 2.00 {
+                        //     resid_atoms += 1;
+                        // } else if region == Region::Active && atom.b_factor() == 1.00 {
+                        //     resid_atoms += 1;
                     }
                 }
 
@@ -963,6 +972,7 @@ mod tests {
     fn parse_residue_list_test() {
         let num_list1 = "1-2,3:4,6,7";
         let num_list2 = "9999A:1B,6B,8B-10B";
+        let str_list = "cu,NA+";
 
         let pdb1 = test_pdb("tests/test_blank.pdb");
         let pdb2 = test_pdb("tests/test_insert.pdb");
@@ -990,6 +1000,11 @@ mod tests {
                 (9, Some("B")),
                 (10, Some("B")),
             )
+        );
+
+        assert_eq!(
+            parse_residue_list(str_list, &pdb2).unwrap(),
+            vec!((228, Some("A")), (229, Some("A")))
         );
     }
 

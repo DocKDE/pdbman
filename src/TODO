@@ -1,12 +1,12 @@
 * rewrite the function logic to pass around Atom structs, not indices, maybe use iterators?
 * split command list parsing into function for integers and strings?
-* solve issue with duplicate residue numbers 
-    - add insert codes to PDB file (or use PDBx/mmCIF)
-    - parse insert codes from list inputs for residues (regex?)
-    - update number expansion function to incorporate insertion codes
-    - pass parsed list input at a vec of tuples (isize, Option<String>)
-    - rewrite residue functions to take vec of tuples and check for insertion code
 
+#* solve issue with duplicate residue numbers 
+#    - add insert codes to PDB file (or use PDBx/mmCIF)
+#    - parse insert codes from list inputs for residues (regex?)
+#    - update number expansion function to incorporate insertion codes
+#    - pass parsed list input at a vec of tuples (isize, Option<String>)
+#    - rewrite residue functions to take vec of tuples and check for insertion code
 #* rewrite sphere finding functions with RTree
 #* add validation for sphere input
 #* write struct containing origin atom, radius, include_self and atom/residues for sphere jobs

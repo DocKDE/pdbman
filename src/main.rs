@@ -23,7 +23,7 @@
 //!
 //! The `--sphere` or `-s` flag takes an atom ID and a radius in Angstrom as arguments.
 
-// #![allow(dead_code)]
+#![allow(clippy::clippy::float_cmp)]
 #[macro_use]
 extern crate clap;
 
