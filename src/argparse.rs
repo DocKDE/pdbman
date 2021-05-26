@@ -300,27 +300,32 @@ fn sphere_valid(v: &str) -> Result<()> {
 }
 
 fn list_valid(v: &str) -> Result<()> {
-    let re_num =
-        Regex::new(r"^(?P<id1>\d+)(?P<insert1>[A-Za-z]?)([:-](?P<id2>\d+)(?P<insert2>[A-Za-z]?))?$")?;
+    let re_num = Regex::new(
+        r"^(?P<id1>\d+)(?P<insert1>[A-Za-z]?)([:-](?P<id2>\d+)(?P<insert2>[A-Za-z]?))?$",
+    )?;
     let re_str = Regex::new(r"^[A-Za-z]+$")?;
 
     let mut numerical_inp = false;
     let mut string_inp = false;
 
-    for i in v.split(",") {
+    for i in v.split(',') {
         if re_num.is_match(i) {
             numerical_inp = true;
 
             let caps = re_num.captures(i).unwrap();
-            if caps.name("id2").is_some() {
-                if caps.name("id1").unwrap().as_str() > caps.name("id2").unwrap().as_str() {
-                    return Err(format!(
-                        "Invalid range given: {}-{}. Left number must be lower!",
+            if caps.name("id2").is_some()
+                && caps.name("id1").unwrap().as_str().parse::<u32>()?
+                    > caps.name("id2").unwrap().as_str().parse::<u32>()?
+                && caps.name("insert1").unwrap().as_str() >= caps.name("insert2").unwrap().as_str()
+            {
+                return Err(format!(
+                        "Invalid range given: {}{}-{}{}. Left residue must preceed right one in PDB file!",
                         caps.name("id1").unwrap().as_str(),
-                        caps.name("id2").unwrap().as_str()
+                        caps.name("insert1").unwrap().as_str(),
+                        caps.name("id2").unwrap().as_str(),
+                        caps.name("insert2").unwrap().as_str(),
                     )
                     .into());
-                }
             }
         } else if re_str.is_match(i) {
             string_inp = true;
@@ -330,7 +335,7 @@ fn list_valid(v: &str) -> Result<()> {
     }
 
     if numerical_inp && string_inp {
-        return Err(format!("Input List contains mixed types.").into());
+        return Err("Input List contains mixed types.".into());
     }
 
     Ok(())
