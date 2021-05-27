@@ -49,7 +49,7 @@ impl<'a> Sphere<'a> {
 
 /// This function edits the q value of the Molecule (used by ORCA as input for QM section
 /// selection) by Residue. It takes a mutable reference of a PDB struct, the desired value q should
-/// be set to and a list of Residue serial numbers for the Atoms to edit.
+/// be set to, and a list of Residue serial numbers for the Atoms to edit.
 /// The last option recognizes 'backbone', 'sidechain' and 'None' as options and will select the
 /// correspdonding Atoms from each Residue.
 pub fn edit_qm_residues(
@@ -141,7 +141,7 @@ pub fn edit_qm_residues(
 
 /// This function edits the b value of the Molecule (used by ORCA as input for active section
 /// selection) by Residue. It takes a mutable reference of a PDB struct, the desired value b should
-/// be set to and a list of Residue IDs for the Residues to edit.
+/// be set to, and a list of Residue IDs for the Residues to edit.
 /// The last option recognizes 'backbone', 'sidechain' and 'None' as options and will select the
 /// correspdonding Atoms from each Residue.
 pub fn edit_active_residues(
@@ -535,26 +535,6 @@ fn expand_residue_range<'a>(input: &str, pdb: &'a PDB) -> Result<ResidueList<'a>
         .take(end + 1 - start)
         .map(|x| (x.serial_number(), x.insertion_code()))
         .collect())
-
-    // let mut output_vec: ResidueList = vec![];
-
-    // let mut parse = false;
-    // for residue in pdb.residues() {
-    //     if residue.serial_number() == id1 && residue.insertion_code() == insert1 {
-    //         parse = true;
-    //     }
-
-    //     if parse {
-    //         output_vec.push((residue.serial_number(), residue.insertion_code()))
-    //     }
-
-    //     if residue.serial_number() == id2 && residue.insertion_code() == insert2 {
-    //         parse = false;
-    //         break;
-    //     }
-    // }
-
-    // Ok(output_vec)
 }
 
 /// Takes a comma-separated list (usually from command line input) as string and parses it into
@@ -599,21 +579,6 @@ pub fn parse_atomic_list(input: &str, pdb: &PDB) -> Result<AtomList, GenErr> {
                 .collect();
         }
     }
-    // false => match input
-    //     .split(&[',', '-', ':'][..])
-    //     .all(|x| x.parse::<usize>().is_err())
-    // {
-    //     true => {
-    //         let input_vec: Vec<String> = input.split(',').map(|x| x.to_lowercase()).collect();
-    //         output_vec = pdb
-    //             .atoms()
-    //             .filter(|x| input_vec.contains(&x.name().to_lowercase()))
-    //             .map(|x| x.serial_number())
-    //             .collect();
-    //     }
-    //     false => return Err("Input List contains mixed types which is not supported.".into()),
-    // },
-
     Ok(output_vec)
 }
 
@@ -626,7 +591,7 @@ pub fn parse_residue_list<'a>(input: &'a str, pdb: &'a PDB) -> Result<ResidueLis
     )?;
     // let re_str = Regex::new(r"^[A-Za-z]+$")?;
 
-    let mut output_vec: Vec<(isize, Option<&str>)> = vec![];
+    let mut output_vec: ResidueList = vec![];
 
     match input.split(',').all(|x| re_num.is_match(x)) {
         true => {
@@ -659,6 +624,12 @@ pub fn parse_residue_list<'a>(input: &'a str, pdb: &'a PDB) -> Result<ResidueLis
         }
         false => {
             let input_vec: Vec<String> = input.split(',').map(|x| x.to_lowercase()).collect();
+
+            for i in &input_vec {
+                if !pdb.par_residues().any(|x| &x.name().unwrap_or("").to_lowercase() == i) {
+                    return Err(format!("No residue found with name: {}", i).into());
+                }
+            }
 
             output_vec = pdb
                 .residues()
@@ -771,15 +742,18 @@ pub fn query_atoms(pdb: &PDB, atom_list: AtomList) -> Result<(), String> {
         }
     }
 
-    if table.len() > 1 {
-        table.printstd();
-        Ok(())
-    } else {
-        Err("No Atoms found!".into())
-    }
+    table.printstd();
+    Ok(())
+
+    // if table.len() > 1 {
+    //     table.printstd();
+    //     Ok(())
+    // } else {
+    //     Err("No Atoms found!".into())
+    // }
 }
 
-pub fn query_residues(pdb: &PDB, residue_list: Vec<(isize, Option<&str>)>) -> Result<(), String> {
+pub fn query_residues(pdb: &PDB, residue_list: ResidueList) -> Result<(), String> {
     let mut table = Table::new();
 
     table.add_row(row![
@@ -809,12 +783,15 @@ pub fn query_residues(pdb: &PDB, residue_list: Vec<(isize, Option<&str>)>) -> Re
         }
     }
 
-    if table.len() > 1 {
-        table.printstd();
-        Ok(())
-    } else {
-        Err("No Residues found!".into())
-    }
+    table.printstd();
+    Ok(())
+
+    // if table.len() > 1 {
+    //     table.printstd();
+    //     Ok(())
+    // } else {
+    //     Err("No Residues found!".into())
+    // }
 }
 
 pub fn analyze(pdb: &PDB, region: Region, target: Target) -> Result<(), String> {
