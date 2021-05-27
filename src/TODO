@@ -1,5 +1,5 @@
-* rewrite the function logic to pass around Atom structs, not indices, maybe use iterators?
-* split command list parsing into function for integers and strings?
+* minimize occurence of regexes
+(* rewrite the function logic to pass around Atom structs, not indices, maybe use iterators?)
 
 #* solve issue with duplicate residue numbers 
 #    - add insert codes to PDB file (or use PDBx/mmCIF)

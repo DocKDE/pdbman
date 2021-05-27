@@ -467,12 +467,27 @@ pub fn find_contacts(pdb: &PDB, level: Distance) -> Result<Table, String> {
 }
 
 /// Takes a string of type '1-2' or '2:4' and returns a vector of all spanned numbers as usize
-fn expand_atom_range(input: &str) -> Result<AtomList, GenErr> {
+fn expand_atom_range(input: &str, pdb: &PDB) -> Result<AtomList, GenErr> {
     let vector: AtomList = input
         .split(&['-', ':'][..])
         .map(|x| x.parse())
         .collect::<Result<_, _>>()?;
-    Ok((vector[0]..vector[1] + 1).collect())
+
+    let atom_list = (vector[0]..vector[1] + 1).collect();
+
+    for &i in &atom_list {
+        if !pdb.atoms().any(|x| x.serial_number() == i) {
+            return Err(format!("No atom found with serial number: {}", i).into());
+        }
+    }
+
+    Ok(atom_list)
+
+    // if atom_list.all(|x| pdb.atoms().find(|&y| y.serial_number() == x).is_some()) {
+    //     Ok(atom_list.collect())
+    // } else {
+    //     Err("Invalid atoms found".into())
+    // }
 }
 
 /// Takes a string of type '1-2' or '2A:4A' (also accounting for residue insertion codes) and returns
@@ -499,12 +514,20 @@ fn expand_residue_range<'a>(input: &str, pdb: &'a PDB) -> Result<ResidueList<'a>
     let start = pdb
         .residues()
         .position(|x| x.serial_number() == id1 && x.insertion_code() == insert1)
-        .ok_or(format!("No Residue found with serial number: {}", id1))?;
+        .ok_or(format!(
+            "No Residue found with serial number: {}{}",
+            id1,
+            insert1.unwrap_or("")
+        ))?;
 
     let end = pdb
         .residues()
         .position(|x| x.serial_number() == id2 && x.insertion_code() == insert2)
-        .ok_or(format!("No Residue found with serial number: {}", id2))?;
+        .ok_or(format!(
+            "No Residue found with serial number: {}{}",
+            id2,
+            insert2.unwrap_or("")
+        ))?;
 
     Ok(pdb
         .residues()
@@ -548,14 +571,26 @@ pub fn parse_atomic_list(input: &str, pdb: &PDB) -> Result<AtomList, GenErr> {
 
             for i in input_vec {
                 if i.contains(&['-', ':'][..]) {
-                    output_vec.extend(expand_atom_range(i)?)
+                    output_vec.extend(expand_atom_range(i, pdb)?)
                 } else {
-                    output_vec.push(i.parse()?)
+                    let ser_num: usize = i.parse()?;
+
+                    if pdb.atoms().any(|x| x.serial_number() == ser_num) {
+                        output_vec.push(ser_num)
+                    } else {
+                        return Err(format!("No atom found with serial number: {}", ser_num).into());
+                    }
                 }
             }
         }
         false => {
             let input_vec: Vec<String> = input.split(',').map(|x| x.to_lowercase()).collect();
+
+            for i in &input_vec {
+                if !pdb.par_atoms().any(|x| &x.name().to_lowercase() == i) {
+                    return Err(format!("No atom found with name: {}", i).into());
+                }
+            }
 
             output_vec = pdb
                 .atoms()
@@ -605,7 +640,20 @@ pub fn parse_residue_list<'a>(input: &'a str, pdb: &'a PDB) -> Result<ResidueLis
                     let caps = re.captures(i).unwrap();
                     let resid: isize = caps.name("resid").unwrap().as_str().parse()?;
                     let insert = caps.name("insert").map(|x| x.as_str());
-                    output_vec.push((resid, insert));
+
+                    if !pdb
+                        .par_residues()
+                        .any(|x| x.serial_number() == resid && x.insertion_code() == insert)
+                    {
+                        return Err(format!(
+                            "No residue found with serial number: {}{}",
+                            resid,
+                            insert.unwrap_or("")
+                        )
+                        .into());
+                    } else {
+                        output_vec.push((resid, insert));
+                    }
                 }
             }
         }
@@ -620,7 +668,7 @@ pub fn parse_residue_list<'a>(input: &'a str, pdb: &'a PDB) -> Result<ResidueLis
                         .then(|| (x.serial_number(), x.insertion_code())))
                 })
                 .filter_map(Result::transpose)
-                .collect::<Result<Vec<(isize, Option<&str>)>, GenErr>>()?;
+                .collect::<Result<ResidueList, GenErr>>()?;
         }
     };
 
@@ -916,14 +964,14 @@ mod tests {
 
     #[test]
     fn expand_atom_range_test() {
-        let range1 = "1-5";
-        let range2 = "7:14";
+        let pdb = test_pdb("tests/test_blank.pdb");
 
-        assert_eq!(expand_atom_range(range1).unwrap(), vec!(1, 2, 3, 4, 5));
+        assert_eq!(expand_atom_range("1-5", &pdb).unwrap(), vec!(1, 2, 3, 4, 5));
         assert_eq!(
-            expand_atom_range(range2).unwrap(),
+            expand_atom_range("7:14", &pdb).unwrap(),
             vec!(7, 8, 9, 10, 11, 12, 13, 14)
         );
+        // assert_eq!(expand_atom_range("84-90", &pdb), Err("No atom").into());
     }
 
     #[test]
