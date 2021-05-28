@@ -1,4 +1,6 @@
 * minimize occurence of regexes
+* improve handling of list input when atoms or residues are not present in PDB file
+    - propagate error from expand_residue to parse_residue_list and print all of it at once
 (* rewrite the function logic to pass around Atom structs, not indices, maybe use iterators?)
 
 #* solve issue with duplicate residue numbers 
