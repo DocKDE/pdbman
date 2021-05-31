@@ -26,7 +26,7 @@ impl<'a> Sphere<'a> {
             inp_str.next_tuple().ok_or("Problem with 'Sphere' option")?;
 
         // The sphere validator rejects anything containing something else than digits and dots.
-        // Since it validates both values the same, it will not reject a decimal point in the Atom
+        // Since it validates both arguments the same, it will not reject a decimal point in the Atom
         // ID which is taken care of here.
         let origin_id: usize = match origin_str.parse() {
             Ok(v) => v,
@@ -58,54 +58,29 @@ pub fn edit_qm_residues(
     list: ResidueList,
     partial: Partial,
 ) -> Result<(), String> {
-    match partial {
-        Partial::None => pdb
-            .par_residues_mut()
-            .try_for_each(|res| -> Result<(), String> {
-                let res_tup = (res.serial_number(), res.insertion_code());
-
-                if list.contains(&res_tup) {
-                    res.par_atoms_mut()
-                        .try_for_each(|atom| -> Result<(), String> {
-                            atom.set_occupancy(qm_val)?;
-                            Ok(())
-                        })?;
-                };
-                Ok(())
-            })?,
-        Partial::Sidechain => pdb
-            .par_residues_mut()
-            .try_for_each(|res| -> Result<(), String> {
-                let res_tup = (res.serial_number(), res.insertion_code());
-
-                if list.contains(&res_tup) {
-                    res.par_atoms_mut()
-                        .try_for_each(|atom| -> Result<(), String> {
-                            if !atom.is_backbone() {
-                                atom.set_occupancy(qm_val)?
-                            };
-                            Ok(())
-                        })?;
-                };
-                Ok(())
-            })?,
-        Partial::Backbone => pdb
-            .par_residues_mut()
-            .try_for_each(|res| -> Result<(), String> {
-                let res_tup = (res.serial_number(), res.insertion_code());
-
-                if list.contains(&res_tup) {
-                    res.par_atoms_mut()
-                        .try_for_each(|atom| -> Result<(), String> {
-                            if atom.is_backbone() {
-                                atom.set_occupancy(qm_val)?
-                            };
-                            Ok(())
-                        })?;
-                };
-                Ok(())
-            })?,
-    };
+    pdb.par_residues_mut()
+        .try_for_each(|res| -> Result<(), String> {
+            if list.contains(&(res.serial_number(), res.insertion_code())) {
+                res.par_atoms_mut()
+                    .try_for_each(|atom| -> Result<(), String> {
+                        match partial {
+                            Partial::None => atom.set_occupancy(qm_val)?,
+                            Partial::Sidechain => {
+                                if !atom.is_backbone() {
+                                    atom.set_occupancy(qm_val)?
+                                }
+                            }
+                            Partial::Backbone => {
+                                if atom.is_backbone() {
+                                    atom.set_occupancy(qm_val)?
+                                }
+                            }
+                        }
+                        Ok(())
+                    })?;
+            };
+            Ok(())
+        })?;
     Ok(())
 
     // for residue in pdb.residues_mut() {
@@ -150,54 +125,30 @@ pub fn edit_active_residues(
     list: ResidueList,
     partial: Partial,
 ) -> Result<(), String> {
-    match partial {
-        Partial::None => pdb
-            .par_residues_mut()
-            .try_for_each(|res| -> Result<(), String> {
-                let res_tup = (res.serial_number(), res.insertion_code());
+    pdb.par_residues_mut()
+        .try_for_each(|res| -> Result<(), String> {
+            if list.contains(&(res.serial_number(), res.insertion_code())) {
+                res.par_atoms_mut()
+                    .try_for_each(|atom| -> Result<(), String> {
+                        match partial {
+                            Partial::None => atom.set_b_factor(active_val)?,
+                            Partial::Sidechain => {
+                                if !atom.is_backbone() {
+                                    atom.set_b_factor(active_val)?
+                                }
+                            }
+                            Partial::Backbone => {
+                                if atom.is_backbone() {
+                                    atom.set_b_factor(active_val)?
+                                }
+                            }
+                        }
+                        Ok(())
+                    })?;
+            };
+            Ok(())
+        })?;
 
-                if list.contains(&res_tup) {
-                    res.par_atoms_mut()
-                        .try_for_each(|atom| -> Result<(), String> {
-                            atom.set_b_factor(active_val)?;
-                            Ok(())
-                        })?;
-                };
-                Ok(())
-            })?,
-        Partial::Sidechain => pdb
-            .par_residues_mut()
-            .try_for_each(|res| -> Result<(), String> {
-                let res_tup = (res.serial_number(), res.insertion_code());
-
-                if list.contains(&res_tup) {
-                    res.par_atoms_mut()
-                        .try_for_each(|atom| -> Result<(), String> {
-                            if !atom.is_backbone() {
-                                atom.set_b_factor(active_val)?
-                            };
-                            Ok(())
-                        })?;
-                };
-                Ok(())
-            })?,
-        Partial::Backbone => pdb
-            .par_residues_mut()
-            .try_for_each(|res| -> Result<(), String> {
-                let res_tup = (res.serial_number(), res.insertion_code());
-
-                if list.contains(&res_tup) {
-                    res.par_atoms_mut()
-                        .try_for_each(|atom| -> Result<(), String> {
-                            if atom.is_backbone() {
-                                atom.set_b_factor(active_val)?
-                            };
-                            Ok(())
-                        })?;
-                };
-                Ok(())
-            })?,
-    };
     Ok(())
 
     // for residue in pdb.residues_mut() {
@@ -466,100 +417,6 @@ pub fn find_contacts(pdb: &PDB, level: Distance) -> Result<Table, String> {
     }
 }
 
-/// Takes a string of type '1-2' or '2:4' and returns a vector of all spanned numbers as usize
-// fn expand_atom_range(input: &str) -> Result<AtomList, GenErr> {
-//     let vector: AtomList = input
-//         .split(&['-', ':'][..])
-//         .map(|x| x.parse())
-//         .try_collect()?;
-
-//     Ok((vector[0]..vector[1] + 1).collect())
-// }
-
-/// Takes a string of type '1-2' or '2A:4A' (also accounting for residue insertion codes) and returns
-/// a vector containing the range of residues with their insertion codes in a tuple.
-// fn expand_residue_range<'a>(input: &str, pdb: &'a PDB) -> Result<ResidueList<'a>, GenErr> {
-//     let re_num =
-//         Regex::new(r"^(?P<id1>\d+)(?P<insert1>[A-Za-z]?)[:-](?P<id2>\d+)(?P<insert2>[A-Za-z]?)$")?;
-//     let caps = re_num.captures(input).unwrap();
-
-//     let id1: isize = caps.name("id1").unwrap().as_str().parse()?;
-//     let insert1 = match caps.name("insert1").map(|x| x.as_str()) {
-//         Some("") => None,
-//         Some(x) => Some(x),
-//         _ => unreachable!(),
-//     };
-
-//     let id2: isize = caps.name("id2").unwrap().as_str().parse()?;
-//     let insert2 = match caps.name("insert2").map(|x| x.as_str()) {
-//         Some("") => None,
-//         Some(x) => Some(x),
-//         _ => unreachable!(),
-//     };
-
-//     let mut err_vec: Vec<String> = vec![];
-
-//     if let Err(e) = pdb
-//         .residues()
-//         .position(|x| x.serial_number() == id1 && x.insertion_code() == insert1)
-//         .ok_or(format!("{}{}", id1, insert1.unwrap_or("")))
-//     {
-//         err_vec.push(e)
-//     };
-
-//     if let Err(e) = pdb
-//         .residues()
-//         .position(|x| x.serial_number() == id2 && x.insertion_code() == insert2)
-//         .ok_or(format!("{}{}", id2, insert2.unwrap_or("")))
-//     {
-//         err_vec.push(e)
-//     };
-
-//     if !err_vec.is_empty() {
-//         return Err(err_vec.join(",").into());
-//     }
-
-//     let start = pdb
-//         .residues()
-//         .position(|x| x.serial_number() == id1 && x.insertion_code() == insert1)
-//         .ok_or(format!(
-//             "No Residue found with identifier: {}{}",
-//             id1,
-//             insert1.unwrap_or("")
-//         ))?;
-
-//     let end = pdb
-//         .residues()
-//         .position(|x| x.serial_number() == id2 && x.insertion_code() == insert2)
-//         .ok_or(format!(
-//             "No Residue found with identifier: {}{}",
-//             id2,
-//             insert2.unwrap_or("")
-//         ))?;
-
-//     Ok(pdb
-//         .residues()
-//         .skip(start)
-//         .take(end + 1 - start)
-//         .map(|x| (x.serial_number(), x.insertion_code()))
-//         .collect())
-
-    //     let pos: Vec<usize> = pdb
-    //         .residues()
-    //         .positions(|x| {
-    //             (x.serial_number() == id1 && x.insertion_code() == insert1)
-    //                 || (x.serial_number() == id2 && x.insertion_code() == insert2)
-    //         })
-    //         .collect();
-
-    //     Ok(pdb
-    //         .residues()
-    //         .enumerate()
-    //         .filter(|&(i, _)| i >= pos[0] && i <= pos[1])
-    //         .map(|(_, x)| (x.serial_number(), x.insertion_code()))
-    //         .collect())
-// }
-
 /// Takes a comma-separated list (usually from command line input) as string and parses it into
 /// a vector of Atom IDs. The Input may be atom IDs or Atom Names
 pub fn parse_atomic_list(input: &str, pdb: &PDB) -> Result<AtomList, GenErr> {
@@ -575,10 +432,8 @@ pub fn parse_atomic_list(input: &str, pdb: &PDB) -> Result<AtomList, GenErr> {
             for i in input_vec {
                 if i.contains(&['-', ':'][..]) {
                     // output_vec.extend(expand_atom_range(i)?)
-                    let vector: AtomList = i
-                        .split(&['-', ':'][..])
-                        .map(|x| x.parse())
-                        .try_collect()?;
+                    let vector: AtomList =
+                        i.split(&['-', ':'][..]).map(|x| x.parse()).try_collect()?;
 
                     output_vec.extend(&mut (vector[0]..vector[1] + 1));
                 } else {
@@ -586,7 +441,7 @@ pub fn parse_atomic_list(input: &str, pdb: &PDB) -> Result<AtomList, GenErr> {
                 }
             }
 
-            let missing_atoms: Vec<&usize> = output_vec
+            let mut missing_atoms: Vec<&usize> = output_vec
                 .iter()
                 .filter(|&x| {
                     pdb.atoms()
@@ -594,6 +449,9 @@ pub fn parse_atomic_list(input: &str, pdb: &PDB) -> Result<AtomList, GenErr> {
                         .is_none()
                 })
                 .collect();
+
+            missing_atoms.sort();
+            missing_atoms.dedup();
 
             if !missing_atoms.is_empty() {
                 return Err(format!(
@@ -606,7 +464,7 @@ pub fn parse_atomic_list(input: &str, pdb: &PDB) -> Result<AtomList, GenErr> {
         false => {
             let input_vec: Vec<&str> = input.split(',').collect();
 
-            let missing_atoms: Vec<&&str> = input_vec
+            let mut missing_atoms: Vec<&&str> = input_vec
                 .iter()
                 .filter(|&x| {
                     pdb.atoms()
@@ -614,6 +472,9 @@ pub fn parse_atomic_list(input: &str, pdb: &PDB) -> Result<AtomList, GenErr> {
                         .is_none()
                 })
                 .collect();
+
+            missing_atoms.sort();
+            missing_atoms.dedup();
 
             if !missing_atoms.is_empty() {
                 return Err(format!(
@@ -629,9 +490,9 @@ pub fn parse_atomic_list(input: &str, pdb: &PDB) -> Result<AtomList, GenErr> {
                     input_vec
                         .iter()
                         .any(|&y| x.name().to_lowercase() == y.to_lowercase())
-                        // .map(|y| y.to_lowercase())
-                        // .collect::<Vec<String>>()
-                        // .contains(&x.name().to_lowercase())
+                    // .map(|y| y.to_lowercase())
+                    // .collect::<Vec<String>>()
+                    // .contains(&x.name().to_lowercase())
                 })
                 .map(|x| x.serial_number())
                 .collect();
@@ -648,21 +509,19 @@ pub fn parse_residue_list<'a>(input: &'a str, pdb: &'a PDB) -> Result<ResidueLis
     let re_num = Regex::new(
         r"^(?P<id1>\d+)(?P<insert1>[A-Za-z]?)([:-](?P<id2>\d+)(?P<insert2>[A-Za-z]?))?$",
     )?;
-    // let re_str = Regex::new(r"^[A-Za-z]+$")?;
 
     let mut output_vec: ResidueList = vec![];
+    let mut err_vec: Vec<String> = vec![];
 
     match input.split(',').all(|x| re_num.is_match(x)) {
         true => {
             let input_vec: Vec<&str> = input.split(',').collect();
 
-            let mut err_vec: Vec<String> = vec!();
-
             for i in input_vec {
                 if i.contains(&[':', '-'][..]) {
-
-                    let re_num =
-                        Regex::new(r"^(?P<id1>\d+)(?P<insert1>[A-Za-z]?)[:-](?P<id2>\d+)(?P<insert2>[A-Za-z]?)$")?;
+                    let re_num = Regex::new(
+                        r"^(?P<id1>\d+)(?P<insert1>[A-Za-z]?)[:-](?P<id2>\d+)(?P<insert2>[A-Za-z]?)$",
+                    )?;
                     let caps = re_num.captures(i).unwrap();
 
                     let id1: isize = caps.name("id1").unwrap().as_str().parse()?;
@@ -679,46 +538,36 @@ pub fn parse_residue_list<'a>(input: &'a str, pdb: &'a PDB) -> Result<ResidueLis
                         _ => unreachable!(),
                     };
 
-                    if let Err(e) = pdb
+                    let mut start = 0;
+                    let mut end = 0;
+
+                    match pdb
                         .residues()
                         .position(|x| x.serial_number() == id1 && x.insertion_code() == insert1)
-                        .ok_or(format!("{}{}", id1, insert1.unwrap_or("")))
                     {
-                        err_vec.push(e)
-                    };
+                        Some(x) => {
+                            start = x;
+                        }
+                        None => err_vec.push(format!("{}{}", id1, insert1.unwrap_or(""))),
+                    }
 
-                    if let Err(e) = pdb
+                    match pdb
                         .residues()
                         .position(|x| x.serial_number() == id2 && x.insertion_code() == insert2)
-                        .ok_or(format!("{}{}", id2, insert2.unwrap_or("")))
                     {
-                        err_vec.push(e)
-                    };
+                        Some(x) => {
+                            end = x;
+                        }
+                        None => err_vec.push(format!("{}{}", id2, insert2.unwrap_or(""))),
+                    }
 
                     if err_vec.is_empty() {
-                        let start = pdb
-                            .residues()
-                            .position(|x| x.serial_number() == id1 && x.insertion_code() == insert1).unwrap();
-                            // .ok_or(format!(
-                            //     "No Residue found with identifier: {}{}",
-                            //     id1,
-                            //     insert1.unwrap_or("")
-                            // ))?;
-
-                        let end = pdb
-                            .residues()
-                            .position(|x| x.serial_number() == id2 && x.insertion_code() == insert2).unwrap();
-                            // .ok_or(format!(
-                            //     "No Residue found with identifier: {}{}",
-                            //     id2,
-                            //     insert2.unwrap_or("")
-                            // ))?;
-
-                        output_vec.extend(pdb
-                            .residues()
-                            .skip(start)
-                            .take(end + 1 - start)
-                            .map(|x| (x.serial_number(), x.insertion_code())));
+                        output_vec.extend(
+                            pdb.residues()
+                                .skip(start)
+                                .take(end + 1 - start)
+                                .map(|x| (x.serial_number(), x.insertion_code())),
+                        );
                     }
 
                     // output_vec.append(&mut expand_residue_range(i, pdb)?);
@@ -733,20 +582,10 @@ pub fn parse_residue_list<'a>(input: &'a str, pdb: &'a PDB) -> Result<ResidueLis
                         .any(|x| x.serial_number() == resid && x.insertion_code() == insert)
                     {
                         err_vec.push(format!("{}{}", resid, insert.unwrap_or("")));
-
-                        // return Err(format!(
-                        //     "No residue found with serial number: {}{}",
-                        //     resid,
-                        //     insert.unwrap_or("")
-                        // )
-                        // .into());
                     } else {
                         output_vec.push((resid, insert));
                     }
                 }
-            }
-            if !err_vec.is_empty() {
-                return Err(format!("No residue(s) found with identifier(s): {}", err_vec.join(", ")).into());
             }
         }
         false => {
@@ -757,7 +596,7 @@ pub fn parse_residue_list<'a>(input: &'a str, pdb: &'a PDB) -> Result<ResidueLis
                     .par_residues()
                     .any(|x| &x.name().unwrap_or("").to_lowercase() == i)
                 {
-                    return Err(format!("No residue found with name: {}", i).into());
+                    err_vec.push(i.to_string());
                 }
             }
 
@@ -773,77 +612,18 @@ pub fn parse_residue_list<'a>(input: &'a str, pdb: &'a PDB) -> Result<ResidueLis
         }
     };
 
+    err_vec.sort();
+    err_vec.dedup();
+
+    if !err_vec.is_empty() {
+        return Err(format!(
+            "No residue(s) found with identifier(s): {}",
+            err_vec.join(", ")
+        )
+        .into());
+    }
+
     Ok(output_vec)
-
-    // if re_num.is_match(input) {
-    //     let input_vec: Vec<&str> = input.split(',').collect();
-
-    //     for i in input_vec {
-    //         if i.contains(&[':', '-'][..]) {
-    //             output_vec.extend(expand_residue_range(i, pdb)?);
-    //         } else {
-    //             let re = Regex::new(r"^(?P<resid>\d+)(?P<insert>[A-Za-z])?$")?;
-    //             let caps = re.captures(i).unwrap();
-    //             let resid: isize = caps.name("resid").unwrap().as_str().parse()?;
-    //             let insert = caps.name("insert").map(|x| x.as_str());
-    //             output_vec.push((resid, insert));
-    //         }
-    //     }
-    // } else if re_str.is_match(input) {
-    //     let input_vec: Vec<String> = input.split(',').map(|x| x.to_lowercase()).collect();
-
-    //     output_vec = pdb
-    //         .residues()
-    //         .map(|x| {
-    //             Ok(input_vec
-    //                 .contains(&x.name().ok_or("No Residue Name")?.to_lowercase())
-    //                 .then(|| (x.serial_number(), x.insertion_code())))
-    //         })
-    //         .filter_map(Result::transpose)
-    //         .collect::<Result<Vec<(isize, Option<&str>)>, Box<dyn Error>>>()?;
-    // }
-
-    // match input
-    //     .split(&[',', '-', ':'][..])
-    //     .all(|x| x.parse::<isize>().is_ok())
-    // {
-    //     true => {
-    //         let input_vec: Vec<&str> = input.split(',').collect();
-
-    //         for i in input_vec {
-    //             if i.contains(&['-', ':'][..]) {
-    //                 output_vec.extend(
-    //                     expand_residue_range(i, pdb)?
-    //                         .into_iter()
-    //                         .map(isize::try_from)
-    //                         .collect::<Result<Vec<isize>, _>>()?,
-    //                 )
-    //             } else {
-    //                 output_vec.push(i.parse()?)
-    //             }
-    //         }
-    //     }
-    //     false => match input
-    //         .split(&[',', '-', ':'][..])
-    //         .all(|x| x.parse::<isize>().is_err())
-    //     {
-    //         true => {
-    //             let input_vec: Vec<String> = input.split(',').map(|x| x.to_lowercase()).collect();
-    //             output_vec = pdb
-    //                 .residues()
-    //                 .map(|x| {
-    //                     Ok(input_vec
-    //                         .contains(&x.name().ok_or("No Residue Name")?.to_lowercase())
-    //                         .then(|| x.serial_number()))
-    //                 })
-    //                 .filter_map(Result::transpose)
-    //                 .collect::<Result<Vec<isize>, Box<dyn Error>>>()?;
-    //         }
-    //         false => return Err("Input List contains mixed types which is not supported.".into()),
-    //     },
-    // }
-
-    // Ok(output_vec)
 }
 
 /// Query Molecule for information. Depending on the input this will print a table of
@@ -874,13 +654,6 @@ pub fn query_atoms(pdb: &PDB, atom_list: AtomList) -> Result<(), String> {
 
     table.printstd();
     Ok(())
-
-    // if table.len() > 1 {
-    //     table.printstd();
-    //     Ok(())
-    // } else {
-    //     Err("No Atoms found!".into())
-    // }
 }
 
 pub fn query_residues(pdb: &PDB, residue_list: ResidueList) -> Result<(), String> {
@@ -905,7 +678,8 @@ pub fn query_residues(pdb: &PDB, residue_list: ResidueList) -> Result<(), String
             table.add_row(row![
                 atom_hier.atom.serial_number(),
                 atom_hier.atom.name(),
-                atom_hier.residue.serial_number(),
+                atom_hier.residue.serial_number().to_string()
+                    + atom_hier.residue.insertion_code().unwrap_or(""),
                 atom_hier.residue.name().ok_or("No Residue name")?,
                 atom_hier.atom.occupancy(),
                 atom_hier.atom.b_factor(),
@@ -915,13 +689,6 @@ pub fn query_residues(pdb: &PDB, residue_list: ResidueList) -> Result<(), String
 
     table.printstd();
     Ok(())
-
-    // if table.len() > 1 {
-    //     table.printstd();
-    //     Ok(())
-    // } else {
-    //     Err("No Residues found!".into())
-    // }
 }
 
 pub fn analyze(pdb: &PDB, region: Region, target: Target) -> Result<(), String> {
@@ -1005,7 +772,7 @@ pub fn analyze(pdb: &PDB, region: Region, target: Target) -> Result<(), String> 
                 }
 
                 residue_table.add_row(row![
-                    residue.serial_number(),
+                    residue.serial_number().to_string() + residue.insertion_code().unwrap_or(""),
                     residue.name().ok_or("No Residue Name")?,
                     atom_counter,
                     resid_atoms,
@@ -1041,7 +808,8 @@ pub fn analyze(pdb: &PDB, region: Region, target: Target) -> Result<(), String> 
                         atom_table.add_row(row![
                             atom.serial_number(),
                             atom.name(),
-                            residue.serial_number(),
+                            residue.serial_number().to_string()
+                                + residue.insertion_code().unwrap_or(""),
                             residue.name().ok_or("No Residue Name")?,
                             atom.occupancy(),
                             atom.b_factor(),
@@ -1068,44 +836,6 @@ mod tests {
         let (pdb, _) = pdbtbx::open_pdb(path, StrictnessLevel::Strict).unwrap();
         pdb
     }
-
-    // #[test]
-    // fn expand_atom_range_test() {
-    //     assert_eq!(expand_atom_range("1-5").unwrap(), vec!(1, 2, 3, 4, 5));
-    //     assert_eq!(
-    //         expand_atom_range("7:14").unwrap(),
-    //         vec!(7, 8, 9, 10, 11, 12, 13, 14)
-    //     );
-    //     // assert_eq!(expand_atom_range("84-90", &pdb), Err("No atom").into());
-    // }
-
-    // #[test]
-    // fn expand_residue_range_test() {
-    //     let pdb1 = test_pdb("tests/test_blank.pdb");
-    //     let pdb2 = test_pdb("tests/test_insert.pdb");
-
-    //     let range1 = "2-4";
-    //     let range2 = "9A-11A";
-    //     let range3 = "9998A:1B";
-
-    //     assert_eq!(
-    //         expand_residue_range(range1, &pdb1).unwrap(),
-    //         vec!((2, None), (3, None), (4, None))
-    //     );
-    //     assert_eq!(
-    //         expand_residue_range(range2, &pdb2).unwrap(),
-    //         vec!((9, Some("A")), (10, Some("A")), (11, Some("A")))
-    //     );
-    //     assert_eq!(
-    //         expand_residue_range(range3, &pdb2).unwrap(),
-    //         vec!(
-    //             (9998, Some("A")),
-    //             (9999, Some("A")),
-    //             (0, Some("B")),
-    //             (1, Some("B"))
-    //         )
-    //     );
-    // }
 
     #[test]
     fn parse_atomic_list_test() {
