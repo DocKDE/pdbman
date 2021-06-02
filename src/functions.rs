@@ -2,6 +2,7 @@ use std::error::Error;
 
 use crate::{Distance, Partial, Region, Target};
 use itertools::Itertools;
+use lazy_static::lazy_static;
 use pdbtbx::{Atom, AtomWithHierarchy, PDB};
 use prettytable::{format, Table};
 use rayon::prelude::*;
@@ -184,7 +185,7 @@ pub fn edit_active_residues(
 /// This functions edits the q value of the PDB file (used by ORCA as input for QM region
 /// selection) by Atom. It takes a mutable reference to a PDB struct, the desired value
 /// q should be set to and a vector of Atom IDs.
-pub fn edit_qm_atoms(pdb: &mut PDB, qm_val: f64, list: AtomList) -> Result<(), GenErr> {
+pub fn edit_qm_atoms(pdb: &mut PDB, qm_val: f64, list: AtomList) -> Result<(), String> {
     // for atom in pdb.atoms_mut() {
     //     if list.contains(&atom.serial_number()) {
     //         atom.set_occupancy(qm_val)?
@@ -204,7 +205,7 @@ pub fn edit_qm_atoms(pdb: &mut PDB, qm_val: f64, list: AtomList) -> Result<(), G
 /// This functions edits the b value of the PDB file (used by ORCA as input for QM region
 /// selection) by Atom. It takes a mutable reference to a PDB struct, the desired value
 /// b should be set to and a vector of Atom IDs.
-pub fn edit_active_atoms(pdb: &mut PDB, active_val: f64, list: AtomList) -> Result<(), GenErr> {
+pub fn edit_active_atoms(pdb: &mut PDB, active_val: f64, list: AtomList) -> Result<(), String> {
     // for atom in pdb.atoms_mut() {
     //     if list.contains(&atom.serial_number()) {
     //         atom.set_b_factor(active_val)?
@@ -222,7 +223,7 @@ pub fn edit_active_atoms(pdb: &mut PDB, active_val: f64, list: AtomList) -> Resu
 }
 
 /// Sets all q and b values to zero which serves as a fresh start.
-pub fn remove_all(pdb: &mut PDB) -> Result<(), GenErr> {
+pub fn remove_all(pdb: &mut PDB) -> Result<(), String> {
     // for atom in pdb.atoms_mut() {
     //     atom.set_occupancy(0.00)?;
     //     atom.set_b_factor(0.00)?;
@@ -240,7 +241,7 @@ pub fn remove_all(pdb: &mut PDB) -> Result<(), GenErr> {
 /// Prints all Atoms in Molecule to stdout in PDB file format This can be redirected
 /// to a file if desired. This may be obsolete as the functionality of printing to a file
 /// already exists with a separate flag.
-pub fn print_to_stdout(pdb: &PDB) -> Result<(), GenErr> {
+pub fn print_to_stdout(pdb: &PDB) -> Result<(), String> {
     for atom_hier in pdb.atoms_with_hierarchy() {
         println!(
             "ATOM  {:>5} {:<4} {:>3}  {:>4}    {:>8.3}{:>8.3}{:>8.3}{:>6.2}{:>6.2}          {:>2}",
@@ -302,6 +303,8 @@ pub fn calc_residue_sphere(
     let mut sphere_atoms: AtomList = tree
         .locate_within_distance(origin.atom.pos_array(), radius.powf(2.0))
         .flat_map(|atom_hier| atom_hier.residue.atoms().map(|atom| atom.serial_number()))
+        .sorted()
+        .dedup()
         .collect();
 
     let origin_res_atoms: AtomList = origin
@@ -313,9 +316,6 @@ pub fn calc_residue_sphere(
     if !include_self {
         sphere_atoms.retain(|x| !origin_res_atoms.contains(x))
     }
-
-    sphere_atoms.sort_unstable();
-    sphere_atoms.dedup();
 
     if !sphere_atoms.is_empty() {
         Ok(sphere_atoms)
@@ -421,6 +421,29 @@ pub fn find_contacts(pdb: &PDB, level: Distance) -> Result<Table, String> {
 /// a vector of Atom IDs. The Input may be atom IDs or Atom Names
 pub fn parse_atomic_list(input: &str, pdb: &PDB) -> Result<AtomList, GenErr> {
     let mut output_vec: AtomList = vec![];
+    lazy_static! {
+        static ref RE: Regex = Regex::new(r"(?P<num>\d+)?(?P<str>[A-Za-z])?").unwrap();
+    };
+    // let re = Regex::new(r"(?P<num>\d+)?(?P<str>[A-Za-z])?")?;
+
+    // This test catches list inputs that contain digits followd by a letter.
+    // This is valid input for residues but not atoms but since both get their
+    // input from the list input validator this possibility is accounted for here.
+    let invalid_chars: Vec<&str> = input
+        .split(&[',', '-', ':'][..])
+        .filter(|x| {
+            let caps = RE.captures(x).unwrap();
+            caps.name("num").is_some() && caps.name("str").is_some()
+        })
+        .collect();
+
+    if !invalid_chars.is_empty() {
+        return Err(format!(
+            "Letters are not allowed in atom list input: {}",
+            invalid_chars.join(",")
+        )
+        .into());
+    }
 
     match input
         .split(&[',', '-', ':'][..])
@@ -431,7 +454,6 @@ pub fn parse_atomic_list(input: &str, pdb: &PDB) -> Result<AtomList, GenErr> {
 
             for i in input_vec {
                 if i.contains(&['-', ':'][..]) {
-                    // output_vec.extend(expand_atom_range(i)?)
                     let vector: AtomList =
                         i.split(&['-', ':'][..]).map(|x| x.parse()).try_collect()?;
 
@@ -441,22 +463,21 @@ pub fn parse_atomic_list(input: &str, pdb: &PDB) -> Result<AtomList, GenErr> {
                 }
             }
 
-            let mut missing_atoms: Vec<&usize> = output_vec
+            let missing_atoms: Vec<&usize> = output_vec
                 .iter()
                 .filter(|&x| {
                     pdb.atoms()
                         .find(|&atom| &atom.serial_number() == x)
                         .is_none()
                 })
+                .sorted()
+                .dedup()
                 .collect();
-
-            missing_atoms.sort();
-            missing_atoms.dedup();
 
             if !missing_atoms.is_empty() {
                 return Err(format!(
                     "No atom(s) found with serial number(s): {}",
-                    missing_atoms.iter().format(", ")
+                    missing_atoms.iter().format(",")
                 )
                 .into());
             }
@@ -464,22 +485,21 @@ pub fn parse_atomic_list(input: &str, pdb: &PDB) -> Result<AtomList, GenErr> {
         false => {
             let input_vec: Vec<&str> = input.split(',').collect();
 
-            let mut missing_atoms: Vec<&&str> = input_vec
+            let missing_atoms: Vec<&&str> = input_vec
                 .iter()
                 .filter(|&x| {
                     pdb.atoms()
                         .find(|&atom| atom.name().to_lowercase() == x.to_lowercase())
                         .is_none()
                 })
+                .sorted()
+                .dedup()
                 .collect();
-
-            missing_atoms.sort();
-            missing_atoms.dedup();
 
             if !missing_atoms.is_empty() {
                 return Err(format!(
                     "No atom(s) found with name(s): {}",
-                    missing_atoms.iter().format(", ")
+                    missing_atoms.iter().format(",")
                 )
                 .into());
             }
@@ -506,23 +526,36 @@ pub fn parse_atomic_list(input: &str, pdb: &PDB) -> Result<AtomList, GenErr> {
 /// of serial numbers and insertion codes. The input can be either a comma-separated list of serial numbers
 /// and insertion codes or residues names.
 pub fn parse_residue_list<'a>(input: &'a str, pdb: &'a PDB) -> Result<ResidueList<'a>, GenErr> {
-    let re_num = Regex::new(
-        r"^(?P<id1>\d+)(?P<insert1>[A-Za-z]?)([:-](?P<id2>\d+)(?P<insert2>[A-Za-z]?))?$",
-    )?;
+    lazy_static! {
+        static ref RE_NUM: Regex = Regex::new(
+            r"^(?P<id1>\d+)(?P<insert1>[A-Za-z]?)([:-](?P<id2>\d+)(?P<insert2>[A-Za-z]?))?$"
+        )
+        .unwrap();
+    }
+
+    // let re_num = Regex::new(
+    //     r"^(?P<id1>\d+)(?P<insert1>[A-Za-z]?)([:-](?P<id2>\d+)(?P<insert2>[A-Za-z]?))?$",
+    // )?;
 
     let mut output_vec: ResidueList = vec![];
     let mut err_vec: Vec<String> = vec![];
 
-    match input.split(',').all(|x| re_num.is_match(x)) {
+    match input.split(',').all(|x| RE_NUM.is_match(x)) {
         true => {
             let input_vec: Vec<&str> = input.split(',').collect();
 
             for i in input_vec {
                 if i.contains(&[':', '-'][..]) {
-                    let re_num = Regex::new(
-                        r"^(?P<id1>\d+)(?P<insert1>[A-Za-z]?)[:-](?P<id2>\d+)(?P<insert2>[A-Za-z]?)$",
-                    )?;
-                    let caps = re_num.captures(i).unwrap();
+                    lazy_static! {
+                        static ref RE_NUM: Regex = Regex::new(
+                            r"^(?P<id1>\d+)(?P<insert1>[A-Za-z]?)[:-](?P<id2>\d+)(?P<insert2>[A-Za-z]?)$",
+                        )
+                        .unwrap();
+                    }
+                    // let re_num = Regex::new(
+                    //     r"^(?P<id1>\d+)(?P<insert1>[A-Za-z]?)[:-](?P<id2>\d+)(?P<insert2>[A-Za-z]?)$",
+                    // )?;
+                    let caps = RE_NUM.captures(i).unwrap();
 
                     let id1: isize = caps.name("id1").unwrap().as_str().parse()?;
                     let insert1 = match caps.name("insert1").map(|x| x.as_str()) {
@@ -572,8 +605,12 @@ pub fn parse_residue_list<'a>(input: &'a str, pdb: &'a PDB) -> Result<ResidueLis
 
                     // output_vec.append(&mut expand_residue_range(i, pdb)?);
                 } else {
-                    let re = Regex::new(r"^(?P<resid>\d+)(?P<insert>[A-Za-z])?$")?;
-                    let caps = re.captures(i).unwrap();
+                    lazy_static! {
+                        static ref RE: Regex =
+                            Regex::new(r"^(?P<resid>\d+)(?P<insert>[A-Za-z])?$").unwrap();
+                    }
+                    // let re = Regex::new(r"^(?P<resid>\d+)(?P<insert>[A-Za-z])?$")?;
+                    let caps = RE.captures(i).unwrap();
                     let resid: isize = caps.name("resid").unwrap().as_str().parse()?;
                     let insert = caps.name("insert").map(|x| x.as_str());
 
@@ -618,7 +655,7 @@ pub fn parse_residue_list<'a>(input: &'a str, pdb: &'a PDB) -> Result<ResidueLis
     if !err_vec.is_empty() {
         return Err(format!(
             "No residue(s) found with identifier(s): {}",
-            err_vec.join(", ")
+            err_vec.join(",")
         )
         .into());
     }

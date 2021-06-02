@@ -1,4 +1,5 @@
 use clap::{App, AppSettings, Arg, ArgGroup};
+use itertools::Itertools;
 use std::error::Error;
 use std::str::FromStr;
 
@@ -280,7 +281,7 @@ impl Mode {
                     output: passed_output,
                 })
             }
-            Some(&_) => Err("This is impossible".into()),
+            Some(&_) => unreachable!(),
             None => {
                 Err("Please choose a subcommand: 'Query', 'Analyze', 'Add' or 'Remove'.".into())
             }
@@ -291,11 +292,15 @@ impl Mode {
 fn sphere_valid(v: &str) -> Result<()> {
     let re = Regex::new(r"[\d\.]")?;
 
-    for i in v.chars() {
-        if !re.is_match(&i.to_string()) {
-            return Err(format!("Unsupported input character: '{}'", i).into());
-        }
+    let err_chars = v
+        .chars()
+        .filter(|x| !re.is_match(&x.to_string()))
+        .collect::<String>();
+
+    if !err_chars.is_empty() {
+        return Err(format!("Invalid characters: {}", err_chars).into());
     }
+
     Ok(())
 }
 
@@ -304,6 +309,19 @@ fn list_valid(v: &str) -> Result<()> {
         r"^(?P<id1>\d+)(?P<insert1>[A-Za-z]?)([:-](?P<id2>\d+)(?P<insert2>[A-Za-z]?))?$",
     )?;
     let re_str = Regex::new(r"^[A-Za-z]+$")?;
+
+    let re_chars = Regex::new(r"[\dA-Z-a-z:,-]")?;
+
+    let err_chars = v
+        .chars()
+        .filter(|x| !re_chars.is_match(&x.to_string()))
+        .sorted()
+        .dedup()
+        .collect::<String>();
+
+    if !err_chars.is_empty() {
+        return Err(format!("Invalid characters: {:?}", err_chars).into());
+    }
 
     let mut numerical_inp = false;
     let mut string_inp = false;
@@ -314,12 +332,12 @@ fn list_valid(v: &str) -> Result<()> {
 
             let caps = re_num.captures(i).unwrap();
             if caps.name("id2").is_some()
-                && caps.name("id1").unwrap().as_str().parse::<u32>()?
-                    > caps.name("id2").unwrap().as_str().parse::<u32>()?
+                && caps.name("id1").unwrap().as_str().parse::<i32>()?
+                    > caps.name("id2").unwrap().as_str().parse::<i32>()?
                 && caps.name("insert1").unwrap().as_str() >= caps.name("insert2").unwrap().as_str()
             {
                 return Err(format!(
-                        "Invalid range given: {}{}-{}{}. Left residue must preceed right one in PDB file!",
+                        "Invalid range given: {}{}-{}{}. Left entry must preceed right one in PDB file!",
                         caps.name("id1").unwrap().as_str(),
                         caps.name("insert1").unwrap().as_str(),
                         caps.name("id2").unwrap().as_str(),
@@ -329,9 +347,7 @@ fn list_valid(v: &str) -> Result<()> {
             }
         } else if re_str.is_match(i) {
             string_inp = true;
-        } else {
-            return Err(format!("Invalid list input: '{}'", i).into());
-        }
+        } //else { return Err(format!("Invalid character(s): {}", i).into()) }
     }
 
     if numerical_inp && string_inp {
@@ -339,14 +355,6 @@ fn list_valid(v: &str) -> Result<()> {
     }
 
     Ok(())
-    // let re = Regex::new(r"[-:A-Za-z\d,]")?;
-
-    // for i in v.chars() {
-    //     if !re.is_match(&i.to_string()) {
-    //         return Err(format!("Unsupported input character: '{}'", i).into());
-    //     }
-    // }
-    // Ok(())
 }
 
 /// Defines all Args, their configuration and all ArgGroups as defined by clap.

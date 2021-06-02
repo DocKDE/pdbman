@@ -24,6 +24,7 @@
 //! The `--sphere` or `-s` flag takes an atom ID and a radius in Angstrom as arguments.
 
 #![allow(clippy::clippy::float_cmp)]
+
 #[macro_use]
 extern crate clap;
 
@@ -57,6 +58,7 @@ pub fn run() -> Result<(), Box<dyn Error>> {
         }
         Err(errors) => {
             errors.iter().for_each(|x| println!("{}", x));
+            // return Err("Breaking error detected!".into());
             return Err("Breaking error detected!".into());
         }
     }
@@ -128,7 +130,7 @@ pub fn run() -> Result<(), Box<dyn Error>> {
                     Region::Active => 1.00,
                     Region::QM1 => 1.00,
                     Region::QM2 => 2.00,
-                    Region::None => return Err("Region input is needed".into()),
+                    Region::None => unreachable!(),
                 },
                 _ => unreachable!(),
             };

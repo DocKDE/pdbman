@@ -1,7 +1,7 @@
-* minimize occurence of regexes
-* extend verbose error printing to string list input
 (* rewrite the function logic to pass around Atom structs, not indices, maybe use iterators?)
 
+#* minimize compilation of regexes
+#* extend verbose error printing to string list input
 #* improve handling of list input when atoms or residues are not present in PDB file
 #    - propagate error from expand_residue to parse_residue_list and print all of it at once
 #* solve issue with duplicate residue numbers 
