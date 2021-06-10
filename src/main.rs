@@ -177,9 +177,7 @@ pub fn run() -> Result<(), Box<dyn Error>> {
                                 Region::None => unreachable!(),
                             }
                         }
-                        Target::None => {
-                            return Err("Please give either an 'Atoms' or 'Residues' flag.".into())
-                        }
+                        Target::None => unreachable!(),
                     }
                 }
                 Source::Sphere => {
@@ -219,10 +217,9 @@ pub fn run() -> Result<(), Box<dyn Error>> {
                     }
                 }
             }
-        }
-        Mode::None => {
-            unreachable!()
-        }
+        } // Mode::None => {
+          //     unreachable!()
+          // }
     }
 
     if mode.to_string() == "Add" || mode.to_string() == "Remove" {

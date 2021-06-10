@@ -1,4 +1,3 @@
-(* rewrite the function logic to pass around Atom structs, not indices, maybe use iterators?)
 
 #* minimize compilation of regexes
 #* extend verbose error printing to string list input
