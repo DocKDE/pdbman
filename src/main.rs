@@ -46,9 +46,9 @@ pub mod functions;
 // Run function that handles the logic of when to call which function given an enum with the
 // command line options. Hands all occurring errors to main.
 pub fn run() -> Result<(), Box<dyn Error>> {
-    let matches = parse_args()?;
+    let matches = parse_args();
     let mode = Rc::new(Mode::new(&matches)?);
-    let filename = matches.value_of("INPUT").ok_or("No input file given")?;
+    let filename = matches.value_of("INPUT").unwrap();
     let mut pdb;
 
     match pdbtbx::open_pdb(filename, StrictnessLevel::Strict) {
@@ -58,8 +58,7 @@ pub fn run() -> Result<(), Box<dyn Error>> {
         }
         Err(errors) => {
             errors.iter().for_each(|x| println!("{}", x));
-            // return Err("Breaking error detected!".into());
-            return Err("Breaking error detected!".into());
+            return Err("Exiting".into());
         }
     }
 

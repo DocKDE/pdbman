@@ -1,3 +1,4 @@
+* write tests for argparsing
 
 #* minimize compilation of regexes
 #* extend verbose error printing to string list input

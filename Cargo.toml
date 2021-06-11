@@ -15,5 +15,5 @@ regex = "^1.4"
 lazy_static = "*"
 itertools = "*"
 rayon = "^1.5"
-pdbtbx = {version = "^0.7", features = ["rayon", "rstar"]}
-#pdbtbx = {git = "https://github.com/nonnominandus/pdbtbx", branch = "master", features = ["rayon", "rstar"]}
+#pdbtbx = {version = "^0.7", features = ["rayon", "rstar"]}
+pdbtbx = {git = "https://github.com/DocKDE/pdbtbx", branch = "parser_check", features = ["rayon", "rstar"]}

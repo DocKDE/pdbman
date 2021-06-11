@@ -61,7 +61,7 @@ pub fn edit_qm_residues(
 ) -> Result<(), String> {
     pdb.par_residues_mut()
         .try_for_each(|res| -> Result<(), String> {
-            if list.contains(&(res.serial_number(), res.insertion_code())) {
+            if list.contains(&(res.id())) {
                 res.par_atoms_mut()
                     .try_for_each(|atom| -> Result<(), String> {
                         match partial {
@@ -128,7 +128,7 @@ pub fn edit_active_residues(
 ) -> Result<(), String> {
     pdb.par_residues_mut()
         .try_for_each(|res| -> Result<(), String> {
-            if list.contains(&(res.serial_number(), res.insertion_code())) {
+            if list.contains(&(res.id())) {
                 res.par_atoms_mut()
                     .try_for_each(|atom| -> Result<(), String> {
                         match partial {
@@ -599,7 +599,7 @@ pub fn parse_residue_list<'a>(input: &'a str, pdb: &'a PDB) -> Result<ResidueLis
                             pdb.residues()
                                 .skip(start)
                                 .take(end + 1 - start)
-                                .map(|x| (x.serial_number(), x.insertion_code())),
+                                .map(|x| (x.id())),
                         );
                     }
 
@@ -642,7 +642,7 @@ pub fn parse_residue_list<'a>(input: &'a str, pdb: &'a PDB) -> Result<ResidueLis
                 .map(|x| {
                     Ok(input_vec
                         .contains(&x.name().ok_or("No Residue Name")?.to_lowercase())
-                        .then(|| (x.serial_number(), x.insertion_code())))
+                        .then(|| (x.id())))
                 })
                 .filter_map(Result::transpose)
                 .collect::<Result<ResidueList, GenErr>>()?;
@@ -715,6 +715,7 @@ pub fn query_residues(pdb: &PDB, residue_list: ResidueList) -> Result<(), String
             table.add_row(row![
                 atom_hier.atom.serial_number(),
                 atom_hier.atom.name(),
+                // atom_hier.residue.id(),
                 atom_hier.residue.serial_number().to_string()
                     + atom_hier.residue.insertion_code().unwrap_or(""),
                 atom_hier.residue.name().ok_or("No Residue name")?,

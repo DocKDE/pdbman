@@ -1,3 +1,4 @@
+use clap::ArgMatches;
 use clap::{App, AppSettings, Arg, ArgGroup};
 use itertools::Itertools;
 use std::error::Error;
@@ -100,28 +101,6 @@ impl Mode {
                     .unwrap_or(&"None");
                 let target = Target::from_str(target_str)?;
 
-                // let mut passed_source = Source::None;
-                // for source in Source::VARIANTS {
-                //     if matches
-                //         .subcommand_matches("Query")
-                //         .unwrap()
-                //         .is_present(source)
-                //     {
-                //         passed_source = Source::from_str(source)?;
-                //     }
-                // }
-
-                // let mut passed_target = Target::None;
-                // for target in Target::VARIANTS {
-                //     if matches
-                //         .subcommand_matches("Query")
-                //         .unwrap()
-                //         .is_present(target)
-                //     {
-                //         passed_target = Target::from_str(target)?;
-                //     }
-                // }
-
                 Ok(Mode::Query { source, target })
             }
             Some("Analyze") => {
@@ -142,39 +121,6 @@ impl Mode {
                     .find(|x| matches.subcommand_matches("Analyze").unwrap().is_present(x))
                     .unwrap_or(&"None");
                 let distance = Distance::from_str(distance_str)?;
-
-                // let mut passed_region = Region::None;
-                // for region in Region::VARIANTS {
-                //     if matches
-                //         .subcommand_matches("Analyze")
-                //         .unwrap()
-                //         .is_present(region)
-                //     {
-                //         passed_region = Region::from_str(region)?;
-                //     }
-                // }
-
-                // let mut passed_target = Target::None;
-                // for target in Target::VARIANTS {
-                //     if matches
-                //         .subcommand_matches("Analyze")
-                //         .unwrap()
-                //         .is_present(target)
-                //     {
-                //         passed_target = Target::from_str(target)?;
-                //     }
-                // }
-
-                // let mut passed_distance = Distance::None;
-                // for distance in Distance::VARIANTS {
-                //     if matches
-                //         .subcommand_matches("Analyze")
-                //         .unwrap()
-                //         .is_present(distance)
-                //     {
-                //         passed_distance = Distance::from_str(distance)?;
-                //     }
-                // }
 
                 Ok(Mode::Analyze {
                     region,
@@ -212,61 +158,6 @@ impl Mode {
                     .find(|x| matches.subcommand_matches("Add").unwrap().is_present(x))
                     .unwrap_or(&"None");
                 let output = Output::from_str(output_str)?;
-
-                // let mut passed_region = Region::None;
-                // for region in Region::VARIANTS {
-                //     if matches
-                //         .subcommand_matches("Add")
-                //         .unwrap()
-                //         .is_present(region)
-                //     {
-                //         passed_region = Region::from_str(region)?;
-                //     }
-                // }
-
-                // let mut passed_source = Source::None;
-                // for source in Source::VARIANTS {
-                //     if matches
-                //         .subcommand_matches("Add")
-                //         .unwrap()
-                //         .is_present(source)
-                //     {
-                //         passed_source = Source::from_str(source)?;
-                //     }
-                // }
-
-                // let mut passed_target = Target::None;
-                // for target in Target::VARIANTS {
-                //     if matches
-                //         .subcommand_matches("Add")
-                //         .unwrap()
-                //         .is_present(target)
-                //     {
-                //         passed_target = Target::from_str(target)?;
-                //     }
-                // }
-
-                // let mut passed_partial = Partial::None;
-                // for partial in Partial::VARIANTS {
-                //     if matches
-                //         .subcommand_matches("Add")
-                //         .unwrap()
-                //         .is_present(partial)
-                //     {
-                //         passed_partial = Partial::from_str(partial)?;
-                //     }
-                // }
-
-                // let mut passed_output = Output::None;
-                // for output in Output::VARIANTS {
-                //     if matches
-                //         .subcommand_matches("Add")
-                //         .unwrap()
-                //         .is_present(output)
-                //     {
-                //         passed_output = Output::from_str(output)?;
-                //     }
-                // }
 
                 Ok(Mode::Add {
                     region,
@@ -307,61 +198,6 @@ impl Mode {
                     .unwrap_or(&"None");
                 let output = Output::from_str(output_str)?;
 
-                // let mut passed_region = Region::None;
-                // for region in Region::VARIANTS {
-                //     if matches
-                //         .subcommand_matches("Remove")
-                //         .unwrap()
-                //         .is_present(region)
-                //     {
-                //         passed_region = Region::from_str(region)?;
-                //     }
-                // }
-
-                // let mut passed_source = Source::None;
-                // for source in Source::VARIANTS {
-                //     if matches
-                //         .subcommand_matches("Remove")
-                //         .unwrap()
-                //         .is_present(source)
-                //     {
-                //         passed_source = Source::from_str(source)?;
-                //     }
-                // }
-
-                // let mut passed_target = Target::None;
-                // for target in Target::VARIANTS {
-                //     if matches
-                //         .subcommand_matches("Remove")
-                //         .unwrap()
-                //         .is_present(target)
-                //     {
-                //         passed_target = Target::from_str(target)?;
-                //     }
-                // }
-
-                // let mut passed_partial = Partial::None;
-                // for partial in Partial::VARIANTS {
-                //     if matches
-                //         .subcommand_matches("Remove")
-                //         .unwrap()
-                //         .is_present(partial)
-                //     {
-                //         passed_partial = Partial::from_str(partial)?;
-                //     }
-                // }
-
-                // let mut passed_output = Output::None;
-                // for output in Output::VARIANTS {
-                //     if matches
-                //         .subcommand_matches("Remove")
-                //         .unwrap()
-                //         .is_present(output)
-                //     {
-                //         passed_output = Output::from_str(output)?;
-                //     }
-                // }
-
                 Ok(Mode::Remove {
                     region,
                     source,
@@ -376,7 +212,7 @@ impl Mode {
     }
 }
 
-fn sphere_valid(v: &str) -> Result<(), Box<dyn Error>> {
+fn sphere_valid(v: &str) -> Result<(), String> {
     lazy_static! {
         static ref RE: Regex = Regex::new(r"[\d.]").unwrap();
     }
@@ -454,9 +290,9 @@ fn list_valid(v: &str) -> Result<(), Box<dyn Error>> {
 }
 
 /// Defines all Args, their configuration and all ArgGroups as defined by clap.
-pub fn parse_args() -> Result<clap::ArgMatches, Box<dyn Error>> {
-    // let re = Regex::new(r"[-:A-Za-z\d,]")?;
-    let matches = App::new(crate_name!())
+pub fn parse_args() -> ArgMatches {
+    // let matches = App::new(crate_name!())
+    App::new(crate_name!())
         .about(crate_description!())
         .version(crate_version!())
         .author(crate_authors!())
@@ -556,8 +392,8 @@ pub fn parse_args() -> Result<clap::ArgMatches, Box<dyn Error>> {
                     .long("contacts")
                     .short('n')
             )
-            .group(ArgGroup::new("target").args(&["Residues", "Atoms"]))
-            .group(ArgGroup::new("region").args(&["QM1", "QM2", "Active"]))
+            .group(ArgGroup::new("target").args(&["Residues", "Atoms"]).requires("region"))
+            .group(ArgGroup::new("region").args(&["QM1", "QM2", "Active"]).requires("target"))
             .group(ArgGroup::new("distances").args(&["Clashes", "Contacts"]))
         )
         .subcommand(App::new("Add")
@@ -654,7 +490,6 @@ pub fn parse_args() -> Result<clap::ArgMatches, Box<dyn Error>> {
                 ArgGroup::new("partial")
                     .args(&["Sidechain", "Backbone"])
                     .requires("Residues")
-                    .requires_all(&["target", "region", "source"]),
             )
             .group(
                 ArgGroup::new("region")
@@ -666,8 +501,7 @@ pub fn parse_args() -> Result<clap::ArgMatches, Box<dyn Error>> {
                     .required(true))
             .group(
                 ArgGroup::new("output")
-                    .args(&["Outfile", "Overwrite"])
-                    .requires_all(&["target", "region", "source"]))
+                    .args(&["Outfile", "Overwrite"]))
         )
         .subcommand(App::new("Remove")
             .about("Remove mode")
@@ -777,6 +611,6 @@ pub fn parse_args() -> Result<clap::ArgMatches, Box<dyn Error>> {
                 ArgGroup::new("output")
                     .args(&["Outfile", "Overwrite"]))
         )
-        .try_get_matches()?;
-    Ok(matches)
+    .get_matches()
+    // Ok(matches)
 }

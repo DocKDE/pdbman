@@ -414,8 +414,7 @@ dependencies = [
 [[package]]
 name = "pdbtbx"
 version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a615dceacb98eea5bac08c361305b755145ce596349a7b342743a350f576a264"
+source = "git+https://github.com/DocKDE/pdbtbx?branch=parser_check#63eb894bd16fe0fcf9aa4486936c16048cff5d29"
 dependencies = [
  "doc-cfg",
  "rayon",
