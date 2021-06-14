@@ -39,9 +39,11 @@ use std::rc::Rc;
 
 use crate::argparse::*;
 use crate::functions::*;
+use crate::mode::*;
 
 pub mod argparse;
 pub mod functions;
+pub mod mode;
 
 // Run function that handles the logic of when to call which function given an enum with the
 // command line options. Hands all occurring errors to main.
@@ -104,10 +106,13 @@ pub fn run() -> Result<(), Box<dyn Error>> {
             distance,
         } => {
             analyze(&pdb, region, target)?;
-            match distance {
-                Distance::Clashes | Distance::Contacts => find_contacts(&pdb, distance)?.printstd(),
-                Distance::None => 0,
-            };
+            if distance == Distance::Clashes || distance == Distance::Contacts {
+                find_contacts(&pdb, distance)?.printstd();
+            }
+            // match distance {
+            //     Distance::Clashes | Distance::Contacts => find_contacts(&pdb, distance)?.printstd(),
+            //     Distance::None => 0,
+            // };
         }
         Mode::Add {
             region,

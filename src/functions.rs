@@ -1,6 +1,6 @@
 use std::error::Error;
 
-use crate::{Distance, Partial, Region, Target};
+use crate::mode::{Distance, Partial, Region, Target};
 use itertools::Itertools;
 use lazy_static::lazy_static;
 use pdbtbx::{Atom, AtomWithHierarchy, PDB};

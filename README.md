@@ -192,7 +192,7 @@ Looks good! Now we're good to go for QM/MM jobs!
 Tested with `Rust` version > 1.5. Anything below that may or may not work. If you build from source and install `Rust` via rustup for the first time, you'll be fine.
 
 ## Known Issues
-If there are duplicate residue numbers present in the PDB file, insertion codes need to also be present (in compliance with official guidelines for PDB files) otherwise the program will not work as intended (if the overwrite option is chosen, the input PDB file will also be mangled). This can happen, for example, when a solvation box is added.
+If there are duplicate residue numbers present in the PDB file, insertion codes need to also be present (in compliance with official guidelines for PDB files) otherwise the program will not work as intended (if the `overwrite` option is chosen, the input PDB file will also be mangled). This can happen, for example, if a solvation box is added.
 
 If such a PDB file was created automatically without insertion codes, these need to be added manually.
 
