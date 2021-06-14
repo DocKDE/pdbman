@@ -1,8 +1,8 @@
 use std::error::Error;
 use std::str::FromStr;
 
-use strum_macros::{Display, EnumString, EnumVariantNames};
 use strum::VariantNames;
+use strum_macros::{Display, EnumString, EnumVariantNames};
 
 #[derive(Display, PartialEq, Clone, Debug, EnumVariantNames)]
 pub enum Mode {

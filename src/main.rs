@@ -31,19 +31,17 @@ extern crate clap;
 #[macro_use]
 extern crate prettytable;
 
+mod functions;
+mod options;
+
 use pdbtbx::StrictnessLevel;
 use std::error::Error;
 use std::fs;
 use std::process;
 use std::rc::Rc;
 
-use crate::argparse::*;
 use crate::functions::*;
-use crate::mode::*;
-
-pub mod argparse;
-pub mod functions;
-pub mod mode;
+use crate::options::*;
 
 // Run function that handles the logic of when to call which function given an enum with the
 // command line options. Hands all occurring errors to main.

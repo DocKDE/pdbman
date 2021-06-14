@@ -1,14 +1,14 @@
-use std::error::Error;
-
-use crate::mode::{Distance, Partial, Region, Target};
 use itertools::Itertools;
 use lazy_static::lazy_static;
 use pdbtbx::{Atom, AtomWithHierarchy, PDB};
 use prettytable::{format, Table};
 use rayon::prelude::*;
 use regex::Regex;
+use std::error::Error;
 
-type GenErr = Box<dyn Error>;
+use crate::options::{Distance, Partial, Region, Target};
+
+type GenericErr = Box<dyn Error>;
 type AtomList = Vec<usize>;
 type ResidueList<'a> = Vec<(isize, Option<&'a str>)>;
 
@@ -22,7 +22,7 @@ pub struct Sphere<'a> {
 /// a reference to the corresponding Atom and the radius. The return values are organized
 /// in a Sphere struct to facilitate usage.
 impl<'a> Sphere<'a> {
-    pub fn new(mut inp_str: clap::Values, pdb: &'a PDB) -> Result<Sphere<'a>, GenErr> {
+    pub fn new(mut inp_str: clap::Values, pdb: &'a PDB) -> Result<Sphere<'a>, GenericErr> {
         let (origin_str, radius_str) =
             inp_str.next_tuple().ok_or("Problem with 'Sphere' option")?;
 
@@ -419,7 +419,7 @@ pub fn find_contacts(pdb: &PDB, level: Distance) -> Result<Table, String> {
 
 /// Takes a comma-separated list (usually from command line input) as string and parses it into
 /// a vector of Atom IDs. The Input may be atom IDs or Atom Names
-pub fn parse_atomic_list(input: &str, pdb: &PDB) -> Result<AtomList, GenErr> {
+pub fn parse_atomic_list(input: &str, pdb: &PDB) -> Result<AtomList, GenericErr> {
     let mut output_vec: AtomList = vec![];
     lazy_static! {
         static ref RE: Regex = Regex::new(r"(?P<num>\d+)?(?P<str>[A-Za-z])?").unwrap();
@@ -525,7 +525,7 @@ pub fn parse_atomic_list(input: &str, pdb: &PDB) -> Result<AtomList, GenErr> {
 /// Parses a string (usually taken from command line) and returns a list of residues given by a tuple
 /// of serial numbers and insertion codes. The input can be either a comma-separated list of serial numbers
 /// and insertion codes or residues names.
-pub fn parse_residue_list<'a>(input: &'a str, pdb: &'a PDB) -> Result<ResidueList<'a>, GenErr> {
+pub fn parse_residue_list<'a>(input: &'a str, pdb: &'a PDB) -> Result<ResidueList<'a>, GenericErr> {
     lazy_static! {
         static ref RE_NUM: Regex = Regex::new(
             r"^(?P<id1>\d+)(?P<insert1>[A-Za-z]?)([:-](?P<id2>\d+)(?P<insert2>[A-Za-z]?))?$"
@@ -645,7 +645,7 @@ pub fn parse_residue_list<'a>(input: &'a str, pdb: &'a PDB) -> Result<ResidueLis
                         .then(|| (x.id())))
                 })
                 .filter_map(Result::transpose)
-                .collect::<Result<ResidueList, GenErr>>()?;
+                .collect::<Result<ResidueList, GenericErr>>()?;
         }
     };
 

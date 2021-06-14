@@ -1,10 +1,9 @@
 use clap::ArgMatches;
 use clap::{App, AppSettings, Arg, ArgGroup};
 use itertools::Itertools;
-use std::error::Error;
-
 use lazy_static::lazy_static;
 use regex::Regex;
+use std::error::Error;
 
 fn sphere_valid(v: &str) -> Result<(), String> {
     lazy_static! {
@@ -17,7 +16,7 @@ fn sphere_valid(v: &str) -> Result<(), String> {
         .collect::<String>();
 
     if !err_chars.is_empty() {
-        return Err(format!("Invalid characters: {}", err_chars).into());
+        return Err(format!("Invalid characters: {}", err_chars));
     }
 
     Ok(())
