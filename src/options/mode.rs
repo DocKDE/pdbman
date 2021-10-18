@@ -4,7 +4,7 @@ use std::str::FromStr;
 use strum::VariantNames;
 use strum_macros::{Display, EnumString, EnumVariantNames};
 
-#[derive(Display, PartialEq, Clone, Debug, EnumVariantNames)]
+#[derive(Display, PartialEq, Clone, Copy, Debug, EnumVariantNames)]
 pub enum Mode {
     Query {
         source: Source,

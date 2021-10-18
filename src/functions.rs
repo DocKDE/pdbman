@@ -1,12 +1,11 @@
+use crate::options::{Distance, Partial, Region, Target};
+use itertools::EitherOrBoth::{Both, Left, Right};
 use itertools::Itertools;
-use lazy_static::lazy_static;
+use lazy_regex::regex;
 use pdbtbx::{Atom, AtomWithHierarchy, PDB};
 use prettytable::{format, Table};
 use rayon::prelude::*;
-use regex::Regex;
 use std::error::Error;
-
-use crate::options::{Distance, Partial, Region, Target};
 
 type GenericErr = Box<dyn Error>;
 type AtomList = Vec<usize>;
@@ -238,6 +237,26 @@ pub fn remove_all(pdb: &mut PDB) -> Result<(), String> {
     Ok(())
 }
 
+/// Sets all q values to zero which serves as a reset of the QM region.
+pub fn remove_qm(pdb: &mut PDB) -> Result<(), String> {
+    pdb.par_atoms_mut()
+        .try_for_each(|atom| -> Result<(), String> {
+            atom.set_occupancy(0.00)?;
+            Ok(())
+        })?;
+    Ok(())
+}
+
+/// Sets all b values to zero which serves as a reset of the active region.
+pub fn remove_active(pdb: &mut PDB) -> Result<(), String> {
+    pdb.par_atoms_mut()
+        .try_for_each(|atom| -> Result<(), String> {
+            atom.set_b_factor(0.00)?;
+            Ok(())
+        })?;
+    Ok(())
+}
+
 /// Prints all Atoms in Molecule to stdout in PDB file format This can be redirected
 /// to a file if desired. This may be obsolete as the functionality of printing to a file
 /// already exists with a separate flag.
@@ -421,10 +440,7 @@ pub fn find_contacts(pdb: &PDB, level: Distance) -> Result<Table, String> {
 /// a vector of Atom IDs. The Input may be atom IDs or Atom Names
 pub fn parse_atomic_list(input: &str, pdb: &PDB) -> Result<AtomList, GenericErr> {
     let mut output_vec: AtomList = vec![];
-    lazy_static! {
-        static ref RE: Regex = Regex::new(r"(?P<num>\d+)?(?P<str>[A-Za-z])?").unwrap();
-    };
-    // let re = Regex::new(r"(?P<num>\d+)?(?P<str>[A-Za-z])?")?;
+    let re = regex!(r"(?P<num>\d+)?(?P<str>[A-Za-z])?");
 
     // This test catches list inputs that contain digits followd by a letter.
     // This is valid input for residues but not atoms but since both get their
@@ -432,7 +448,7 @@ pub fn parse_atomic_list(input: &str, pdb: &PDB) -> Result<AtomList, GenericErr>
     let invalid_chars: Vec<&str> = input
         .split(&[',', '-', ':'][..])
         .filter(|x| {
-            let caps = RE.captures(x).unwrap();
+            let caps = re.captures(x).unwrap();
             caps.name("num").is_some() && caps.name("str").is_some()
         })
         .collect();
@@ -526,36 +542,22 @@ pub fn parse_atomic_list(input: &str, pdb: &PDB) -> Result<AtomList, GenericErr>
 /// of serial numbers and insertion codes. The input can be either a comma-separated list of serial numbers
 /// and insertion codes or residues names.
 pub fn parse_residue_list<'a>(input: &'a str, pdb: &'a PDB) -> Result<ResidueList<'a>, GenericErr> {
-    lazy_static! {
-        static ref RE_NUM: Regex = Regex::new(
-            r"^(?P<id1>\d+)(?P<insert1>[A-Za-z]?)([:-](?P<id2>\d+)(?P<insert2>[A-Za-z]?))?$"
-        )
-        .unwrap();
-    }
-
-    // let re_num = Regex::new(
-    //     r"^(?P<id1>\d+)(?P<insert1>[A-Za-z]?)([:-](?P<id2>\d+)(?P<insert2>[A-Za-z]?))?$",
-    // )?;
+    let re_num =
+        regex!(r"^(?P<id1>\d+)(?P<insert1>[A-Za-z]?)([:-](?P<id2>\d+)(?P<insert2>[A-Za-z]?))?$");
 
     let mut output_vec: ResidueList = vec![];
     let mut err_vec: Vec<String> = vec![];
 
-    match input.split(',').all(|x| RE_NUM.is_match(x)) {
+    match input.split(',').all(|x| re_num.is_match(x)) {
         true => {
             let input_vec: Vec<&str> = input.split(',').collect();
 
             for i in input_vec {
                 if i.contains(&[':', '-'][..]) {
-                    lazy_static! {
-                        static ref RE_NUM: Regex = Regex::new(
-                            r"^(?P<id1>\d+)(?P<insert1>[A-Za-z]?)[:-](?P<id2>\d+)(?P<insert2>[A-Za-z]?)$",
-                        )
-                        .unwrap();
-                    }
-                    // let re_num = Regex::new(
-                    //     r"^(?P<id1>\d+)(?P<insert1>[A-Za-z]?)[:-](?P<id2>\d+)(?P<insert2>[A-Za-z]?)$",
-                    // )?;
-                    let caps = RE_NUM.captures(i).unwrap();
+                    let re_num = regex!(
+                        r"^(?P<id1>\d+)(?P<insert1>[A-Za-z]?)[:-](?P<id2>\d+)(?P<insert2>[A-Za-z]?)$"
+                    );
+                    let caps = re_num.captures(i).unwrap();
 
                     let id1: isize = caps.name("id1").unwrap().as_str().parse()?;
                     let insert1 = match caps.name("insert1").map(|x| x.as_str()) {
@@ -605,12 +607,8 @@ pub fn parse_residue_list<'a>(input: &'a str, pdb: &'a PDB) -> Result<ResidueLis
 
                     // output_vec.append(&mut expand_residue_range(i, pdb)?);
                 } else {
-                    lazy_static! {
-                        static ref RE: Regex =
-                            Regex::new(r"^(?P<resid>\d+)(?P<insert>[A-Za-z])?$").unwrap();
-                    }
-                    // let re = Regex::new(r"^(?P<resid>\d+)(?P<insert>[A-Za-z])?$")?;
-                    let caps = RE.captures(i).unwrap();
+                    let re = regex!(r"^(?P<resid>\d+)(?P<insert>[A-Za-z])?$");
+                    let caps = re.captures(i).unwrap();
                     let resid: isize = caps.name("resid").unwrap().as_str().parse()?;
                     let insert = caps.name("insert").map(|x| x.as_str());
 
@@ -859,6 +857,42 @@ pub fn analyze(pdb: &PDB, region: Region, target: Target) -> Result<(), String> 
             atom_table.printstd();
         } else {
             return Err("No Atoms found in given region!".into());
+        }
+    }
+    Ok(())
+}
+
+pub fn check_residue_overflow(pdb: &PDB) -> bool {
+    pdb.par_atoms().count() > 9999
+        && pdb
+            .par_residues()
+            .map(|r| r.insertion_code())
+            .any(|i| i.is_none())
+}
+
+pub fn add_insertion_codes(pdb: &mut PDB) -> Result<(), GenericErr> {
+    let insertion_codes = [
+        "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R",
+        "S", "T", "U", "V", "W", "X", "Y", "Z",
+    ];
+    for i in pdb
+        .residues_mut()
+        .chunks(9999)
+        .into_iter()
+        .zip_longest(insertion_codes)
+    {
+        match i {
+            Both(chunk, icode) => {
+                for res in chunk {
+                    res.set_insertion_code(icode);
+                }
+            }
+            Right(_) => {}
+            Left(_) => {
+                return Err(
+                    "Too many residues for Latin alphabet. Please contact the developer.".into(),
+                )
+            }
         }
     }
     Ok(())

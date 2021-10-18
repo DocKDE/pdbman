@@ -1,18 +1,13 @@
 use clap::ArgMatches;
 use clap::{App, AppSettings, Arg, ArgGroup};
 use itertools::Itertools;
-use lazy_static::lazy_static;
-use regex::Regex;
+use lazy_regex::{regex, regex_is_match};
 use std::error::Error;
 
 fn sphere_valid(v: &str) -> Result<(), String> {
-    lazy_static! {
-        static ref RE: Regex = Regex::new(r"[\d.]").unwrap();
-    }
-
     let err_chars = v
         .chars()
-        .filter(|x| !RE.is_match(&x.to_string()))
+        .filter(|x| !regex_is_match!(r"[\d.]", &x.to_string()))
         .collect::<String>();
 
     if !err_chars.is_empty() {
@@ -23,22 +18,14 @@ fn sphere_valid(v: &str) -> Result<(), String> {
 }
 
 fn list_valid(v: &str) -> Result<(), Box<dyn Error>> {
-    lazy_static! {
-        static ref RE_NUM: Regex = Regex::new(
-            r"^(?P<id1>\d+)(?P<insert1>[A-Za-z]?)([:-](?P<id2>\d+)(?P<insert2>[A-Za-z]?))?$"
-        )
-        .unwrap();
-    }
-    lazy_static! {
-        static ref RE_STR: Regex = Regex::new(r"^[A-Za-z]+$").unwrap();
-    }
-    lazy_static! {
-        static ref RE_CHARS: Regex = Regex::new(r"[\dA-Z-a-z:,-]").unwrap();
-    }
+    let re_num =
+        regex!(r"^(?P<id1>\d+)(?P<insert1>[A-Za-z]?)([:-](?P<id2>\d+)(?P<insert2>[A-Za-z]?))?$");
+    let re_str = regex!(r"^[A-Za-z]+$");
+    let re_chars = regex!(r"[\dA-Z-a-z:,-]");
 
     let err_chars = v
         .chars()
-        .filter(|x| !RE_CHARS.is_match(&x.to_string()))
+        .filter(|x| !re_chars.is_match(&x.to_string()))
         .sorted()
         .dedup()
         .collect::<String>();
@@ -51,10 +38,10 @@ fn list_valid(v: &str) -> Result<(), Box<dyn Error>> {
     let mut string_inp = false;
 
     for i in v.split(',') {
-        if RE_NUM.is_match(i) {
+        if re_num.is_match(i) {
             numerical_inp = true;
 
-            let caps = RE_NUM.captures(i).unwrap();
+            let caps = re_num.captures(i).unwrap();
             if caps.name("id2").is_some()
                 && caps.name("id1").unwrap().as_str().parse::<i32>()?
                     > caps.name("id2").unwrap().as_str().parse::<i32>()?
@@ -69,7 +56,7 @@ fn list_valid(v: &str) -> Result<(), Box<dyn Error>> {
                     )
                     .into());
             }
-        } else if RE_STR.is_match(i) {
+        } else if re_str.is_match(i) {
             string_inp = true;
         }
     }
@@ -393,7 +380,8 @@ pub fn parse_args() -> ArgMatches {
             .group(
                 ArgGroup::new("region")
                     .args(&["QM1", "QM2", "Active"])
-                    .requires_all(&["target", "source"]))
+                    // .requires_all(&["target", "source"])
+                )
             .group(
                 ArgGroup::new("source")
                     .args(&["Infile", "List", "Sphere"])

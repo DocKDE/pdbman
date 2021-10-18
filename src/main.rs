@@ -34,11 +34,11 @@ extern crate prettytable;
 mod functions;
 mod options;
 
+// use pdbtbx::AtomWithHierarchyMut;
 use pdbtbx::StrictnessLevel;
 use std::error::Error;
 use std::fs;
 use std::process;
-use std::rc::Rc;
 
 use crate::functions::*;
 use crate::options::*;
@@ -47,7 +47,8 @@ use crate::options::*;
 // command line options. Hands all occurring errors to main.
 pub fn run() -> Result<(), Box<dyn Error>> {
     let matches = parse_args();
-    let mode = Rc::new(Mode::new(&matches)?);
+    // let mode = Rc::new(Mode::new(&matches)?);
+    let mode = Mode::new(&matches)?;
     let filename = matches.value_of("INPUT").unwrap();
     let mut pdb;
 
@@ -62,7 +63,24 @@ pub fn run() -> Result<(), Box<dyn Error>> {
         }
     }
 
-    match *mode {
+    if check_residue_overflow(&pdb) == true {
+        println!(
+            "WARNING: More than 9999 residues present and not all of them have insertion codes.
+         Writing PDB file with added insertion codes to '{}_insert'.
+         Please use this file, otherwise the correctness of the results cannot be guaranteed.\n",
+            filename
+        );
+        add_insertion_codes(&mut pdb)?;
+        if let Err(e) = pdbtbx::save_pdb(
+            pdb.clone(),
+            &(filename.to_string() + "_insert"),
+            StrictnessLevel::Loose,
+        ) {
+            e.iter().for_each(|x| println!("{}", x))
+        };
+    }
+
+    match mode {
         Mode::Query { source, target } => match source {
             Source::List => {
                 let list = matches
@@ -126,7 +144,7 @@ pub fn run() -> Result<(), Box<dyn Error>> {
             partial,
             output: _,
         } => {
-            let edit_value = match *mode {
+            let edit_value = match mode {
                 Mode::Remove { .. } => 0.00,
                 Mode::Add { .. } => match region {
                     Region::Active => 1.00,
@@ -214,6 +232,12 @@ pub fn run() -> Result<(), Box<dyn Error>> {
                         && target == Target::None
                     {
                         remove_all(&mut pdb)?
+                    } else if { region == Region::QM1 || region == Region::QM2 }
+                        && target == Target::None
+                    {
+                        remove_qm(&mut pdb)?
+                    } else if region == Region::Active && target == Target::None {
+                        remove_active(&mut pdb)?
                     } else {
                         return Err("Please provide the approprate options (see --help).".into());
                     }
@@ -230,9 +254,9 @@ pub fn run() -> Result<(), Box<dyn Error>> {
             .ok_or("Something wrong with mode 'Add' or 'Remove'")?
             .is_present("Overwrite")
         {
-            let filename_new = &(filename.to_string() + "_new");
+            let filename_new = filename.to_string() + "_new";
 
-            if let Err(e) = pdbtbx::save_pdb(pdb, filename_new, StrictnessLevel::Loose) {
+            if let Err(e) = pdbtbx::save_pdb(pdb, &filename_new, StrictnessLevel::Loose) {
                 e.iter().for_each(|x| println!("{}", x))
             };
 
