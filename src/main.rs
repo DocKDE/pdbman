@@ -64,20 +64,29 @@ pub fn run() -> Result<(), Box<dyn Error>> {
     }
 
     if check_residue_overflow(&pdb) == true {
-        println!(
-            "WARNING: More than 9999 residues present and not all of them have insertion codes.
-         Writing PDB file with added insertion codes to '{}_insert'.
-         Please use this file, otherwise the correctness of the results cannot be guaranteed.\n",
-            filename
-        );
-        add_insertion_codes(&mut pdb)?;
-        if let Err(e) = pdbtbx::save_pdb(
-            pdb.clone(),
-            &(filename.to_string() + "_insert"),
-            StrictnessLevel::Loose,
-        ) {
-            e.iter().for_each(|x| println!("{}", x))
-        };
+        let filename_insert = filename.to_string() + "_insert";
+
+        if std::path::Path::new(&filename_insert).exists() == false {
+            eprintln!(
+                "WARNING: More than 9999 residues present and not all of them have insertion codes.\n\
+            All output generated with this file is untrustworthy! Please add appropriate insertion codes!\n",
+            // Writing PDB file with added insertion codes to '{}_insert'.\n\
+            // Please use this file, otherwise the correctness of the results cannot be guaranteed.\n",
+                // filename
+            );
+            // add_insertion_codes(&mut pdb)?;
+            // if let Err(e) = pdbtbx::save_pdb(pdb.clone(), &filename_insert, StrictnessLevel::Loose)
+            // {
+            //     e.iter().for_each(|x| println!("{}", x))
+            // };
+        // } else {
+        //     println!(
+        //         "WARNING: More than 9999 residues present and not all of them have insertion codes.\n\
+        //     PDB file with appropriate insertion code '{}_insert' already exists!\n\
+        //     Please use this file, otherwise the correctness of the results cannot be guaranteed.\n",
+        //         filename
+        //     );
+        }
     }
 
     match mode {

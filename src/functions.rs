@@ -1,5 +1,5 @@
 use crate::options::{Distance, Partial, Region, Target};
-use itertools::EitherOrBoth::{Both, Left, Right};
+// use itertools::EitherOrBoth::{Both, Left, Right};
 use itertools::Itertools;
 use lazy_regex::regex;
 use pdbtbx::{Atom, AtomWithHierarchy, PDB};
@@ -870,33 +870,33 @@ pub fn check_residue_overflow(pdb: &PDB) -> bool {
             .any(|i| i.is_none())
 }
 
-pub fn add_insertion_codes(pdb: &mut PDB) -> Result<(), GenericErr> {
-    let insertion_codes = [
-        "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R",
-        "S", "T", "U", "V", "W", "X", "Y", "Z",
-    ];
-    for i in pdb
-        .residues_mut()
-        .chunks(9999)
-        .into_iter()
-        .zip_longest(insertion_codes)
-    {
-        match i {
-            Both(chunk, icode) => {
-                for res in chunk {
-                    res.set_insertion_code(icode);
-                }
-            }
-            Right(_) => {}
-            Left(_) => {
-                return Err(
-                    "Too many residues for Latin alphabet. Please contact the developer.".into(),
-                )
-            }
-        }
-    }
-    Ok(())
-}
+// pub fn add_insertion_codes(pdb: &mut PDB) -> Result<(), GenericErr> {
+//     let insertion_codes = [
+//         "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R",
+//         "S", "T", "U", "V", "W", "X", "Y", "Z",
+//     ];
+//     for i in pdb
+//         .residues_mut()
+//         .chunks(9999)
+//         .into_iter()
+//         .zip_longest(insertion_codes)
+//     {
+//         match i {
+//             Both(chunk, icode) => {
+//                 for res in chunk {
+//                     res.set_insertion_code(icode);
+//                 }
+//             }
+//             Right(_) => (),
+//             Left(_) => {
+//                 return Err(
+//                     "Too many residues for Latin alphabet. Please contact the developer.".into(),
+//                 )
+//             }
+//         }
+//     }
+//     Ok(())
+// }
 
 #[cfg(test)]
 mod tests {
