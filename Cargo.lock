@@ -428,7 +428,7 @@ checksum = "afb2e1c3ee07430c2cf76151675e583e0f19985fa6efae47d6848a3e2c824f85"
 
 [[package]]
 name = "pdbman"
-version = "0.5.7"
+version = "0.6.0"
 dependencies = [
  "clap",
  "itertools",
