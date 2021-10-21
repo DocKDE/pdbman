@@ -1,4 +1,4 @@
-use clap::ArgMatches;
+// use clap::ArgMatches;
 use clap::{App, AppSettings, Arg, ArgGroup};
 use itertools::Itertools;
 use lazy_regex::{regex, regex_is_match};
@@ -45,7 +45,9 @@ fn list_valid(v: &str) -> Result<(), Box<dyn Error>> {
             if caps.name("id2").is_some()
                 && caps.name("id1").unwrap().as_str().parse::<i32>()?
                     > caps.name("id2").unwrap().as_str().parse::<i32>()?
-                && caps.name("insert1").unwrap().as_str() >= caps.name("insert2").unwrap().as_str()
+                // && caps.name("insert1").unwrap().as_str() >= caps.name("insert2").unwrap().as_str()
+                && caps.name("insert1").unwrap().as_str() == ""
+                && caps.name("insert2").unwrap().as_str() == ""
             {
                 return Err(format!(
                         "Invalid range given: {}{}-{}{}. Left entry must preceed right one in PDB file!",
@@ -69,15 +71,16 @@ fn list_valid(v: &str) -> Result<(), Box<dyn Error>> {
 }
 
 /// Defines all Args, their configuration and all ArgGroups as defined by clap.
-pub fn parse_args() -> ArgMatches {
+pub fn parse_args() -> App<'static> {
     App::new(crate_name!())
         .about(crate_description!())
         .version(crate_version!())
         .author(crate_authors!())
         .setting(AppSettings::ArgRequiredElseHelp)
-        .setting(AppSettings::SubcommandRequiredElseHelp)
+        // .setting(AppSettings::SubcommandRequiredElseHelp)
         .setting(AppSettings::VersionlessSubcommands)
         .arg(Arg::new("INPUT").about("Path to PDB file").value_name("PDB file").required(true))
+        .arg(Arg::new("interactive").about("Activate interactive mode").long("interactive").short('i'))
         .subcommand(App::new("Query")
             .about("Query mode")
             .visible_aliases(&["query", "que", "Q", "q"])
@@ -390,5 +393,5 @@ pub fn parse_args() -> ArgMatches {
                 ArgGroup::new("output")
                     .args(&["Outfile", "Overwrite"]))
         )
-    .get_matches()
+    // .get_matches()
 }

@@ -29,7 +29,8 @@ pub enum Mode {
         partial: Partial,
         output: Output,
     },
-    // None,
+    // Interactive,
+    None,
 }
 
 #[derive(Display, PartialEq, Debug, Clone, Copy, EnumString, EnumVariantNames)]
@@ -199,8 +200,9 @@ impl Mode {
                     output,
                 })
             }
+            // Some("Interactive") => Ok(Mode::Interactive),
             Some(&_) => unreachable!(),
-            None => unreachable!(),
+            None => Ok(Mode::None),
         }
     }
 }

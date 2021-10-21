@@ -23,7 +23,7 @@
 //!
 //! The `--sphere` or `-s` flag takes an atom ID and a radius in Angstrom as arguments.
 
-#![allow(clippy::clippy::float_cmp)]
+#![allow(clippy::float_cmp)]
 
 #[macro_use]
 extern crate clap;
@@ -31,23 +31,26 @@ extern crate clap;
 #[macro_use]
 extern crate prettytable;
 
+#[macro_use]
+extern crate lazy_static;
+
 mod functions;
 mod options;
+mod residue_ascii;
 
-// use pdbtbx::AtomWithHierarchyMut;
+use clap::App;
 use pdbtbx::StrictnessLevel;
 use std::error::Error;
 use std::fs;
+use std::io::Write;
 use std::process;
 
-use crate::functions::*;
-use crate::options::*;
+use functions::*;
+use options::*;
 
-// Run function that handles the logic of when to call which function given an enum with the
-// command line options. Hands all occurring errors to main.
-pub fn run() -> Result<(), Box<dyn Error>> {
-    let matches = parse_args();
-    // let mode = Rc::new(Mode::new(&matches)?);
+fn dispatch() -> Result<(), Box<dyn Error>> {
+    let args = parse_args();
+    let matches = args.clone().get_matches();
     let mode = Mode::new(&matches)?;
     let filename = matches.value_of("INPUT").unwrap();
     let mut pdb;
@@ -63,22 +66,90 @@ pub fn run() -> Result<(), Box<dyn Error>> {
         }
     }
 
-    if check_residue_overflow(&pdb) == true {
-        let filename_insert = filename.to_string() + "_insert";
+    if check_residue_overflow(&pdb) {
+        eprintln!(
+            "WARNING: More than 9999 residues present and not all of them have insertion codes.\n\
+        All output generated with this file is untrustworthy! Please add appropriate insertion codes!\n",
+        );
+    }
 
-        if std::path::Path::new(&filename_insert).exists() == false {
-            eprintln!(
-                "WARNING: More than 9999 residues present and not all of them have insertion codes.\n\
-            All output generated with this file is untrustworthy! Please add appropriate insertion codes!\n",
-            // Writing PDB file with added insertion codes to '{}_insert'.\n\
-            // Please use this file, otherwise the correctness of the results cannot be guaranteed.\n",
-                // filename
-            );
-            // add_insertion_codes(&mut pdb)?;
-            // if let Err(e) = pdbtbx::save_pdb(pdb.clone(), &filename_insert, StrictnessLevel::Loose)
-            // {
-            //     e.iter().for_each(|x| println!("{}", x))
-            // };
+    if matches.is_present("interactive") {
+        let new_args = args
+            .mut_arg("INPUT", |a| a.required(false).hidden(true))
+            .mut_arg("interactive", |a| a.exclusive(true).hidden(true))
+            .setting(clap::AppSettings::NoBinaryName);
+        interactive(new_args, filename, &mut pdb)?;
+    } else {
+        run(matches.clone(), mode, filename, &mut pdb)?;
+        // println!("{:?}", matches);
+    }
+    Ok(())
+}
+
+fn interactive(args: App, filename: &str, pdb:&mut pdbtbx::PDB) -> Result<(), Box<dyn Error>> {
+    'outer: loop {
+        print!("\npdbman> ");
+        std::io::stdout().flush()?;
+        let command: String = text_io::read!("{}\n");
+
+        if command == "exit" || command == "quit" || command == "q" {
+            break 'outer;
+        }
+
+        let matches = args
+            .clone()
+            .get_matches_from(command.split_ascii_whitespace());
+        let mode = Mode::new(&matches)?;
+        run(matches, mode, filename, pdb)?;
+    }
+    Ok(())
+}
+
+// Run function that handles the logic of when to call which function given an enum with the
+// command line options. Hands all occurring errors to main.
+fn run(
+    matches: clap::ArgMatches,
+    mode: Mode,
+    filename: &str,
+    mut pdb: &mut pdbtbx::PDB,
+) -> Result<(), Box<dyn Error>> {
+    // let matches = parse_args().get_matches();
+    // let mode = Mode::new(&matches)?;
+    // let filename = matches.value_of("INPUT").unwrap();
+    // let mut pdb;
+
+    // let match_string = "pdbman myfile.pdb Q -tl 1";
+    // let str_matches = parse_args().get_matches_from(match_string.split_ascii_whitespace());
+
+    // match pdbtbx::open_pdb(filename, StrictnessLevel::Strict) {
+    //     Ok((pdb_read, errors)) => {
+    //         pdb = pdb_read;
+    //         errors.iter().for_each(|x| println!("{}", x))
+    //     }
+    //     Err(errors) => {
+    //         errors.iter().for_each(|x| println!("{}", x));
+    //         return Err("Exiting".into());
+    //     }
+    // }
+
+    if check_residue_overflow(&pdb) {
+        eprintln!(
+            "WARNING: More than 9999 residues present and not all of them have insertion codes.\n\
+        All output generated with this file is untrustworthy! Please add appropriate insertion codes!\n",
+        );
+
+        // let filename_insert = filename.to_string() + "_insert";
+
+        // if !std::path::Path::new(&filename_insert).exists() {
+        //     eprintln!(
+        //         "WARNING: More than 9999 residues present and not all of them have insertion codes.\n\
+        //     All output generated with this file is untrustworthy! Please add appropriate insertion codes!\n",
+        //     );
+        // add_insertion_codes(&mut pdb)?;
+        // if let Err(e) = pdbtbx::save_pdb(pdb.clone(), &filename_insert, StrictnessLevel::Loose)
+        // {
+        //     e.iter().for_each(|x| println!("{}", x))
+        // };
         // } else {
         //     println!(
         //         "WARNING: More than 9999 residues present and not all of them have insertion codes.\n\
@@ -86,7 +157,7 @@ pub fn run() -> Result<(), Box<dyn Error>> {
         //     Please use this file, otherwise the correctness of the results cannot be guaranteed.\n",
         //         filename
         //     );
-        }
+        // }
     }
 
     match mode {
@@ -107,7 +178,7 @@ pub fn run() -> Result<(), Box<dyn Error>> {
                 let sphere = Sphere::new(
                     matches
                         .subcommand_matches("Query")
-                        .ok_or("Somethings wrong with option 'Query'")?
+                        .ok_or("Something wrong with option 'Query'")?
                         .values_of("Sphere")
                         .ok_or("Something wrong with option 'Sphere'")?,
                     &pdb,
@@ -123,7 +194,7 @@ pub fn run() -> Result<(), Box<dyn Error>> {
 
                 query_atoms(&pdb, list)?;
             }
-            _ => println!("Please specifiy another input for a query."),
+            _ => return Err("Please specify another input for a query.".into()),
         },
         Mode::Analyze {
             region,
@@ -252,9 +323,10 @@ pub fn run() -> Result<(), Box<dyn Error>> {
                     }
                 }
             }
-        } // Mode::None => {
-          //     unreachable!()
-          // }
+        }
+        Mode::None => {
+            unreachable!()
+        }
     }
 
     if mode.to_string() == "Add" || mode.to_string() == "Remove" {
@@ -265,7 +337,7 @@ pub fn run() -> Result<(), Box<dyn Error>> {
         {
             let filename_new = filename.to_string() + "_new";
 
-            if let Err(e) = pdbtbx::save_pdb(pdb, &filename_new, StrictnessLevel::Loose) {
+            if let Err(e) = pdbtbx::save_pdb(pdb.clone(), &filename_new, StrictnessLevel::Loose) {
                 e.iter().for_each(|x| println!("{}", x))
             };
 
@@ -277,7 +349,7 @@ pub fn run() -> Result<(), Box<dyn Error>> {
             .is_present("Outfile")
         {
             if let Err(e) = pdbtbx::save_pdb(
-                pdb,
+                pdb.clone(),
                 matches
                     .subcommand_matches(mode.to_string())
                     .ok_or("Something wrong with mode 'Add' or 'Remove'")?
@@ -295,7 +367,7 @@ pub fn run() -> Result<(), Box<dyn Error>> {
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    if let Err(e) = run() {
+    if let Err(e) = dispatch() {
         eprintln!("{}", e);
         process::exit(1);
     }
