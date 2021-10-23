@@ -16,6 +16,7 @@ lazy_static = "1.4.0"
 itertools = "0.10"
 rayon = "^1.5"
 text_io = "0.1.9"
+rustyline = "9.0"
 # pdbtbx = {version = "^0.7", features = ["rayon", "rstar"]}
 pdbtbx = {git = "https://github.com/nonnominandus/pdbtbx", branch = "master", features = ["rayon", "rstar"]}
 #  pdbtbx = {path = "../pdbtbx", branch = "hierarchy_mut", features = ["rayon", "rstar"]}

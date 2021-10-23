@@ -34,32 +34,28 @@ extern crate prettytable;
 #[macro_use]
 extern crate lazy_static;
 
+mod dispatch;
 mod functions;
 mod options;
 mod residue_ascii;
 
-// use clap::App;
 use pdbtbx::StrictnessLevel;
 use std::error::Error;
 use std::fs;
 use std::io::Write;
 use std::process;
 
-use functions::*;
 use options::*;
+use dispatch::dispatch;
 
 fn run() -> Result<(), Box<dyn Error>> {
-    // let args = parse_args();
-    // let matches = args.clone().get_matches();
-    // let mode = Mode::new(&matches)?;
-    // let filename = matches.value_of("INPUT").unwrap();
     let args: Vec<String> = std::env::args().collect();
     println!("{:?}", args);
 
     if args.len() == 1 {
-        return Err("Please give a PDB file as argument!".into())
+        return Err("Please give a PDB file as argument!".into());
     } else if args.len() > 2 {
-        return Err("Please give only one PDB file as argument!".into())
+        return Err("Please give only one PDB file as argument!".into());
     }
 
     let filename = args[1].as_str();
@@ -114,7 +110,8 @@ fn run() -> Result<(), Box<dyn Error>> {
 
         let args = parse_args();
 
-        // Don't return when an error occurs because it would break the loop and disrupt the workflow
+        // Don't return when an error occurs because it would break the loop and disrupt the workflow.
+        // Errors returned from here mostly come from parsing the in-shell command line options.
         let matches = match args.try_get_matches_from(command.split_ascii_whitespace()) {
             Ok(m) => m,
             Err(e) => {
@@ -139,15 +136,15 @@ fn run() -> Result<(), Box<dyn Error>> {
     if parse {
         let filename_new = filename.to_string() + "_new";
 
-        if let Err(e) = pdbtbx::save_pdb(pdb.clone(), &filename_new, StrictnessLevel::Loose) {
+        if let Err(e) = pdbtbx::save_pdb(pdb, &filename_new, StrictnessLevel::Loose) {
             e.iter().for_each(|x| println!("{}", x))
         };
 
-        fs::remove_file(filename)?;
-        fs::rename(filename_new, filename)?;
+        // fs::remove_file(filename)?;
+        // fs::rename(filename_new, filename)?;
     }
 
-    // Figure out a way to print to another file on demand and not 
+    // Figure out a way to print to another file on demand and not
     // necessarily overwrite the existing one
     // if mode.to_string() == "Add" || mode.to_string() == "Remove" {
     //     if matches
@@ -183,182 +180,6 @@ fn run() -> Result<(), Box<dyn Error>> {
     //         print_to_stdout(&pdb)?;
     //     }
     // }
-    Ok(())
-}
-
-// Run function that handles the logic of when to call which function given an enum with the
-// command line options. Hands all occurring errors to main.
-fn dispatch(
-    matches: clap::ArgMatches,
-    mode: Mode,
-    // filename: &str,
-    mut pdb: &mut pdbtbx::PDB,
-) -> Result<(), Box<dyn Error>> {
-    match mode {
-        Mode::Query { source, target } => match source {
-            Source::List => {
-                let list = matches
-                    .subcommand_matches("Query")
-                    .ok_or("Something wrong with subcommand 'Query'")?
-                    .value_of("List")
-                    .ok_or("Something wrong with option 'List'")?;
-                match target {
-                    Target::Atoms => query_atoms(pdb, parse_atomic_list(list, pdb)?)?,
-                    Target::Residues => query_residues(pdb, parse_residue_list(list, pdb)?)?,
-                    Target::None => unreachable!(),
-                }
-            }
-            Source::Sphere => {
-                let sphere = Sphere::new(
-                    matches
-                        .subcommand_matches("Query")
-                        .ok_or("Something wrong with option 'Query'")?
-                        .values_of("Sphere")
-                        .ok_or("Something wrong with option 'Sphere'")?,
-                    pdb,
-                )?;
-
-                let list = match target {
-                    Target::Atoms => calc_atom_sphere(pdb, &sphere.origin, sphere.radius, false)?,
-                    Target::Residues => {
-                        calc_residue_sphere(pdb, &sphere.origin, sphere.radius, false)?
-                    }
-                    Target::None => unreachable!(),
-                };
-
-                query_atoms(pdb, list)?;
-            }
-            _ => return Err("Please specify another input for a query.".into()),
-        },
-        Mode::Analyze {
-            region,
-            target,
-            distance,
-        } => {
-            analyze(pdb, region, target)?;
-            if distance == Distance::Clashes || distance == Distance::Contacts {
-                find_contacts(pdb, distance)?.printstd();
-            }
-        }
-        Mode::Add {
-            region,
-            source,
-            target,
-            partial,
-            output: _,
-        }
-        | Mode::Remove {
-            region,
-            source,
-            target,
-            partial,
-            output: _,
-        } => {
-            let edit_value = match mode {
-                Mode::Remove { .. } => 0.00,
-                Mode::Add { .. } => match region {
-                    Region::Active => 1.00,
-                    Region::QM1 => 1.00,
-                    Region::QM2 => 2.00,
-                    Region::None => unreachable!(),
-                },
-                _ => unreachable!(),
-            };
-
-            match source {
-                Source::Infile => {
-                    println!("This is not implemented yet.")
-                }
-                Source::List => {
-                    let list = matches
-                        .subcommand_matches(mode.to_string())
-                        .ok_or("Something wrong with subcommand 'Add' or 'Remove'")?
-                        .value_of("List")
-                        .ok_or("Something wrong with option 'List'")?;
-
-                    match target {
-                        Target::Atoms => {
-                            let atomic_list = parse_atomic_list(list, pdb)?;
-
-                            match region {
-                                Region::QM1 | Region::QM2 => {
-                                    edit_qm_atoms(&mut pdb, edit_value, atomic_list)?
-                                }
-                                Region::Active => {
-                                    edit_active_atoms(&mut pdb, edit_value, atomic_list)?
-                                }
-                                Region::None => unreachable!(),
-                            }
-                        }
-                        Target::Residues => {
-                            let pdb_clone = pdb.clone();
-                            let residue_list = parse_residue_list(list, &pdb_clone)?;
-
-                            match region {
-                                Region::QM1 | Region::QM2 => {
-                                    edit_qm_residues(&mut pdb, edit_value, residue_list, partial)?
-                                }
-                                Region::Active => edit_active_residues(
-                                    &mut pdb,
-                                    edit_value,
-                                    residue_list,
-                                    partial,
-                                )?,
-                                Region::None => unreachable!(),
-                            }
-                        }
-                        Target::None => unreachable!(),
-                    }
-                }
-                Source::Sphere => {
-                    let sphere = Sphere::new(
-                        matches
-                            .subcommand_matches(mode.to_string())
-                            .ok_or("Something wrong with option 'Add' or 'Remove'")?
-                            .values_of("Sphere")
-                            .ok_or("Something wrong with option 'Sphere'")?,
-                        pdb,
-                    )?;
-
-                    let list = match target {
-                        Target::Atoms => {
-                            calc_atom_sphere(pdb, &sphere.origin, sphere.radius, true)?
-                        }
-                        Target::Residues => {
-                            calc_residue_sphere(pdb, &sphere.origin, sphere.radius, true)?
-                        }
-                        Target::None => unreachable!(),
-                    };
-
-                    match region {
-                        Region::QM1 | Region::QM2 => edit_qm_atoms(&mut pdb, edit_value, list)?,
-                        Region::Active => edit_active_atoms(&mut pdb, edit_value, list)?,
-                        Region::None => unreachable!(),
-                    }
-                }
-                Source::None => {
-                    if mode.to_string() == "Remove"
-                        && region == Region::None
-                        && target == Target::None
-                    {
-                        remove_all(&mut pdb)?
-                    } else if { region == Region::QM1 || region == Region::QM2 }
-                        && target == Target::None
-                    {
-                        remove_qm(&mut pdb)?
-                    } else if region == Region::Active && target == Target::None {
-                        remove_active(&mut pdb)?
-                    } else {
-                        return Err("Please provide the approprate options (see --help).".into());
-                    }
-                }
-            }
-        }
-        Mode::None => {
-            unreachable!()
-        }
-    }
-
     Ok(())
 }
 
