@@ -1,8 +1,8 @@
 [package]
 name = "pdbman"
-version = "0.6.0"
+version = "0.7.0"
 authors = ["Benedikt M. Flöser <benedikt.floeser@cec.mpg.de>"]
-edition = "2018"
+edition = "2021"
 description = "Analyzes and edits PDB files for usage in QM/MM calculations with the ORCA Quantum Chemistry package"
 license = "GPL-2.0-or-later"
 
@@ -16,8 +16,8 @@ lazy_static = "1.4.0"
 itertools = "0.10"
 rayon = "^1.5"
 text_io = "0.1.9"
-pdbtbx = {version = "^0.7", features = ["rayon", "rstar"]}
-# pdbtbx = {git = "https://github.com/DocKDE/pdbtbx", branch = "hierarchy_mut", features = ["rayon", "rstar"]}
+# pdbtbx = {version = "^0.7", features = ["rayon", "rstar"]}
+pdbtbx = {git = "https://github.com/nonnominandus/pdbtbx", branch = "master", features = ["rayon", "rstar"]}
 #  pdbtbx = {path = "../pdbtbx", branch = "hierarchy_mut", features = ["rayon", "rstar"]}
 
 [dev-dependencies]

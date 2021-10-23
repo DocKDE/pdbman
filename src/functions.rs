@@ -1,6 +1,6 @@
 use crate::options::{Distance, Partial, Region, Target};
-// use itertools::EitherOrBoth::{Both, Left, Right};
 use crate::residue_ascii::RESIDUE_ASCII;
+// use itertools::EitherOrBoth::{Both, Left, Right};
 use itertools::Itertools;
 use lazy_regex::regex;
 use pdbtbx::{Atom, AtomWithHierarchy, PDB};
@@ -258,27 +258,27 @@ pub fn remove_active(pdb: &mut PDB) -> Result<(), String> {
     Ok(())
 }
 
-/// Prints all Atoms in Molecule to stdout in PDB file format This can be redirected
-/// to a file if desired. This may be obsolete as the functionality of printing to a file
-/// already exists with a separate flag.
-pub fn print_to_stdout(pdb: &PDB) -> Result<(), String> {
-    for atom_hier in pdb.atoms_with_hierarchy() {
-        println!(
-            "ATOM  {:>5} {:<4} {:>3}  {:>4}    {:>8.3}{:>8.3}{:>8.3}{:>6.2}{:>6.2}          {:>2}",
-            atom_hier.atom.serial_number(),
-            atom_hier.atom.name(),
-            atom_hier.residue.name().ok_or("No Residue Name")?,
-            atom_hier.residue.serial_number(),
-            atom_hier.atom.x(),
-            atom_hier.atom.y(),
-            atom_hier.atom.z(),
-            atom_hier.atom.occupancy(),
-            atom_hier.atom.b_factor(),
-            atom_hier.atom.element()
-        );
-    }
-    Ok(())
-}
+// /// Prints all Atoms in Molecule to stdout in PDB file format This can be redirected
+// /// to a file if desired. This may be obsolete as the functionality of printing to a file
+// /// already exists with a separate flag.
+// pub fn print_to_stdout(pdb: &PDB) -> Result<(), String> {
+//     for atom_hier in pdb.atoms_with_hierarchy() {
+//         println!(
+//             "ATOM  {:>5} {:<4} {:>3}  {:>4}    {:>8.3}{:>8.3}{:>8.3}{:>6.2}{:>6.2}          {:>2}",
+//             atom_hier.atom.serial_number(),
+//             atom_hier.atom.name(),
+//             atom_hier.residue.name().ok_or("No Residue Name")?,
+//             atom_hier.residue.serial_number(),
+//             atom_hier.atom.x(),
+//             atom_hier.atom.y(),
+//             atom_hier.atom.z(),
+//             atom_hier.atom.occupancy(),
+//             atom_hier.atom.b_factor(),
+//             atom_hier.atom.element()
+//         );
+//     }
+//     Ok(())
+// }
 
 /// Takes an Atom struct as point of origin and a radius in A. Returns a Vector of Atom IDs
 /// of Atoms within the given radius wrapped in a Result. Origin can be included or excluded.
@@ -910,13 +910,13 @@ pub fn analyze(pdb: &PDB, region: Region, target: Target) -> Result<(), String> 
     Ok(())
 }
 
-pub fn check_residue_overflow(pdb: &PDB) -> bool {
-    pdb.par_residues().count() > 9999
-        && pdb
-            .par_residues()
-            .map(|r| r.insertion_code())
-            .any(|i| i.is_none())
-}
+// pub fn check_residue_overflow(pdb: &PDB) -> bool {
+//     pdb.par_residues().count() > 9999
+//         && pdb
+//             .par_residues()
+//             .map(|r| r.insertion_code())
+//             .any(|i| i.is_none())
+// }
 
 // pub fn add_insertion_codes(pdb: &mut PDB) -> Result<(), GenericErr> {
 //     let insertion_codes = [

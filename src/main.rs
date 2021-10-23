@@ -38,7 +38,7 @@ mod functions;
 mod options;
 mod residue_ascii;
 
-use clap::App;
+// use clap::App;
 use pdbtbx::StrictnessLevel;
 use std::error::Error;
 use std::fs;
@@ -48,11 +48,22 @@ use std::process;
 use functions::*;
 use options::*;
 
-fn dispatch() -> Result<(), Box<dyn Error>> {
-    let args = parse_args();
-    let matches = args.clone().get_matches();
-    let mode = Mode::new(&matches)?;
-    let filename = matches.value_of("INPUT").unwrap();
+fn run() -> Result<(), Box<dyn Error>> {
+    // let args = parse_args();
+    // let matches = args.clone().get_matches();
+    // let mode = Mode::new(&matches)?;
+    // let filename = matches.value_of("INPUT").unwrap();
+    let args: Vec<String> = std::env::args().collect();
+    println!("{:?}", args);
+
+    if args.len() == 1 {
+        return Err("Please give a PDB file as argument!".into())
+    } else if args.len() > 2 {
+        return Err("Please give only one PDB file as argument!".into())
+    }
+
+    let filename = args[1].as_str();
+
     let mut pdb;
 
     match pdbtbx::open_pdb(filename, StrictnessLevel::Strict) {
@@ -66,27 +77,32 @@ fn dispatch() -> Result<(), Box<dyn Error>> {
         }
     }
 
-    if check_residue_overflow(&pdb) {
-        eprintln!(
-            "WARNING: More than 9999 residues present and not all of them have insertion codes.\n\
-        All output generated with this file is untrustworthy! Please add appropriate insertion codes!\n",
-        );
-    }
+    // if check_residue_overflow(&pdb) {
+    //     let filename_insert = filename.to_string() + "_insert";
+    //     if !std::path::Path::new(&filename_insert).exists() {
+    //         eprintln!(
+    //             "WARNING: More than 9999 residues present and not all of them have insertion codes.\n\
+    //         PDB file with appropriate insertion code '{}_insert' will now be created.\n\
+    //         Please use this file, otherwise the correctness of the results cannot be guaranteed.\n",
+    //             filename
+    //         );
+    //         add_insertion_codes(&mut pdb)?;
+    //         if let Err(e) = pdbtbx::save_pdb(pdb.clone(), &filename_insert, StrictnessLevel::Loose)
+    //         {
+    //             e.iter().for_each(|x| println!("{}", x))
+    //         };
+    //     } else {
+    //         eprintln!(
+    //             "WARNING: More than 9999 residues present and not all of them have insertion codes.\n\
+    //         All output generated with this file is untrustworthy!\n\
+    //         Please use existing PDB file '{}_insert' instead!\n", filename
+    //         );
+    //     }
+    // }
 
-    if matches.is_present("interactive") {
-        let new_args = args
-            .mut_arg("INPUT", |a| a.required(false).hidden(true))
-            .mut_arg("interactive", |a| a.exclusive(true).hidden(true))
-            .setting(clap::AppSettings::NoBinaryName);
-        interactive(new_args, filename, &mut pdb)?;
-    } else {
-        run(matches.clone(), mode, filename, &mut pdb)?;
-        // println!("{:?}", matches);
-    }
-    Ok(())
-}
+    let mut parse = false;
 
-fn interactive(args: App, filename: &str, pdb:&mut pdbtbx::PDB) -> Result<(), Box<dyn Error>> {
+    // Be careful not to return any error unnecessarily because they would break the loop
     'outer: loop {
         print!("\npdbman> ");
         std::io::stdout().flush()?;
@@ -96,70 +112,88 @@ fn interactive(args: App, filename: &str, pdb:&mut pdbtbx::PDB) -> Result<(), Bo
             break 'outer;
         }
 
-        let matches = args
-            .clone()
-            .get_matches_from(command.split_ascii_whitespace());
+        let args = parse_args();
+
+        // Don't return when an error occurs because it would break the loop and disrupt the workflow
+        let matches = match args.try_get_matches_from(command.split_ascii_whitespace()) {
+            Ok(m) => m,
+            Err(e) => {
+                println!("{}", e);
+                continue;
+            }
+        };
+
+        // If something goes wrong here it should actually return
         let mode = Mode::new(&matches)?;
-        run(matches, mode, filename, pdb)?;
+
+        // Print errors instead of returning them
+        if let Err(e) = dispatch(matches, mode, &mut pdb) {
+            println! {"{}", e};
+        }
+        if mode.to_string() == "Add" || mode.to_string() == "Remove" {
+            parse = true;
+        }
     }
+
+    // Only print to file if any changes were made and only once the loop was broken
+    if parse {
+        let filename_new = filename.to_string() + "_new";
+
+        if let Err(e) = pdbtbx::save_pdb(pdb.clone(), &filename_new, StrictnessLevel::Loose) {
+            e.iter().for_each(|x| println!("{}", x))
+        };
+
+        fs::remove_file(filename)?;
+        fs::rename(filename_new, filename)?;
+    }
+
+    // Figure out a way to print to another file on demand and not 
+    // necessarily overwrite the existing one
+    // if mode.to_string() == "Add" || mode.to_string() == "Remove" {
+    //     if matches
+    //         .subcommand_matches(mode.to_string())
+    //         .ok_or("Something wrong with mode 'Add' or 'Remove'")?
+    //         .is_present("Overwrite")
+    //     {
+    //         let filename_new = filename.to_string() + "_new";
+
+    //         if let Err(e) = pdbtbx::save_pdb(pdb.clone(), &filename_new, StrictnessLevel::Loose) {
+    //             e.iter().for_each(|x| println!("{}", x))
+    //         };
+
+    //         fs::remove_file(filename)?;
+    //         fs::rename(filename_new, filename)?;
+    //     } else if matches
+    //         .subcommand_matches(mode.to_string())
+    //         .ok_or("Something wrong with mode 'Add' or 'Remove'")?
+    //         .is_present("Outfile")
+    //     {
+    //         if let Err(e) = pdbtbx::save_pdb(
+    //             pdb.clone(),
+    //             matches
+    //                 .subcommand_matches(mode.to_string())
+    //                 .ok_or("Something wrong with mode 'Add' or 'Remove'")?
+    //                 .value_of("Outfile")
+    //                 .ok_or("Value for Outfile could not be parsed")?,
+    //             StrictnessLevel::Loose,
+    //         ) {
+    //             e.iter().for_each(|x| println!("{}", x))
+    //         }
+    //     } else {
+    //         print_to_stdout(&pdb)?;
+    //     }
+    // }
     Ok(())
 }
 
 // Run function that handles the logic of when to call which function given an enum with the
 // command line options. Hands all occurring errors to main.
-fn run(
+fn dispatch(
     matches: clap::ArgMatches,
     mode: Mode,
-    filename: &str,
+    // filename: &str,
     mut pdb: &mut pdbtbx::PDB,
 ) -> Result<(), Box<dyn Error>> {
-    // let matches = parse_args().get_matches();
-    // let mode = Mode::new(&matches)?;
-    // let filename = matches.value_of("INPUT").unwrap();
-    // let mut pdb;
-
-    // let match_string = "pdbman myfile.pdb Q -tl 1";
-    // let str_matches = parse_args().get_matches_from(match_string.split_ascii_whitespace());
-
-    // match pdbtbx::open_pdb(filename, StrictnessLevel::Strict) {
-    //     Ok((pdb_read, errors)) => {
-    //         pdb = pdb_read;
-    //         errors.iter().for_each(|x| println!("{}", x))
-    //     }
-    //     Err(errors) => {
-    //         errors.iter().for_each(|x| println!("{}", x));
-    //         return Err("Exiting".into());
-    //     }
-    // }
-
-    if check_residue_overflow(&pdb) {
-        eprintln!(
-            "WARNING: More than 9999 residues present and not all of them have insertion codes.\n\
-        All output generated with this file is untrustworthy! Please add appropriate insertion codes!\n",
-        );
-
-        // let filename_insert = filename.to_string() + "_insert";
-
-        // if !std::path::Path::new(&filename_insert).exists() {
-        //     eprintln!(
-        //         "WARNING: More than 9999 residues present and not all of them have insertion codes.\n\
-        //     All output generated with this file is untrustworthy! Please add appropriate insertion codes!\n",
-        //     );
-        // add_insertion_codes(&mut pdb)?;
-        // if let Err(e) = pdbtbx::save_pdb(pdb.clone(), &filename_insert, StrictnessLevel::Loose)
-        // {
-        //     e.iter().for_each(|x| println!("{}", x))
-        // };
-        // } else {
-        //     println!(
-        //         "WARNING: More than 9999 residues present and not all of them have insertion codes.\n\
-        //     PDB file with appropriate insertion code '{}_insert' already exists!\n\
-        //     Please use this file, otherwise the correctness of the results cannot be guaranteed.\n",
-        //         filename
-        //     );
-        // }
-    }
-
     match mode {
         Mode::Query { source, target } => match source {
             Source::List => {
@@ -169,8 +203,8 @@ fn run(
                     .value_of("List")
                     .ok_or("Something wrong with option 'List'")?;
                 match target {
-                    Target::Atoms => query_atoms(&pdb, parse_atomic_list(list, &pdb)?)?,
-                    Target::Residues => query_residues(&pdb, parse_residue_list(list, &pdb)?)?,
+                    Target::Atoms => query_atoms(pdb, parse_atomic_list(list, pdb)?)?,
+                    Target::Residues => query_residues(pdb, parse_residue_list(list, pdb)?)?,
                     Target::None => unreachable!(),
                 }
             }
@@ -181,18 +215,18 @@ fn run(
                         .ok_or("Something wrong with option 'Query'")?
                         .values_of("Sphere")
                         .ok_or("Something wrong with option 'Sphere'")?,
-                    &pdb,
+                    pdb,
                 )?;
 
                 let list = match target {
-                    Target::Atoms => calc_atom_sphere(&pdb, &sphere.origin, sphere.radius, false)?,
+                    Target::Atoms => calc_atom_sphere(pdb, &sphere.origin, sphere.radius, false)?,
                     Target::Residues => {
-                        calc_residue_sphere(&pdb, &sphere.origin, sphere.radius, false)?
+                        calc_residue_sphere(pdb, &sphere.origin, sphere.radius, false)?
                     }
                     Target::None => unreachable!(),
                 };
 
-                query_atoms(&pdb, list)?;
+                query_atoms(pdb, list)?;
             }
             _ => return Err("Please specify another input for a query.".into()),
         },
@@ -201,14 +235,10 @@ fn run(
             target,
             distance,
         } => {
-            analyze(&pdb, region, target)?;
+            analyze(pdb, region, target)?;
             if distance == Distance::Clashes || distance == Distance::Contacts {
-                find_contacts(&pdb, distance)?.printstd();
+                find_contacts(pdb, distance)?.printstd();
             }
-            // match distance {
-            //     Distance::Clashes | Distance::Contacts => find_contacts(&pdb, distance)?.printstd(),
-            //     Distance::None => 0,
-            // };
         }
         Mode::Add {
             region,
@@ -248,7 +278,7 @@ fn run(
 
                     match target {
                         Target::Atoms => {
-                            let atomic_list = parse_atomic_list(list, &pdb)?;
+                            let atomic_list = parse_atomic_list(list, pdb)?;
 
                             match region {
                                 Region::QM1 | Region::QM2 => {
@@ -287,15 +317,15 @@ fn run(
                             .ok_or("Something wrong with option 'Add' or 'Remove'")?
                             .values_of("Sphere")
                             .ok_or("Something wrong with option 'Sphere'")?,
-                        &pdb,
+                        pdb,
                     )?;
 
                     let list = match target {
                         Target::Atoms => {
-                            calc_atom_sphere(&pdb, &sphere.origin, sphere.radius, true)?
+                            calc_atom_sphere(pdb, &sphere.origin, sphere.radius, true)?
                         }
                         Target::Residues => {
-                            calc_residue_sphere(&pdb, &sphere.origin, sphere.radius, true)?
+                            calc_residue_sphere(pdb, &sphere.origin, sphere.radius, true)?
                         }
                         Target::None => unreachable!(),
                     };
@@ -329,45 +359,11 @@ fn run(
         }
     }
 
-    if mode.to_string() == "Add" || mode.to_string() == "Remove" {
-        if matches
-            .subcommand_matches(mode.to_string())
-            .ok_or("Something wrong with mode 'Add' or 'Remove'")?
-            .is_present("Overwrite")
-        {
-            let filename_new = filename.to_string() + "_new";
-
-            if let Err(e) = pdbtbx::save_pdb(pdb.clone(), &filename_new, StrictnessLevel::Loose) {
-                e.iter().for_each(|x| println!("{}", x))
-            };
-
-            fs::remove_file(filename)?;
-            fs::rename(filename_new, filename)?;
-        } else if matches
-            .subcommand_matches(mode.to_string())
-            .ok_or("Something wrong with mode 'Add' or 'Remove'")?
-            .is_present("Outfile")
-        {
-            if let Err(e) = pdbtbx::save_pdb(
-                pdb.clone(),
-                matches
-                    .subcommand_matches(mode.to_string())
-                    .ok_or("Something wrong with mode 'Add' or 'Remove'")?
-                    .value_of("Outfile")
-                    .ok_or("Value for Outfile could not be parsed")?,
-                StrictnessLevel::Loose,
-            ) {
-                e.iter().for_each(|x| println!("{}", x))
-            }
-        } else {
-            print_to_stdout(&pdb)?;
-        }
-    }
     Ok(())
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    if let Err(e) = dispatch() {
+    if let Err(e) = run() {
         eprintln!("{}", e);
         process::exit(1);
     }
