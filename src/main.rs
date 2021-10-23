@@ -38,19 +38,25 @@ mod dispatch;
 mod functions;
 mod options;
 mod residue_ascii;
+mod shell;
+
+use std::error::Error;
+use std::process;
 
 use pdbtbx::StrictnessLevel;
-use std::error::Error;
-use std::fs;
-use std::io::Write;
-use std::process;
+use rustyline::highlight::MatchingBracketHighlighter;
+use rustyline::validate::MatchingBracketValidator;
+use rustyline::completion::FilenameCompleter;
+use rustyline::hint::HistoryHinter;
+use rustyline::config::OutputStreamType;
+use rustyline::{Cmd, CompletionType, Config, EditMode, Editor, KeyEvent};
 
 use options::*;
 use dispatch::dispatch;
+use shell::*;
 
 fn run() -> Result<(), Box<dyn Error>> {
     let args: Vec<String> = std::env::args().collect();
-    println!("{:?}", args);
 
     if args.len() == 1 {
         return Err("Please give a PDB file as argument!".into());
@@ -97,15 +103,37 @@ fn run() -> Result<(), Box<dyn Error>> {
     // }
 
     let mut parse = false;
+    env_logger::init();
+    let config = Config::builder()
+        .history_ignore_space(true)
+        .history_ignore_dups(true)
+        .completion_type(CompletionType::List)
+        .edit_mode(EditMode::Emacs)
+        .output_stream(OutputStreamType::Stdout)
+        .build();
+    
+    let helper = ShellHelper {
+        completer: FilenameCompleter::new(),
+        highlighter: MatchingBracketHighlighter::new(),
+        hinter: HistoryHinter {},
+        colored_prompt: "".to_owned(),
+        validator: MatchingBracketValidator::new(),
+    };
+
+    let mut rl = Editor::with_config(config);
+    rl.set_helper(Some(helper));
+    rl.bind_sequence(KeyEvent::alt('n'), Cmd::HistorySearchForward);
+    rl.bind_sequence(KeyEvent::alt('p'), Cmd::HistorySearchBackward);
 
     // Be careful not to return any error unnecessarily because they would break the loop
-    'outer: loop {
-        print!("\npdbman> ");
-        std::io::stdout().flush()?;
-        let command: String = text_io::read!("{}\n");
+    loop {
+        let p = "\npdbman> ";
+        rl.helper_mut().expect("No helper").colored_prompt = format!("\x1b[1;32m{}\x1b[0m", p);
+        let command = rl.readline(&p)?;
+        rl.add_history_entry(command.as_str());
 
         if command == "exit" || command == "quit" || command == "q" {
-            break 'outer;
+            break;
         }
 
         let args = parse_args();
@@ -136,6 +164,7 @@ fn run() -> Result<(), Box<dyn Error>> {
     if parse {
         let filename_new = filename.to_string() + "_new";
 
+        println!("Saving changes to {}", filename_new);
         if let Err(e) = pdbtbx::save_pdb(pdb, &filename_new, StrictnessLevel::Loose) {
             e.iter().for_each(|x| println!("{}", x))
         };
