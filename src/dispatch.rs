@@ -61,14 +61,14 @@ pub fn dispatch(
             source,
             target,
             partial,
-            output: _,
+            // output: _,
         }
         | Mode::Remove {
             region,
             source,
             target,
             partial,
-            output: _,
+            // output: _,
         } => {
             let edit_value = match mode {
                 Mode::Remove { .. } => 0.00,

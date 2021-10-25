@@ -20,14 +20,14 @@ pub enum Mode {
         source: Source,
         target: Target,
         partial: Partial,
-        output: Output,
+        // output: Output,
     },
     Remove {
         region: Region,
         source: Source,
         target: Target,
         partial: Partial,
-        output: Output,
+        // output: Output,
     },
     // Interactive,
     None,
@@ -56,12 +56,12 @@ pub enum Target {
     None,
 }
 
-#[derive(Display, PartialEq, Debug, Clone, Copy, EnumString, EnumVariantNames)]
-pub enum Output {
-    Outfile,
-    Overwrite,
-    None,
-}
+// #[derive(Display, PartialEq, Debug, Clone, Copy, EnumString, EnumVariantNames)]
+// pub enum Output {
+//     Outfile,
+//     Overwrite,
+//     None,
+// }
 
 #[derive(Display, PartialEq, Debug, Clone, Copy, EnumString, EnumVariantNames)]
 pub enum Partial {
@@ -147,18 +147,18 @@ impl Mode {
                     .unwrap_or(&"None");
                 let partial = Partial::from_str(partial_str)?;
 
-                let output_str = Output::VARIANTS
-                    .iter()
-                    .find(|x| matches.subcommand_matches("Add").unwrap().is_present(x))
-                    .unwrap_or(&"None");
-                let output = Output::from_str(output_str)?;
+                // let output_str = Output::VARIANTS
+                //     .iter()
+                //     .find(|x| matches.subcommand_matches("Add").unwrap().is_present(x))
+                //     .unwrap_or(&"None");
+                // let output = Output::from_str(output_str)?;
 
                 Ok(Mode::Add {
                     region,
                     source,
                     target,
                     partial,
-                    output,
+                    // output,
                 })
             }
             Some("Remove") => {
@@ -186,18 +186,18 @@ impl Mode {
                     .unwrap_or(&"None");
                 let partial = Partial::from_str(partial_str)?;
 
-                let output_str = Output::VARIANTS
-                    .iter()
-                    .find(|x| matches.subcommand_matches("Remove").unwrap().is_present(x))
-                    .unwrap_or(&"None");
-                let output = Output::from_str(output_str)?;
+                // let output_str = Output::VARIANTS
+                //     .iter()
+                //     .find(|x| matches.subcommand_matches("Remove").unwrap().is_present(x))
+                //     .unwrap_or(&"None");
+                // let output = Output::from_str(output_str)?;
 
                 Ok(Mode::Remove {
                     region,
                     source,
                     target,
                     partial,
-                    output,
+                    // output,
                 })
             }
             // Some("Interactive") => Ok(Mode::Interactive),

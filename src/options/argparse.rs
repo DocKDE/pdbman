@@ -2,7 +2,8 @@
 use clap::{App, AppSettings, Arg, ArgGroup};
 use itertools::Itertools;
 use lazy_regex::{regex, regex_is_match};
-use std::error::Error;
+// use std::error::Error;
+use anyhow::Result;
 
 fn sphere_valid(v: &str) -> Result<(), String> {
     let err_chars = v
@@ -17,7 +18,7 @@ fn sphere_valid(v: &str) -> Result<(), String> {
     Ok(())
 }
 
-fn list_valid(v: &str) -> Result<(), Box<dyn Error>> {
+fn list_valid(v: &str) -> Result<(), anyhow::Error> {
     let re_num =
         regex!(r"^(?P<id1>\d+)(?P<insert1>[A-Za-z]?)([:-](?P<id2>\d+)(?P<insert2>[A-Za-z]?))?$");
     let re_str = regex!(r"^[A-Za-z]+$");
@@ -31,7 +32,7 @@ fn list_valid(v: &str) -> Result<(), Box<dyn Error>> {
         .collect::<String>();
 
     if !err_chars.is_empty() {
-        return Err(format!("Invalid characters: {:?}", err_chars).into());
+        return Err(anyhow!("Invalid characters: {:?}", err_chars));
     }
 
     let mut numerical_inp = false;
@@ -49,14 +50,13 @@ fn list_valid(v: &str) -> Result<(), Box<dyn Error>> {
                 && caps.name("insert1").unwrap().as_str() == ""
                 && caps.name("insert2").unwrap().as_str() == ""
             {
-                return Err(format!(
+                return Err(anyhow!(
                         "Invalid range given: {}{}-{}{}. Left entry must preceed right one in PDB file!",
                         caps.name("id1").unwrap().as_str(),
                         caps.name("insert1").unwrap().as_str(),
                         caps.name("id2").unwrap().as_str(),
                         caps.name("insert2").unwrap().as_str(),
-                    )
-                    .into());
+                    ));
             }
         } else if re_str.is_match(i) {
             string_inp = true;
@@ -64,7 +64,7 @@ fn list_valid(v: &str) -> Result<(), Box<dyn Error>> {
     }
 
     if numerical_inp && string_inp {
-        return Err("Input List contains mixed types.".into());
+        return Err(anyhow!("Input List contains mixed types."));
     }
 
     Ok(())
@@ -72,10 +72,10 @@ fn list_valid(v: &str) -> Result<(), Box<dyn Error>> {
 
 /// Defines all Args, their configuration and all ArgGroups as defined by clap.
 pub fn parse_args() -> App<'static> {
-    App::new(crate_name!())
-        .about(crate_description!())
-        .version(crate_version!())
-        .author(crate_authors!())
+    App::new("")
+        // .about(crate_description!())
+        // .version(crate_version!())
+        // .author(crate_authors!())
         .setting(AppSettings::ArgRequiredElseHelp)
         .setting(AppSettings::SubcommandRequiredElseHelp)
         .setting(AppSettings::VersionlessSubcommands)
@@ -251,19 +251,19 @@ pub fn parse_args() -> App<'static> {
                     .long("backbone")
                     .short('b')
             )
-            .arg(
-                Arg::new("Outfile")
-                    .about("Name of PDB output file")
-                    .long("outfile")
-                    .short('e')
-                    .takes_value(true),
-            )
-            .arg(
-                Arg::new("Overwrite")
-                    .about("Overwrite input PDB file")
-                    .long("overwrite")
-                    .short('w'),
-            )
+            // .arg(
+            //     Arg::new("Outfile")
+            //         .about("Name of PDB output file")
+            //         .long("outfile")
+            //         .short('e')
+            //         .takes_value(true),
+            // )
+            // .arg(
+            //     Arg::new("Overwrite")
+            //         .about("Overwrite input PDB file")
+            //         .long("overwrite")
+            //         .short('w'),
+            // )
             .group(
                 ArgGroup::new("target")
                     .args(&["Residues", "Atoms"])
@@ -281,9 +281,9 @@ pub fn parse_args() -> App<'static> {
                 ArgGroup::new("source")
                     .args(&["Infile", "List", "Sphere"])
                     .required(true))
-            .group(
-                ArgGroup::new("output")
-                    .args(&["Outfile", "Overwrite"]))
+        //     .group(
+        //         ArgGroup::new("output")
+        //             .args(&["Outfile", "Overwrite"]))
         )
         .subcommand(App::new("Remove")
             .about("Remove mode")
@@ -358,19 +358,19 @@ pub fn parse_args() -> App<'static> {
                     .long("backbone")
                     .short('b')
             )
-            .arg(
-                Arg::new("Outfile")
-                    .about("Name of PDB output file")
-                    .long("outfile")
-                    .short('e')
-                    .takes_value(true),
-            )
-            .arg(
-                Arg::new("Overwrite")
-                    .about("Overwrite input PDB file")
-                    .long("overwrite")
-                    .short('w'),
-            )
+            // .arg(
+            //     Arg::new("Outfile")
+            //         .about("Name of PDB output file")
+            //         .long("outfile")
+            //         .short('e')
+            //         .takes_value(true),
+            // )
+            // .arg(
+            //     Arg::new("Overwrite")
+            //         .about("Overwrite input PDB file")
+            //         .long("overwrite")
+            //         .short('w'),
+            // )
             .group(
                 ArgGroup::new("target")
                     .args(&["Residues", "Atoms"])
@@ -390,9 +390,9 @@ pub fn parse_args() -> App<'static> {
                 ArgGroup::new("source")
                     .args(&["Infile", "List", "Sphere"])
                     .requires_all(&["target", "region"]))
-            .group(
-                ArgGroup::new("output")
-                    .args(&["Outfile", "Overwrite"]))
+            // .group(
+            //     ArgGroup::new("output")
+            //         .args(&["Outfile", "Overwrite"]))
         )
     // .get_matches()
 }

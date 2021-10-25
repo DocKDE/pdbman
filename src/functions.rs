@@ -6,9 +6,8 @@ use lazy_regex::regex;
 use pdbtbx::{Atom, AtomWithHierarchy, PDB};
 use prettytable::{format, Table};
 use rayon::prelude::*;
-use std::error::Error;
+use anyhow::Result;
 
-type GenericErr = Box<dyn Error>;
 type AtomList = Vec<usize>;
 type ResidueList<'a> = Vec<(isize, Option<&'a str>)>;
 
@@ -22,16 +21,16 @@ pub struct Sphere<'a> {
 /// a reference to the corresponding Atom and the radius. The return values are organized
 /// in a Sphere struct to facilitate usage.
 impl<'a> Sphere<'a> {
-    pub fn new(mut inp_str: clap::Values, pdb: &'a PDB) -> Result<Sphere<'a>, GenericErr> {
+    pub fn new(mut inp_str: clap::Values, pdb: &'a PDB) -> Result<Sphere<'a>, anyhow::Error> {
         let (origin_str, radius_str) =
-            inp_str.next_tuple().ok_or("Problem with 'Sphere' option")?;
+            inp_str.next_tuple().ok_or(anyhow!("Problem with 'Sphere' option"))?;
 
         // The sphere validator rejects anything containing something else than digits and dots.
         // Since it validates both arguments the same, it will not reject a decimal point in the Atom
         // ID which is taken care of here.
         let origin_id: usize = match origin_str.parse() {
             Ok(v) => v,
-            Err(_) => return Err("Decimal points are not allowed in Atom IDs.".into()),
+            Err(_) => return Err(anyhow!("Decimal points are not allowed in Atom IDs.")),
         };
 
         // No more error handling should be necessary since the sphere validator already
@@ -42,7 +41,7 @@ impl<'a> Sphere<'a> {
         let origin = pdb
             .par_atoms_with_hierarchy()
             .find_any(|x| x.atom.serial_number() == origin_id)
-            .ok_or("No atom corresponding to the given ID could be found.")?;
+            .ok_or(anyhow!("No atom corresponding to the given ID could be found."))?;
 
         Ok(Sphere { origin, radius })
     }
@@ -442,7 +441,7 @@ pub fn find_contacts(pdb: &PDB, level: Distance) -> Result<Table, String> {
 
 /// Takes a comma-separated list (usually from command line input) as string and parses it into
 /// a vector of Atom IDs. The Input may be atom IDs or Atom Names
-pub fn parse_atomic_list(input: &str, pdb: &PDB) -> Result<AtomList, GenericErr> {
+pub fn parse_atomic_list(input: &str, pdb: &PDB) -> Result<AtomList, anyhow::Error> {
     let mut output_vec: AtomList = vec![];
     let re = regex!(r"(?P<num>\d+)?(?P<str>[A-Za-z])?");
 
@@ -458,11 +457,10 @@ pub fn parse_atomic_list(input: &str, pdb: &PDB) -> Result<AtomList, GenericErr>
         .peekable();
 
     if invalid_chars.peek().is_some() {
-        return Err(format!(
+        return Err(anyhow!(
             "Letters are not allowed in atom list input: {}",
             invalid_chars.join(",")
-        )
-        .into());
+        ));
     }
 
     match input
@@ -492,11 +490,10 @@ pub fn parse_atomic_list(input: &str, pdb: &PDB) -> Result<AtomList, GenericErr>
                 .peekable();
 
             if missing_atoms.peek().is_some() {
-                return Err(format!(
+                return Err(anyhow!(
                     "No atom(s) found with serial number(s): {}",
                     missing_atoms.format(",")
-                )
-                .into());
+                ));
             }
         }
         false => {
@@ -515,7 +512,7 @@ pub fn parse_atomic_list(input: &str, pdb: &PDB) -> Result<AtomList, GenericErr>
 
             if missing_atoms.peek().is_some() {
                 return Err(
-                    format!("No atom(s) found with name(s): {}", missing_atoms.join(",")).into(),
+                    anyhow!("No atom(s) found with name(s): {}", missing_atoms.join(",")),
                 );
             }
 
@@ -540,7 +537,7 @@ pub fn parse_atomic_list(input: &str, pdb: &PDB) -> Result<AtomList, GenericErr>
 /// Parses a string (usually taken from command line) and returns a list of residues given by a tuple
 /// of serial numbers and insertion codes. The input can be either a comma-separated list of serial numbers
 /// and insertion codes or residues names.
-pub fn parse_residue_list<'a>(input: &'a str, pdb: &'a PDB) -> Result<ResidueList<'a>, GenericErr> {
+pub fn parse_residue_list<'a>(input: &'a str, pdb: &'a PDB) -> Result<ResidueList<'a>, anyhow::Error> {
     let re_num =
         regex!(r"^(?P<id1>\d+)(?P<insert1>[A-Za-z]?)([:-](?P<id2>\d+)(?P<insert2>[A-Za-z]?))?$");
 
@@ -594,8 +591,8 @@ pub fn parse_residue_list<'a>(input: &'a str, pdb: &'a PDB) -> Result<ResidueLis
                         if residue.id() == (id2, insert2) {
                             // Return prematurely if start is None which means that end < start which is invalid.
                             if start.is_none() {
-                                return Err(format!("Invalid range given: {}{}-{}{}. Left entry must preceed right one in PDB file!", 
-                                id1, insert1.unwrap_or(""), id2, insert2.unwrap_or("")).into());
+                                return Err(anyhow!("Invalid range given: {}{}-{}{}. Left entry must preceed right one in PDB file!", 
+                                id1, insert1.unwrap_or(""), id2, insert2.unwrap_or("")));
                             }
                             end = Some(index);
                             parse_res = false;
@@ -669,11 +666,11 @@ pub fn parse_residue_list<'a>(input: &'a str, pdb: &'a PDB) -> Result<ResidueLis
                 .residues()
                 .map(|x| {
                     Ok(input_vec
-                        .contains(&x.name().ok_or("No Residue Name")?.to_lowercase())
+                        .contains(&x.name().ok_or(anyhow!("No Residue Name"))?.to_lowercase())
                         .then(|| (x.id())))
                 })
                 .filter_map(Result::transpose)
-                .collect::<Result<ResidueList, GenericErr>>()?;
+                .collect::<Result<ResidueList, anyhow::Error>>()?;
         }
     };
 
@@ -681,11 +678,10 @@ pub fn parse_residue_list<'a>(input: &'a str, pdb: &'a PDB) -> Result<ResidueLis
     err_vec.dedup();
 
     if !err_vec.is_empty() {
-        return Err(format!(
+        return Err(anyhow!(
             "No residue(s) found with identifier(s): {}",
             err_vec.join(",")
-        )
-        .into());
+        ));
     }
 
     Ok(output_vec)
