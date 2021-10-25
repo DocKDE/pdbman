@@ -100,7 +100,7 @@ As illustration what `pdbman` is capable of a typical workflow will be shown.
 
 It is always called with a single PDB file as command line option like so:
 
-![](/home/floeserb/Nextcloud/Code/rust/pdbman/example/pdbman_init.png)
+![](example/pdbman_init.png)
 
 As you can see from the changed prompt, a new shell environment has been started. It comes with a few convenience features, like a command history (accessible via the ' up' arrow key or by pressing `Ctrl + n`/`Ctrl + p` for the next or previous history item, respectively) or suggestions generated from previous commands.
 
@@ -110,14 +110,14 @@ First, the file of interest (here called `myfile.pdb`) will be analyzed:
 
 `Y`
 
-![](/home/floeserb/Nextcloud/Code/rust/pdbman/example/pdbman_y_initial.png)
+![](example/pdbman_y_initial.png)
 
 This is typical for files that were preprocessed with Ambertools and needs to be changed.
 Next, we look for potential clashes between atoms. This can happen if, e.g., a water shell has been added around the molecule and results in spurious high contributions from the involved Lennard-Jones-terms.
 
 `Y -c`
 
-![](/home/floeserb/Nextcloud/Code/rust/pdbman/example/pdbman_clash.png)
+![](example/pdbman_clash.png)
 
 (Different input file shown in figure because `myfile.pdb` has no clashes)
 
@@ -141,7 +141,7 @@ Next, we want to build an active region of residues around a metal ion in the ce
 
 `Q -tl Cu`
 
-![](/home/floeserb/Nextcloud/Code/rust/pdbman/example/pdbman_query.png)
+![](example/pdbman_query.png)
 
 This finds all atoms with the name `Cu` in the PDB file. The search is case-insensitive. You can also search for residues with the `-r` flag but be aware that the residue names can differ from the usually more intuitive atom names.
 
@@ -198,7 +198,7 @@ A final look at the region declarations we made:
 
 `Y -rq`
 
-![](/home/floeserb/Nextcloud/Code/rust/pdbman/example/pdbman_ana_final.png)
+![](example/pdbman_ana_final.png)
 
 Looks good! Now we're good to go for QM/MM jobs!
 
