@@ -1,12 +1,12 @@
 use crate::options::{Distance, Partial, Region, Target};
 use crate::residue_ascii::RESIDUE_ASCII;
-// use itertools::EitherOrBoth::{Both, Left, Right};
+
+use anyhow::Result;
 use itertools::Itertools;
 use lazy_regex::regex;
 use pdbtbx::{Atom, AtomWithHierarchy, PDB};
 use prettytable::{format, Table};
 use rayon::prelude::*;
-use anyhow::Result;
 
 type AtomList = Vec<usize>;
 type ResidueList<'a> = Vec<(isize, Option<&'a str>)>;
@@ -22,15 +22,17 @@ pub struct Sphere<'a> {
 /// in a Sphere struct to facilitate usage.
 impl<'a> Sphere<'a> {
     pub fn new(mut inp_str: clap::Values, pdb: &'a PDB) -> Result<Sphere<'a>, anyhow::Error> {
-        let (origin_str, radius_str) =
-            inp_str.next_tuple().ok_or(anyhow!("Problem with 'Sphere' option"))?;
+        let (origin_str, radius_str) = inp_str
+            .next_tuple()
+            .ok_or_else(|| anyhow!("Problem with 'Sphere' option"))?;
 
         // The sphere validator rejects anything containing something else than digits and dots.
         // Since it validates both arguments the same, it will not reject a decimal point in the Atom
         // ID which is taken care of here.
         let origin_id: usize = match origin_str.parse() {
             Ok(v) => v,
-            Err(_) => return Err(anyhow!("Decimal points are not allowed in Atom IDs.")),
+            // Err(_) => return Err(anyhow!("Decimal points are not allowed in Atom IDs.")),
+            Err(_) => bail!("Decimal points are not allowed in Atom IDs."),
         };
 
         // No more error handling should be necessary since the sphere validator already
@@ -41,7 +43,7 @@ impl<'a> Sphere<'a> {
         let origin = pdb
             .par_atoms_with_hierarchy()
             .find_any(|x| x.atom.serial_number() == origin_id)
-            .ok_or(anyhow!("No atom corresponding to the given ID could be found."))?;
+            .ok_or_else(|| anyhow!("No atom corresponding to the given ID could be found."))?;
 
         Ok(Sphere { origin, radius })
     }
@@ -456,12 +458,19 @@ pub fn parse_atomic_list(input: &str, pdb: &PDB) -> Result<AtomList, anyhow::Err
         })
         .peekable();
 
-    if invalid_chars.peek().is_some() {
-        return Err(anyhow!(
-            "Letters are not allowed in atom list input: {}",
-            invalid_chars.join(",")
-        ));
-    }
+    ensure!(
+        invalid_chars.peek().is_none(),
+        "Letters are not allowed in atom list input: {}",
+        invalid_chars.join(",")
+    );
+
+    // if invalid_chars.peek().is_some() {
+    // return Err(anyhow!(
+    //     "Letters are not allowed in atom list input: {}",
+    //     invalid_chars.join(",")
+    // ));
+    //     bail!("Letters are not allowed in atom list input: {}", invalid_chars.join(","));
+    // }
 
     match input
         .split(&[',', '-', ':'][..])
@@ -489,12 +498,22 @@ pub fn parse_atomic_list(input: &str, pdb: &PDB) -> Result<AtomList, anyhow::Err
                 .dedup()
                 .peekable();
 
-            if missing_atoms.peek().is_some() {
-                return Err(anyhow!(
-                    "No atom(s) found with serial number(s): {}",
-                    missing_atoms.format(",")
-                ));
-            }
+            ensure!(
+                missing_atoms.peek().is_none(),
+                "No atom(s) found with serial number(s): {}",
+                missing_atoms.format(",")
+            );
+
+            // if missing_atoms.peek().is_some() {
+            // return Err(anyhow!(
+            //     "No atom(s) found with serial number(s): {}",
+            //     missing_atoms.format(",")
+            // ));
+            //     bail!(
+            //         "No atom(s) found with serial number(s): {}",
+            //         missing_atoms.format(",")
+            //     );
+            // }
         }
         false => {
             let input_vec: Vec<&str> = input.split(',').collect();
@@ -510,11 +529,22 @@ pub fn parse_atomic_list(input: &str, pdb: &PDB) -> Result<AtomList, anyhow::Err
                 .dedup()
                 .peekable();
 
-            if missing_atoms.peek().is_some() {
-                return Err(
-                    anyhow!("No atom(s) found with name(s): {}", missing_atoms.join(",")),
-                );
-            }
+            ensure!(
+                missing_atoms.peek().is_none(),
+                "No atom(s) found with serial number(s): {}",
+                missing_atoms.format(",")
+            );
+
+            // if missing_atoms.peek().is_some() {
+                // return Err(anyhow!(
+                //     "No atom(s) found with name(s): {}",
+                //     missing_atoms.join(",")
+                // ));
+            //     bail!(
+            //         "No atom(s) found with name(s): {}",
+            //         missing_atoms.format(",")
+            //     );
+            // }
 
             output_vec = pdb
                 .atoms()
@@ -537,7 +567,10 @@ pub fn parse_atomic_list(input: &str, pdb: &PDB) -> Result<AtomList, anyhow::Err
 /// Parses a string (usually taken from command line) and returns a list of residues given by a tuple
 /// of serial numbers and insertion codes. The input can be either a comma-separated list of serial numbers
 /// and insertion codes or residues names.
-pub fn parse_residue_list<'a>(input: &'a str, pdb: &'a PDB) -> Result<ResidueList<'a>, anyhow::Error> {
+pub fn parse_residue_list<'a>(
+    input: &'a str,
+    pdb: &'a PDB,
+) -> Result<ResidueList<'a>, anyhow::Error> {
     let re_num =
         regex!(r"^(?P<id1>\d+)(?P<insert1>[A-Za-z]?)([:-](?P<id2>\d+)(?P<insert2>[A-Za-z]?))?$");
 
@@ -591,8 +624,10 @@ pub fn parse_residue_list<'a>(input: &'a str, pdb: &'a PDB) -> Result<ResidueLis
                         if residue.id() == (id2, insert2) {
                             // Return prematurely if start is None which means that end < start which is invalid.
                             if start.is_none() {
-                                return Err(anyhow!("Invalid range given: {}{}-{}{}. Left entry must preceed right one in PDB file!", 
-                                id1, insert1.unwrap_or(""), id2, insert2.unwrap_or("")));
+                                bail!("Invalid range given: {}{}-{}{}. Left entry must preceed right one in PDB file!", 
+                                id1, insert1.unwrap_or(""), id2, insert2.unwrap_or(""))
+                                // return Err(anyhow!("Invalid range given: {}{}-{}{}. Left entry must preceed right one in PDB file!",
+                                // id1, insert1.unwrap_or(""), id2, insert2.unwrap_or("")));
                             }
                             end = Some(index);
                             parse_res = false;
@@ -666,7 +701,11 @@ pub fn parse_residue_list<'a>(input: &'a str, pdb: &'a PDB) -> Result<ResidueLis
                 .residues()
                 .map(|x| {
                     Ok(input_vec
-                        .contains(&x.name().ok_or(anyhow!("No Residue Name"))?.to_lowercase())
+                        .contains(
+                            &x.name()
+                                .ok_or_else(|| anyhow!("No Residue Name"))?
+                                .to_lowercase(),
+                        )
                         .then(|| (x.id())))
                 })
                 .filter_map(Result::transpose)
@@ -678,10 +717,14 @@ pub fn parse_residue_list<'a>(input: &'a str, pdb: &'a PDB) -> Result<ResidueLis
     err_vec.dedup();
 
     if !err_vec.is_empty() {
-        return Err(anyhow!(
+        bail!(
             "No residue(s) found with identifier(s): {}",
             err_vec.join(",")
-        ));
+        );
+        // return Err(anyhow!(
+        //     "No residue(s) found with identifier(s): {}",
+        //     err_vec.join(",")
+        // ));
     }
 
     Ok(output_vec)
@@ -771,7 +814,7 @@ pub fn query_residues(pdb: &PDB, residue_list: ResidueList) -> Result<(), String
     Ok(())
 }
 
-pub fn analyze(pdb: &PDB, region: Region, target: Target) -> Result<(), String> {
+pub fn analyze(pdb: &PDB, region: Region, target: Target) -> Result<(), anyhow::Error> {
     let mut qm1_residue_list = Vec::new();
     let mut qm1_atom_list = Vec::new();
     let mut qm2_residue_list = Vec::new();
@@ -818,7 +861,8 @@ pub fn analyze(pdb: &PDB, region: Region, target: Target) -> Result<(), String> 
             Region::QM1 => qm1_residue_list,
             Region::QM2 => qm2_residue_list,
             Region::Active => active_residue_list,
-            Region::None => return Err("Invalid argument for 'region'".into()),
+            // Region::None => return Err("Invalid argument for 'region'".into()),
+            Region::None => bail!("Invalid argument for 'region'"),
         };
         if !residue_list.is_empty() {
             let mut residue_table = Table::new();
@@ -830,7 +874,8 @@ pub fn analyze(pdb: &PDB, region: Region, target: Target) -> Result<(), String> 
                     Region::QM1 => "# of QM1 Atoms",
                     Region::QM2 => "# of QM2 Atoms",
                     Region::Active => "# of Active Atoms",
-                    Region::None => return Err("Invalid argument for 'region'".into()),
+                    // Region::None => return Err("Invalid argument for 'region'".into()),
+                    Region::None => bail!("Invalid argument for 'region'"),
                 }
             ]);
 
@@ -853,7 +898,7 @@ pub fn analyze(pdb: &PDB, region: Region, target: Target) -> Result<(), String> 
 
                 residue_table.add_row(row![
                     residue.serial_number().to_string() + residue.insertion_code().unwrap_or(""),
-                    residue.name().ok_or("No Residue Name")?,
+                    residue.name().ok_or_else(|| anyhow!("No Residue Name"))?,
                     atom_counter,
                     resid_atoms,
                 ]);
@@ -861,14 +906,16 @@ pub fn analyze(pdb: &PDB, region: Region, target: Target) -> Result<(), String> 
             println!("\n{} Residues", region.to_string());
             residue_table.printstd();
         } else {
-            return Err("No Residues found in given region!".into());
+            // return Err("No Residues found in given region!".into());
+            bail!("No Residues found in given region!");
         }
     } else if target == Target::Atoms {
         let (atom_list, residue_list) = match region {
             Region::QM1 => (qm1_atom_list, qm1_residue_list),
             Region::QM2 => (qm2_atom_list, qm2_residue_list),
             Region::Active => (active_atom_list, active_residue_list),
-            Region::None => return Err("Invalid argument for 'region'".into()),
+            // Region::None => return Err("Invalid argument for 'region'".into()),
+            Region::None => bail!("Invalid argument for 'region'"),
         };
 
         if !atom_list.is_empty() {
@@ -890,7 +937,7 @@ pub fn analyze(pdb: &PDB, region: Region, target: Target) -> Result<(), String> 
                             atom.name(),
                             residue.serial_number().to_string()
                                 + residue.insertion_code().unwrap_or(""),
-                            residue.name().ok_or("No Residue Name")?,
+                            residue.name().ok_or_else(|| anyhow!("No Residue Name"))?,
                             atom.occupancy(),
                             atom.b_factor(),
                         ]);
@@ -900,7 +947,8 @@ pub fn analyze(pdb: &PDB, region: Region, target: Target) -> Result<(), String> 
             println!("\n{} Atoms", region.to_string());
             atom_table.printstd();
         } else {
-            return Err("No Atoms found in given region!".into());
+            // return Err("No Atoms found in given region!".into());
+            bail!("No Atoms found in given region!")
         }
     }
     Ok(())

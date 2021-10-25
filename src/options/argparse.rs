@@ -1,9 +1,7 @@
-// use clap::ArgMatches;
+use anyhow::Result;
 use clap::{App, AppSettings, Arg, ArgGroup};
 use itertools::Itertools;
 use lazy_regex::{regex, regex_is_match};
-// use std::error::Error;
-use anyhow::Result;
 
 fn sphere_valid(v: &str) -> Result<(), String> {
     let err_chars = v
@@ -73,15 +71,10 @@ fn list_valid(v: &str) -> Result<(), anyhow::Error> {
 /// Defines all Args, their configuration and all ArgGroups as defined by clap.
 pub fn parse_args() -> App<'static> {
     App::new("")
-        // .about(crate_description!())
-        // .version(crate_version!())
-        // .author(crate_authors!())
         .setting(AppSettings::ArgRequiredElseHelp)
         .setting(AppSettings::SubcommandRequiredElseHelp)
         .setting(AppSettings::VersionlessSubcommands)
         .setting(AppSettings::NoBinaryName)
-        // .arg(Arg::new("INPUT").about("Path to PDB file").value_name("PDB file").required(true))
-        // .arg(Arg::new("interactive").about("Activate interactive mode").long("interactive").short('i'))
         .subcommand(App::new("Query")
             .about("Query mode")
             .visible_aliases(&["query", "que", "Q", "q"])
@@ -111,9 +104,6 @@ pub fn parse_args() -> App<'static> {
                     .short('l')
                     .takes_value(true)
                     .validator(list_valid)
-                    // .validator_regex(&re, "Invalid characters for list input")
-                    // .multiple(true)
-                    // .use_delimiter(true),
             )
             .arg(
                 Arg::new("Sphere")
@@ -207,8 +197,6 @@ pub fn parse_args() -> App<'static> {
                     .short('l')
                     .takes_value(true)
                     .validator(list_valid)
-                    // .multiple(true)
-                    // .use_delimiter(true),
             )
             .arg(
                 Arg::new("Sphere")
@@ -251,19 +239,6 @@ pub fn parse_args() -> App<'static> {
                     .long("backbone")
                     .short('b')
             )
-            // .arg(
-            //     Arg::new("Outfile")
-            //         .about("Name of PDB output file")
-            //         .long("outfile")
-            //         .short('e')
-            //         .takes_value(true),
-            // )
-            // .arg(
-            //     Arg::new("Overwrite")
-            //         .about("Overwrite input PDB file")
-            //         .long("overwrite")
-            //         .short('w'),
-            // )
             .group(
                 ArgGroup::new("target")
                     .args(&["Residues", "Atoms"])
@@ -281,9 +256,6 @@ pub fn parse_args() -> App<'static> {
                 ArgGroup::new("source")
                     .args(&["Infile", "List", "Sphere"])
                     .required(true))
-        //     .group(
-        //         ArgGroup::new("output")
-        //             .args(&["Outfile", "Overwrite"]))
         )
         .subcommand(App::new("Remove")
             .about("Remove mode")
@@ -314,8 +286,6 @@ pub fn parse_args() -> App<'static> {
                     .short('l')
                     .takes_value(true)
                     .validator(list_valid)
-                    // .multiple(true)
-                    // .use_delimiter(true),
             )
             .arg(
                 Arg::new("Sphere")
@@ -358,19 +328,6 @@ pub fn parse_args() -> App<'static> {
                     .long("backbone")
                     .short('b')
             )
-            // .arg(
-            //     Arg::new("Outfile")
-            //         .about("Name of PDB output file")
-            //         .long("outfile")
-            //         .short('e')
-            //         .takes_value(true),
-            // )
-            // .arg(
-            //     Arg::new("Overwrite")
-            //         .about("Overwrite input PDB file")
-            //         .long("overwrite")
-            //         .short('w'),
-            // )
             .group(
                 ArgGroup::new("target")
                     .args(&["Residues", "Atoms"])
@@ -390,9 +347,5 @@ pub fn parse_args() -> App<'static> {
                 ArgGroup::new("source")
                     .args(&["Infile", "List", "Sphere"])
                     .requires_all(&["target", "region"]))
-            // .group(
-            //     ArgGroup::new("output")
-            //         .args(&["Outfile", "Overwrite"]))
         )
-    // .get_matches()
 }
