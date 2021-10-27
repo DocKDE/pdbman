@@ -107,13 +107,7 @@ pub fn dispatch(
                             }
                         }
                         Target::Residues => {
-                            let pdb_clone = pdb.clone();
-                            // let pdb = pdb.clone();
-                            // let ref_pdb = std::cell::RefCell::new(pdb);
-                            // let pdb_borrow = ref_pdb.borrow();
-                            // let residue_list = parse_residue_list(list, &pdb_borrow)?;
-                            // let mut pdb_mut = ref_pdb.borrow_mut();
-                            let residue_list = parse_residue_list(list, &pdb_clone)?;
+                            let residue_list = parse_residue_list(list, pdb)?;
 
                             match region {
                                 Region::QM1 | Region::QM2 => {
