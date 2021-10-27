@@ -1,4 +1,5 @@
 use std::error::Error;
+use std::rc::Rc;
 
 use crate::functions::*;
 use crate::options::*;
@@ -6,30 +7,33 @@ use crate::options::*;
 // Run function that handles the logic of when to call which function given an enum with the
 // command line options. Hands all occurring errors to calöer.
 pub fn dispatch(
-    matches: clap::ArgMatches,
-    mode: Mode,
+    // matches: clap::ArgMatches,
+    mode: Rc<Mode>,
+    // mode: Mode,
     mut pdb: &mut pdbtbx::PDB,
 ) -> Result<(), Box<dyn Error>> {
-    match mode {
+    match &*mode {
         Mode::Query { source, target } => match source {
-            Source::List => {
-            // Source::List(_) => {
-                let list = matches
-                    .subcommand_matches("Query").unwrap()
-                    .value_of("List").unwrap();
+            // Source::List => {
+            Source::List(list) => {
+                // let list = matches
+                //     .subcommand_matches("Query").unwrap()
+                //     .value_of("List").unwrap();
                 match target {
                     Target::Atoms => query_atoms(pdb, parse_atomic_list(list, pdb)?)?,
                     Target::Residues => query_residues(pdb, parse_residue_list(list, pdb)?)?,
                     Target::None => unreachable!(),
                 }
             }
-            Source::Sphere => {
-                let sphere = Sphere::new(
-                    matches
-                        .subcommand_matches("Query").unwrap()
-                        .values_of("Sphere").unwrap(),
-                    pdb,
-                )?;
+            Source::Sphere(origin_str, radius_str) => {
+                let sphere = Sphere::new(origin_str, radius_str, pdb)?;
+                // matches
+                //     .subcommand_matches("Query")
+                //     .unwrap()
+                //     .values_of("Sphere")
+                //     .unwrap(),
+                //     pdb,
+                // )?;
 
                 let list = match target {
                     Target::Atoms => calc_atom_sphere(pdb, &sphere.origin, sphere.radius, false)?,
@@ -48,9 +52,9 @@ pub fn dispatch(
             target,
             distance,
         } => {
-            analyze(pdb, region, target)?;
-            if distance == Distance::Clashes || distance == Distance::Contacts {
-                find_contacts(pdb, distance)?.printstd();
+            analyze(pdb, *region, *target)?;
+            if distance == &Distance::Clashes || distance == &Distance::Contacts {
+                find_contacts(pdb, *distance)?.printstd();
             }
         }
         Mode::Add {
@@ -67,7 +71,7 @@ pub fn dispatch(
             partial,
             // output: _,
         } => {
-            let edit_value = match mode {
+            let edit_value = match *mode {
                 Mode::Remove { .. } => 0.00,
                 Mode::Add { .. } => match region {
                     Region::Active => 1.00,
@@ -82,11 +86,11 @@ pub fn dispatch(
                 Source::Infile => {
                     todo!()
                 }
-                Source::List => {
-                // Source::List(_) => {
-                    let list = matches
-                        .subcommand_matches(mode.to_string()).unwrap()
-                        .value_of("List").unwrap();
+                // Source::List => {
+                Source::List(list) => {
+                    // let list = matches
+                    //     .subcommand_matches(mode.to_string()).unwrap()
+                    //     .value_of("List").unwrap();
 
                     match target {
                         Target::Atoms => {
@@ -104,17 +108,24 @@ pub fn dispatch(
                         }
                         Target::Residues => {
                             let pdb_clone = pdb.clone();
+                            // let pdb = pdb.clone();
+                            // let ref_pdb = std::cell::RefCell::new(pdb);
+                            // let pdb_borrow = ref_pdb.borrow();
+                            // let residue_list = parse_residue_list(list, &pdb_borrow)?;
+                            // let mut pdb_mut = ref_pdb.borrow_mut();
                             let residue_list = parse_residue_list(list, &pdb_clone)?;
 
                             match region {
                                 Region::QM1 | Region::QM2 => {
-                                    edit_qm_residues(&mut pdb, edit_value, residue_list, partial)?
+                                    // edit_qm_residues(&mut pdb_mut, edit_value, residue_list, *partial)?
+                                    edit_qm_residues(pdb, edit_value, residue_list, *partial)?
                                 }
                                 Region::Active => edit_active_residues(
-                                    &mut pdb,
+                                    // &mut pdb_mut,
+                                    pdb,
                                     edit_value,
                                     residue_list,
-                                    partial,
+                                    *partial,
                                 )?,
                                 Region::None => unreachable!(),
                             }
@@ -122,13 +133,15 @@ pub fn dispatch(
                         Target::None => unreachable!(),
                     }
                 }
-                Source::Sphere => {
-                    let sphere = Sphere::new(
-                        matches
-                            .subcommand_matches(mode.to_string()).unwrap()
-                            .values_of("Sphere").unwrap(),
-                        pdb,
-                    )?;
+                Source::Sphere(origin_str, radius_str) => {
+                    let sphere = Sphere::new(origin_str, radius_str, pdb)?;
+                    //     matches
+                    //         .subcommand_matches(mode.to_string())
+                    //         .unwrap()
+                    //         .values_of("Sphere")
+                    //         .unwrap(),
+                    //     pdb,
+                    // )?;
 
                     let list = match target {
                         Target::Atoms => {
@@ -148,25 +161,24 @@ pub fn dispatch(
                 }
                 Source::None => {
                     if mode.to_string() == "Remove"
-                        && region == Region::None
-                        && target == Target::None
+                        && *region == Region::None
+                        && *target == Target::None
                     {
                         remove_all(&mut pdb)?
-                    } else if { region == Region::QM1 || region == Region::QM2 }
-                        && target == Target::None
+                    } else if { *region == Region::QM1 || *region == Region::QM2 }
+                        && target == &Target::None
                     {
                         remove_qm(&mut pdb)?
-                    } else if region == Region::Active && target == Target::None {
+                    } else if *region == Region::Active && *target == Target::None {
                         remove_active(&mut pdb)?
                     } else {
                         return Err("Please provide the approprate options (see --help).".into());
                     }
                 }
             }
-        }
-        // Mode::None => {
-        //     unreachable!()
-        // }
+        } // Mode::None => {
+          //     unreachable!()
+          // }
     }
 
     Ok(())

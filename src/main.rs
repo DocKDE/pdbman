@@ -19,6 +19,7 @@ mod residue_ascii;
 mod shell;
 
 use std::process;
+use std::rc::Rc;
 
 use anyhow::Result;
 use clap::Arg;
@@ -117,10 +118,12 @@ fn run() -> Result<(), anyhow::Error> {
         };
 
         // If something goes wrong here, it should actually return
-        let mode = Mode::new(&matches)?;
+        // let mode = Mode::new(&matches)?;
+        let mode = Rc::new(Mode::new(&matches)?);
 
         // Print errors instead of returning them
-        if let Err(e) = dispatch(matches, mode, &mut pdb) {
+        if let Err(e) = dispatch(Rc::clone(&mode), &mut pdb) {
+            // if let Err(e) = dispatch(matches, mode, &mut pdb) {
             println! {"{}", e};
         }
 

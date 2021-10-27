@@ -2,11 +2,12 @@
 use std::str::FromStr;
 
 use anyhow::Result;
+use itertools::Itertools;
 use strum::VariantNames;
 use strum_macros::{Display, EnumString, EnumVariantNames};
 
-#[derive(Display, PartialEq, Clone, Copy, Debug, EnumVariantNames)]
-// #[derive(Display, PartialEq, Clone, Debug, EnumVariantNames)]
+// #[derive(Display, PartialEq, Clone, Copy, Debug, EnumVariantNames)]
+#[derive(Display, PartialEq, Clone, Debug, EnumVariantNames)]
 pub enum Mode {
     Query {
         source: Source,
@@ -43,13 +44,13 @@ pub enum Region {
     None,
 }
 
-#[derive(Display, PartialEq, Debug, Clone, Copy, EnumString, EnumVariantNames)]
-// #[derive(Display, PartialEq, Debug, Clone, EnumString, EnumVariantNames)]
+// #[derive(Display, PartialEq, Debug, Clone, Copy, EnumString, EnumVariantNames)]
+#[derive(Display, PartialEq, Debug, Clone, EnumString, EnumVariantNames)]
 pub enum Source {
     Infile,
-    List,
-    // List(String),
-    Sphere,
+    // List,
+    List(String),
+    Sphere(String, String),
     None,
 }
 
@@ -91,11 +92,32 @@ impl Mode {
                     .iter()
                     .find(|x| matches.subcommand_matches("Query").unwrap().is_present(x))
                     .unwrap_or(&"None");
-                let source = Source::from_str(source_str)?;
+                // let source = Source::from_str(source_str)?;
                 // let mut source = Source::from_str(source_str)?;
                 // if let Source::List(_) = source {
                 //     source = Source::List(matches.subcommand_matches("Query").unwrap().value_of("List").unwrap().to_string());
                 // }
+                let source = match *source_str {
+                    "List" => Source::List(
+                        matches
+                            .subcommand_matches("Query")
+                            .unwrap()
+                            .value_of("List")
+                            .unwrap()
+                            .to_string(),
+                    ),
+                    "Sphere" => {
+                        let (origin_str, radius_str) = matches
+                            .subcommand_matches("Query")
+                            .unwrap()
+                            .values_of("Sphere")
+                            .unwrap()
+                            .next_tuple()
+                            .unwrap();
+                        Source::Sphere(origin_str.to_string(), radius_str.to_string())
+                    }
+                    _ => Source::from_str(source_str)?,
+                };
 
                 let target_str = Target::VARIANTS
                     .iter()
@@ -141,7 +163,28 @@ impl Mode {
                     .iter()
                     .find(|x| matches.subcommand_matches("Add").unwrap().is_present(x))
                     .unwrap_or(&"None");
-                let source = Source::from_str(source_str)?;
+                // let source = Source::from_str(source_str)?;
+                let source = match *source_str {
+                    "List" => Source::List(
+                        matches
+                            .subcommand_matches("Add")
+                            .unwrap()
+                            .value_of("List")
+                            .unwrap()
+                            .to_string(),
+                    ),
+                    "Sphere" => {
+                        let (origin_str, radius_str) = matches
+                            .subcommand_matches("Add")
+                            .unwrap()
+                            .values_of("Sphere")
+                            .unwrap()
+                            .next_tuple()
+                            .unwrap();
+                        Source::Sphere(origin_str.to_string(), radius_str.to_string())
+                    }
+                    _ => Source::from_str(source_str)?,
+                };
 
                 let target_str = Target::VARIANTS
                     .iter()
@@ -180,7 +223,28 @@ impl Mode {
                     .iter()
                     .find(|x| matches.subcommand_matches("Remove").unwrap().is_present(x))
                     .unwrap_or(&"None");
-                let source = Source::from_str(source_str)?;
+                // let source = Source::from_str(source_str)?;
+                let source = match *source_str {
+                    "List" => Source::List(
+                        matches
+                            .subcommand_matches("Remove")
+                            .unwrap()
+                            .value_of("List")
+                            .unwrap()
+                            .to_string(),
+                    ),
+                    "Sphere" => {
+                        let (origin_str, radius_str) = matches
+                            .subcommand_matches("Remove")
+                            .unwrap()
+                            .values_of("Sphere")
+                            .unwrap()
+                            .next_tuple()
+                            .unwrap();
+                        Source::Sphere(origin_str.to_string(), radius_str.to_string())
+                    }
+                    _ => Source::from_str(source_str)?,
+                };
 
                 let target_str = Target::VARIANTS
                     .iter()
@@ -209,7 +273,7 @@ impl Mode {
                 })
             }
             // Some("Interactive") => Ok(Mode::Interactive),
-            Some(&_) => unreachable!(),
+            Some(_) => unreachable!(),
             // None => Ok(Mode::None),
             None => unreachable!(),
         }

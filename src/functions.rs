@@ -21,10 +21,14 @@ pub struct Sphere<'a> {
 /// a reference to the corresponding Atom and the radius. The return values are organized
 /// in a Sphere struct to facilitate usage.
 impl<'a> Sphere<'a> {
-    pub fn new(mut inp_str: clap::Values, pdb: &'a PDB) -> Result<Sphere<'a>, anyhow::Error> {
-        let (origin_str, radius_str) = inp_str
-            .next_tuple()
-            .ok_or_else(|| anyhow!("Problem with 'Sphere' option"))?;
+    pub fn new(
+        origin_str: &str,
+        radius_str: &str,
+        pdb: &'a PDB,
+    ) -> Result<Sphere<'a>, anyhow::Error> {
+        // let (origin_str, radius_str) = inp_str
+        //     .next_tuple()
+        //     .ok_or_else(|| anyhow!("Problem with 'Sphere' option"))?;
 
         // The sphere validator rejects anything containing something else than digits and dots.
         // Since it validates both arguments the same, it will not reject a decimal point in the Atom
@@ -620,15 +624,16 @@ pub fn parse_residue_list<'a>(
                             output_vec.push(residue.id());
                         }
 
-                        // if residue.serial_number() == id2 && residue.insertion_code() == insert2 {
                         if residue.id() == (id2, insert2) {
                             // Return prematurely if start is None which means that end < start which is invalid.
-                            if start.is_none() {
-                                bail!("Invalid range given: {}{}-{}{}. Left entry must preceed right one in PDB file!", 
-                                id1, insert1.unwrap_or(""), id2, insert2.unwrap_or(""))
-                                // return Err(anyhow!("Invalid range given: {}{}-{}{}. Left entry must preceed right one in PDB file!",
-                                // id1, insert1.unwrap_or(""), id2, insert2.unwrap_or("")));
-                            }
+                            ensure!(start.is_some(), "Invalid range given: {}{}-{}{}. Left entry must preceed right one in PDB file!", 
+                                id1, insert1.unwrap_or(""), id2, insert2.unwrap_or(""));
+                            // if start.is_none() {
+                            //     bail!("Invalid range given: {}{}-{}{}. Left entry must preceed right one in PDB file!",
+                            //     id1, insert1.unwrap_or(""), id2, insert2.unwrap_or(""))
+                            // return Err(anyhow!("Invalid range given: {}{}-{}{}. Left entry must preceed right one in PDB file!",
+                            // id1, insert1.unwrap_or(""), id2, insert2.unwrap_or("")));
+                            // }
                             end = Some(index);
                             parse_res = false;
                         }
@@ -661,11 +666,7 @@ pub fn parse_residue_list<'a>(
                     let resid: isize = caps.name("resid").unwrap().as_str().parse()?;
                     let insert = caps.name("insert").map(|x| x.as_str());
 
-                    if !pdb
-                        .par_residues()
-                        // .any(|x| x.serial_number() == resid && x.insertion_code() == insert)
-                        .any(|x| x.id() == (resid, insert))
-                    {
+                    if !pdb.par_residues().any(|x| x.id() == (resid, insert)) {
                         err_vec.push(format!("{}{}", resid, insert.unwrap_or("")));
                     } else {
                         output_vec.push((resid, insert));
