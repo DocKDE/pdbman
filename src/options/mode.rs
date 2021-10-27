@@ -1,10 +1,12 @@
-use std::error::Error;
+// use std::error::Error;
 use std::str::FromStr;
 
+use anyhow::Result;
 use strum::VariantNames;
 use strum_macros::{Display, EnumString, EnumVariantNames};
 
 #[derive(Display, PartialEq, Clone, Copy, Debug, EnumVariantNames)]
+// #[derive(Display, PartialEq, Clone, Debug, EnumVariantNames)]
 pub enum Mode {
     Query {
         source: Source,
@@ -30,7 +32,7 @@ pub enum Mode {
         // output: Output,
     },
     // Interactive,
-    None,
+    // None,
 }
 
 #[derive(Display, PartialEq, Debug, Clone, Copy, EnumString, EnumVariantNames)]
@@ -42,9 +44,11 @@ pub enum Region {
 }
 
 #[derive(Display, PartialEq, Debug, Clone, Copy, EnumString, EnumVariantNames)]
+// #[derive(Display, PartialEq, Debug, Clone, EnumString, EnumVariantNames)]
 pub enum Source {
     Infile,
     List,
+    // List(String),
     Sphere,
     None,
 }
@@ -80,7 +84,7 @@ pub enum Distance {
 impl Mode {
     /// Creates new Mode enum from clap::ArgMatches struct. This is
     /// where the given command line options are stored for later use.
-    pub fn new(matches: &clap::ArgMatches) -> Result<Mode, Box<dyn Error>> {
+    pub fn new(matches: &clap::ArgMatches) -> Result<Mode, anyhow::Error> {
         match matches.subcommand_name() {
             Some("Query") => {
                 let source_str = Source::VARIANTS
@@ -88,6 +92,10 @@ impl Mode {
                     .find(|x| matches.subcommand_matches("Query").unwrap().is_present(x))
                     .unwrap_or(&"None");
                 let source = Source::from_str(source_str)?;
+                // let mut source = Source::from_str(source_str)?;
+                // if let Source::List(_) = source {
+                //     source = Source::List(matches.subcommand_matches("Query").unwrap().value_of("List").unwrap().to_string());
+                // }
 
                 let target_str = Target::VARIANTS
                     .iter()
@@ -202,7 +210,8 @@ impl Mode {
             }
             // Some("Interactive") => Ok(Mode::Interactive),
             Some(&_) => unreachable!(),
-            None => Ok(Mode::None),
+            // None => Ok(Mode::None),
+            None => unreachable!(),
         }
     }
 }

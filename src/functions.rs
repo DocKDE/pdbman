@@ -6,7 +6,7 @@ use itertools::Itertools;
 use lazy_regex::regex;
 use pdbtbx::{Atom, AtomWithHierarchy, PDB};
 use prettytable::{format, Table};
-use rayon::prelude::*;
+use rayon::prelude::ParallelIterator;
 
 type AtomList = Vec<usize>;
 type ResidueList<'a> = Vec<(isize, Option<&'a str>)>;
@@ -536,10 +536,10 @@ pub fn parse_atomic_list(input: &str, pdb: &PDB) -> Result<AtomList, anyhow::Err
             );
 
             // if missing_atoms.peek().is_some() {
-                // return Err(anyhow!(
-                //     "No atom(s) found with name(s): {}",
-                //     missing_atoms.join(",")
-                // ));
+            // return Err(anyhow!(
+            //     "No atom(s) found with name(s): {}",
+            //     missing_atoms.join(",")
+            // ));
             //     bail!(
             //         "No atom(s) found with name(s): {}",
             //         missing_atoms.format(",")

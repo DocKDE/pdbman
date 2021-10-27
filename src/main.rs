@@ -1,28 +1,3 @@
-//! This crate serves as a command line utility to handle PDB files for use with the Quantum
-//! Chemistry package ORCA. Its capabilities include querying the file for residues and atoms,
-//! analyzing the defined QM and Active regions (according to ORCA nomenclature using the
-//! occupancy and B values) and editing these same regions so the PDB file can be used as input
-//! in a QM/MM calculation.
-//!
-//! # Example usage:
-//! Query for atoms with the name 'Cu':
-//!
-//! `pdbman myfile.pdb Query -tl Cu`
-//!
-//! Analyze QM residues:
-//!
-//! `pdbman myfile.pdb Analyze -rq`
-//!
-//! Remove all QM and Active atoms and overwrite input file:
-//!
-//! `pdbman myfile.pdb Remove -w`
-//!
-//! Add atoms in a sphere around a given atom to Active region:
-//!
-//! `pdbman myfile.pdb Add -raws 2589 10`
-//!
-//! The `--sphere` or `-s` flag takes an atom ID and a radius in Angstrom as arguments.
-
 #![allow(clippy::float_cmp)]
 
 #[macro_use]
@@ -43,10 +18,10 @@ mod options;
 mod residue_ascii;
 mod shell;
 
-use std::error::Error;
 use std::process;
 
-use clap::{App, Arg};
+use anyhow::Result;
+use clap::Arg;
 use pdbtbx::StrictnessLevel;
 use rustyline::completion::FilenameCompleter;
 use rustyline::config::OutputStreamType;
@@ -57,14 +32,12 @@ use rustyline::validate::MatchingBracketValidator;
 use rustyline::{Cmd, ColorMode, CompletionType, Config, EditMode, Editor, KeyEvent};
 
 use dispatch::dispatch;
-use options::*;
-use shell::*;
+use options::{parse_args, Mode};
+use shell::ShellHelper;
+// use options::Mode2;
 
-fn run() -> Result<(), Box<dyn Error>> {
-    let pdbman_match = App::new(crate_name!())
-        .about(crate_description!())
-        .version(crate_version!())
-        .author(crate_authors!())
+fn run() -> Result<(), anyhow::Error> {
+    let pdbman_match = app_from_crate!()
         .arg(Arg::new("PDBFILE").about("Path to PDB file").required(true))
         .get_matches();
 
@@ -78,12 +51,13 @@ fn run() -> Result<(), Box<dyn Error>> {
         }
         Err(errors) => {
             errors.iter().for_each(|x| println!("{}", x));
-            return Err("Exiting".into());
+            bail!("Exiting...")
         }
     };
 
     let mut parse = false;
     env_logger::init();
+
     let config = Config::builder()
         .history_ignore_space(true)
         .history_ignore_dups(true)
@@ -121,7 +95,7 @@ fn run() -> Result<(), Box<dyn Error>> {
                 println!("CTRL-D");
                 break;
             }
-            Err(e) => return Err(Box::new(e)),
+            Err(e) => bail!(e),
         };
 
         if command == "exit" || command == "quit" || command == "e" {
@@ -167,7 +141,7 @@ fn run() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn main() -> Result<(), Box<dyn Error>> {
+fn main() -> Result<(), anyhow::Error> {
     if let Err(e) = run() {
         eprintln!("{}", e);
         process::exit(1);

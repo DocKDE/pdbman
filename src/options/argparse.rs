@@ -73,7 +73,7 @@ pub fn parse_args() -> App<'static> {
     App::new("")
         .setting(AppSettings::ArgRequiredElseHelp)
         .setting(AppSettings::SubcommandRequiredElseHelp)
-        .setting(AppSettings::VersionlessSubcommands)
+        // .setting(AppSettings::VersionlessSubcommands)
         .setting(AppSettings::NoBinaryName)
         .subcommand(App::new("Query")
             .about("Query mode")

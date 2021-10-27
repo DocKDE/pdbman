@@ -13,11 +13,10 @@ pub fn dispatch(
     match mode {
         Mode::Query { source, target } => match source {
             Source::List => {
+            // Source::List(_) => {
                 let list = matches
-                    .subcommand_matches("Query")
-                    .ok_or("Something wrong with subcommand 'Query'")?
-                    .value_of("List")
-                    .ok_or("Something wrong with option 'List'")?;
+                    .subcommand_matches("Query").unwrap()
+                    .value_of("List").unwrap();
                 match target {
                     Target::Atoms => query_atoms(pdb, parse_atomic_list(list, pdb)?)?,
                     Target::Residues => query_residues(pdb, parse_residue_list(list, pdb)?)?,
@@ -27,10 +26,8 @@ pub fn dispatch(
             Source::Sphere => {
                 let sphere = Sphere::new(
                     matches
-                        .subcommand_matches("Query")
-                        .ok_or("Something wrong with option 'Query'")?
-                        .values_of("Sphere")
-                        .ok_or("Something wrong with option 'Sphere'")?,
+                        .subcommand_matches("Query").unwrap()
+                        .values_of("Sphere").unwrap(),
                     pdb,
                 )?;
 
@@ -83,14 +80,13 @@ pub fn dispatch(
 
             match source {
                 Source::Infile => {
-                    println!("This is not implemented yet.")
+                    todo!()
                 }
                 Source::List => {
+                // Source::List(_) => {
                     let list = matches
-                        .subcommand_matches(mode.to_string())
-                        .ok_or("Something wrong with subcommand 'Add' or 'Remove'")?
-                        .value_of("List")
-                        .ok_or("Something wrong with option 'List'")?;
+                        .subcommand_matches(mode.to_string()).unwrap()
+                        .value_of("List").unwrap();
 
                     match target {
                         Target::Atoms => {
@@ -129,10 +125,8 @@ pub fn dispatch(
                 Source::Sphere => {
                     let sphere = Sphere::new(
                         matches
-                            .subcommand_matches(mode.to_string())
-                            .ok_or("Something wrong with option 'Add' or 'Remove'")?
-                            .values_of("Sphere")
-                            .ok_or("Something wrong with option 'Sphere'")?,
+                            .subcommand_matches(mode.to_string()).unwrap()
+                            .values_of("Sphere").unwrap(),
                         pdb,
                     )?;
 
@@ -170,9 +164,9 @@ pub fn dispatch(
                 }
             }
         }
-        Mode::None => {
-            unreachable!()
-        }
+        // Mode::None => {
+        //     unreachable!()
+        // }
     }
 
     Ok(())

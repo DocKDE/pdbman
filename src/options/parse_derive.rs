@@ -1,9 +1,8 @@
-// use clap::Parser;
+// use clap::{ArgEnum, Parser};
 
-// #[derive(Parser, Debug)]
-// #[clap(name = "pdbman")]
-// enum Mode {
-//     #[derive(Subcommand, Debug)]
+// #[derive(ArgEnum, Parser, Debug, Clone, Copy)]
+// #[clap(name = "")]
+// pub enum Mode2 {
 //     Query {
 //         source: Source,
 //         target: Target,
@@ -28,10 +27,9 @@
 //         // output: Output,
 //     },
 //     // Interactive,
-//     None,
 // }
 
-// #[derive(Debug)]
+// #[derive(Parser, Debug, Copy, Clone)]
 // enum Region {
 //     QM1,
 //     QM2,
@@ -39,7 +37,7 @@
 //     None,
 // }
 
-// #[derive(Debug)]
+// #[derive(Parser, Debug, Copy, Clone)]
 // enum Source {
 //     Infile,
 //     List,
@@ -47,21 +45,21 @@
 //     None,
 // }
 
-// #[derive(Debug)]
+// #[derive(Parser, Debug, Copy, Clone)]
 // enum Target {
 //     Atoms,
 //     Residues,
 //     None,
 // }
 
-// #[derive(Debug)]
+// #[derive(Parser, Debug, Copy, Clone)]
 // enum Partial {
 //     Sidechain,
 //     Backbone,
 //     None,
 // }
 
-// #[derive(Debug)]
+// #[derive(Parser, Debug, Copy, Clone)]
 // enum Distance {
 //     Clashes,
 //     Contacts,
