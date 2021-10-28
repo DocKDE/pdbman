@@ -14,8 +14,8 @@ pub fn dispatch(
     match &*mode {
         Mode::Query { source, target } => match source {
             Source::List(list) => match target {
-                Target::Atoms => query_atoms(pdb, parse_atomic_list(list, pdb)?)?,
-                Target::Residues => query_residues(pdb, parse_residue_list(list, pdb)?)?,
+                Target::Atoms => query_atoms(pdb, parse_atomic_list(list, pdb)?),
+                Target::Residues => query_residues(pdb, parse_residue_list(list, pdb)?),
                 Target::None => unreachable!(),
             },
             Source::Sphere(origin_str, radius_str) => {
@@ -28,7 +28,7 @@ pub fn dispatch(
                     Target::None => unreachable!(),
                 };
 
-                query_atoms(pdb, list)?;
+                query_atoms(pdb, list);
             }
             _ => return Err("Please specify another input for a query.".into()),
         },
@@ -127,13 +127,13 @@ pub fn dispatch(
                         && *region == Region::None
                         && *target == Target::None
                     {
-                        remove_all(&mut pdb)?
+                        remove_region(&mut pdb, Region::None)
                     } else if { *region == Region::QM1 || *region == Region::QM2 }
                         && target == &Target::None
                     {
-                        remove_qm(&mut pdb)?
+                        remove_region(&mut pdb, Region::QM1)
                     } else if *region == Region::Active && *target == Target::None {
-                        remove_active(&mut pdb)?
+                        remove_region(&mut pdb, Region::Active)
                     } else {
                         return Err("Please provide the approprate options (see --help).".into());
                     }
@@ -142,7 +142,7 @@ pub fn dispatch(
         }
         Mode::Write { output, region } => match output {
             Output::None => match region {
-                Region::None => print_pdb_to_stdout(pdb)?,
+                Region::None => print_pdb_to_stdout(pdb),
                 _ => println!("{}", get_atomlist(pdb, *region)?),
             },
             Output::Outfile(f) => match region {

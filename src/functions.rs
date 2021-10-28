@@ -144,8 +144,7 @@ pub fn edit_qm_atoms(pdb: &mut PDB, qm_val: f64, list: AtomList) -> Result<(), S
                 atom.set_occupancy(qm_val)?;
             };
             Ok(())
-        })?;
-    Ok(())
+        })
 }
 
 /// This functions edits the b value of the PDB file (used by ORCA as input for QM region
@@ -158,49 +157,29 @@ pub fn edit_active_atoms(pdb: &mut PDB, active_val: f64, list: AtomList) -> Resu
                 atom.set_b_factor(active_val)?;
             };
             Ok(())
-        })?;
-    Ok(())
+        })
 }
 
-/// Sets all q and b values to zero which serves as a fresh start.
-pub fn remove_all(pdb: &mut PDB) -> Result<(), String> {
-    pdb.par_atoms_mut()
-        .try_for_each(|atom| -> Result<(), String> {
-            atom.set_occupancy(0.00)?;
-            atom.set_b_factor(0.00)?;
-            Ok(())
-        })?;
-    Ok(())
-}
-
-/// Sets all q values to zero which serves as a reset of the QM region.
-pub fn remove_qm(pdb: &mut PDB) -> Result<(), String> {
-    pdb.par_atoms_mut()
-        .try_for_each(|atom| -> Result<(), String> {
-            atom.set_occupancy(0.00)?;
-            Ok(())
-        })?;
-    Ok(())
-}
-
-/// Sets all b values to zero which serves as a reset of the active region.
-pub fn remove_active(pdb: &mut PDB) -> Result<(), String> {
-    pdb.par_atoms_mut()
-        .try_for_each(|atom| -> Result<(), String> {
-            atom.set_b_factor(0.00)?;
-            Ok(())
-        })?;
-    Ok(())
+/// Removes a whole region from PDB file.
+pub fn remove_region(pdb: &mut PDB, region: Region) {
+    pdb.par_atoms_mut().for_each(|atom| match region {
+        Region::QM1 | Region::QM2 => atom.set_occupancy(0.00).unwrap(),
+        Region::Active => atom.set_b_factor(0.00).unwrap(),
+        Region::None => {
+            atom.set_b_factor(0.00).unwrap();
+            atom.set_occupancy(0.00).unwrap()
+        }
+    });
 }
 
 /// Prints all Atoms in Molecule to stdout in PDB file format
-pub fn print_pdb_to_stdout(pdb: &PDB) -> Result<(), String> {
+pub fn print_pdb_to_stdout(pdb: &PDB) {
     for atom_hier in pdb.atoms_with_hierarchy() {
         println!(
             "ATOM  {:>5} {:<4} {:>3}  {:>4}    {:>8.3}{:>8.3}{:>8.3}{:>6.2}{:>6.2}          {:>2}",
             atom_hier.atom.serial_number(),
             atom_hier.atom.name(),
-            atom_hier.residue.name().ok_or("No Residue Name")?,
+            atom_hier.residue.name().unwrap_or(""),
             atom_hier.residue.serial_number(),
             atom_hier.atom.x(),
             atom_hier.atom.y(),
@@ -210,11 +189,10 @@ pub fn print_pdb_to_stdout(pdb: &PDB) -> Result<(), String> {
             atom_hier.atom.element()
         );
     }
-    Ok(())
 }
 
 /// Print all Atoms in PDB to a file given in path
-pub fn print_pdb_to_file(pdb: &PDB, path: &str) -> Result<(), anyhow::Error> {
+pub fn print_pdb_to_file(pdb: &PDB, path: &str) -> Result<(), std::io::Error> {
     let file = File::create(path)?;
     let mut file = LineWriter::new(file);
 
@@ -223,7 +201,7 @@ pub fn print_pdb_to_file(pdb: &PDB, path: &str) -> Result<(), anyhow::Error> {
         let mut resn = atom_hier.residue.serial_number();
 
         if resn >= 10_000 {
-            resn -= (resn / 10_000)  * 10_000;
+            resn -= (resn / 10_000) * 10_000;
         };
 
         // Deal with atom numbers above 99999
@@ -235,11 +213,9 @@ pub fn print_pdb_to_file(pdb: &PDB, path: &str) -> Result<(), anyhow::Error> {
         file.write_all(
             format!(
             "ATOM  {:>5} {:<4} {:>3}  {:>4}    {:>8.3}{:>8.3}{:>8.3}{:>6.2}{:>6.2}          {:>2}\n",
-            // atom_hier.atom.serial_number(),
             atomn,
             atom_hier.atom.name(),
-            atom_hier.residue.name().ok_or("No Residue Name").unwrap(),
-            // atom_hier.residue.serial_number(),
+            atom_hier.residue.name().unwrap_or(""),
             resn,
             atom_hier.atom.x(),
             atom_hier.atom.y(),
@@ -341,8 +317,8 @@ pub fn find_contacts(pdb: &PDB, level: Distance) -> Result<Table, String> {
                 .atom
                 .atomic_radius()
                 .ok_or(format!(
-                    "No radius found for given atom: {}",
-                    atom_hier.atom
+                    "No radius found for given atom type: {}",
+                    atom_hier.atom.element()
                 ))?
                 .powf(2.0),
             _ => return Err("Invalid".into()),
@@ -368,10 +344,10 @@ pub fn find_contacts(pdb: &PDB, level: Distance) -> Result<Table, String> {
                         bByFd =>
                         other_atom_hier.atom.serial_number(),
                         other_atom_hier.atom.name(),
-                        other_atom_hier.residue.name().ok_or("No Residue Name.")?,
+                        other_atom_hier.residue.name().unwrap_or(""),
                         atom_hier.atom.serial_number(),
                         atom_hier.atom.name(),
-                        atom_hier.residue.name().ok_or("No Residue Name")?,
+                        atom_hier.residue.name().unwrap_or(""),
                         format!("{:.2}", distance)
                     ]);
                 } else if distance <= 0.5 {
@@ -379,20 +355,20 @@ pub fn find_contacts(pdb: &PDB, level: Distance) -> Result<Table, String> {
                         bBrFd =>
                         other_atom_hier.atom.serial_number(),
                         other_atom_hier.atom.name(),
-                        other_atom_hier.residue.name().ok_or("No Residue Name.")?,
+                        other_atom_hier.residue.name().unwrap_or(""),
                         atom_hier.atom.serial_number(),
                         atom_hier.atom.name(),
-                        atom_hier.residue.name().ok_or("No Residue Name")?,
+                        atom_hier.residue.name().unwrap_or(""),
                         format!("{:.2}", distance)
                     ]);
                 } else {
                     table.add_row(row![
                         other_atom_hier.atom.serial_number(),
                         other_atom_hier.atom.name(),
-                        other_atom_hier.residue.name().ok_or("No Residue Name.")?,
+                        other_atom_hier.residue.name().unwrap_or(""),
                         atom_hier.atom.serial_number(),
                         atom_hier.atom.name(),
-                        atom_hier.residue.name().ok_or("No Residue Name")?,
+                        atom_hier.residue.name().unwrap_or(""),
                         format!("{:.2}", distance)
                     ]);
                 }
@@ -627,7 +603,9 @@ pub fn parse_residue_list<'a>(input: &'a str, pdb: &'a PDB) -> Result<ResidueLis
 
 /// Query Molecule for information. Depending on the input this will print a table of
 /// Residues and/or Atoms will available information that were asked for.
-pub fn query_atoms(pdb: &PDB, atom_list: AtomList) -> Result<(), String> {
+// This cannot fail because the parse_atom_list is always called before this
+// and would return an error if not atoms were found
+pub fn query_atoms(pdb: &PDB, atom_list: AtomList) {
     let mut table = Table::new();
     table.add_row(row![
         "Atom ID",
@@ -645,7 +623,7 @@ pub fn query_atoms(pdb: &PDB, atom_list: AtomList) -> Result<(), String> {
                 atom_hier.atom.name(),
                 atom_hier.residue.serial_number().to_string()
                     + atom_hier.residue.insertion_code().unwrap_or(""),
-                atom_hier.residue.name().ok_or("No Residue Name")?,
+                atom_hier.residue.name().unwrap_or(""),
                 atom_hier.atom.occupancy(),
                 atom_hier.atom.b_factor(),
             ]);
@@ -653,7 +631,6 @@ pub fn query_atoms(pdb: &PDB, atom_list: AtomList) -> Result<(), String> {
     }
 
     table.printstd();
-    Ok(())
 }
 
 pub fn get_atomlist(pdb: &PDB, region: Region) -> Result<String, anyhow::Error> {
@@ -681,20 +658,9 @@ pub fn get_atomlist(pdb: &PDB, region: Region) -> Result<String, anyhow::Error> 
     }
 }
 
-// pub fn get_active_atomlist(pdb: &PDB) -> Result<String, anyhow::Error> {
-//     let str_vec = pdb
-//         .par_atoms()
-//         .filter(|a| a.b_factor() == 1.00)
-//         .map(|a| a.serial_number().to_string()).collect::<Vec<String>>();
-
-//     if str_vec.is_empty() {
-//         bail!("No atoms in the requested region!")
-//     } else {
-//         Ok(str_vec.join(","))
-//     }
-// }
-
-pub fn query_residues(pdb: &PDB, residue_list: ResidueList) -> Result<(), String> {
+// This cannot fail because if no residues can be queried, the
+// parse_residue_list would have returned an error beforehand
+pub fn query_residues(pdb: &PDB, residue_list: ResidueList) {
     let mut table = Table::new();
 
     table.add_row(row![
@@ -723,7 +689,7 @@ pub fn query_residues(pdb: &PDB, residue_list: ResidueList) -> Result<(), String
                 atom_hier.atom.name(),
                 atom_hier.residue.serial_number().to_string()
                     + atom_hier.residue.insertion_code().unwrap_or(""),
-                atom_hier.residue.name().ok_or("No Residue name")?,
+                atom_hier.residue.name().unwrap_or(""),
                 atom_hier.atom.occupancy(),
                 atom_hier.atom.b_factor(),
             ]);
@@ -738,7 +704,6 @@ pub fn query_residues(pdb: &PDB, residue_list: ResidueList) -> Result<(), String
     }
 
     table.printstd();
-    Ok(())
 }
 
 pub fn analyze(pdb: &PDB, region: Region, target: Target) -> Result<(), anyhow::Error> {
@@ -821,7 +786,7 @@ pub fn analyze(pdb: &PDB, region: Region, target: Target) -> Result<(), anyhow::
 
                 residue_table.add_row(row![
                     residue.serial_number().to_string() + residue.insertion_code().unwrap_or(""),
-                    residue.name().ok_or_else(|| anyhow!("No Residue Name"))?,
+                    residue.name().unwrap_or(""),
                     atom_counter,
                     resid_atoms,
                 ]);
@@ -858,7 +823,7 @@ pub fn analyze(pdb: &PDB, region: Region, target: Target) -> Result<(), anyhow::
                             atom.name(),
                             residue.serial_number().to_string()
                                 + residue.insertion_code().unwrap_or(""),
-                            residue.name().ok_or_else(|| anyhow!("No Residue Name"))?,
+                            residue.name().unwrap_or(""),
                             atom.occupancy(),
                             atom.b_factor(),
                         ]);
@@ -1110,7 +1075,7 @@ mod tests {
     #[test]
     fn remove_all_test() {
         let mut pdb = test_pdb("tests/test_full.pdb");
-        remove_all(&mut pdb).unwrap();
+        remove_region(&mut pdb, Region::None);
 
         for atom in pdb.atoms() {
             assert_eq!(atom.occupancy(), 0.00);

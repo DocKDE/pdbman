@@ -1,4 +1,3 @@
-// use std::error::Error;
 use std::str::FromStr;
 
 use anyhow::Result;
@@ -6,8 +5,7 @@ use itertools::Itertools;
 use strum::VariantNames;
 use strum_macros::{Display, EnumString, EnumVariantNames};
 
-// #[derive(Display, PartialEq, Clone, Copy, Debug, EnumVariantNames)]
-#[derive(Display, PartialEq, Clone, Debug, EnumVariantNames)]
+#[derive(Display, PartialEq, Debug, EnumVariantNames)]
 pub enum Mode {
     Query {
         source: Source,
@@ -23,14 +21,12 @@ pub enum Mode {
         source: Source,
         target: Target,
         partial: Partial,
-        // output: Output,
     },
     Remove {
         region: Region,
         source: Source,
         target: Target,
         partial: Partial,
-        // output: Output,
     },
     Write {
         output: Output,
@@ -46,7 +42,6 @@ pub enum Region {
     None,
 }
 
-// #[derive(Display, PartialEq, Debug, Clone, Copy, EnumString, EnumVariantNames)]
 #[derive(Display, PartialEq, Debug, Clone, EnumString, EnumVariantNames)]
 pub enum Source {
     Infile(String),
@@ -93,11 +88,7 @@ impl Mode {
                     .iter()
                     .find(|x| matches.subcommand_matches("Query").unwrap().is_present(x))
                     .unwrap_or(&"None");
-                // let source = Source::from_str(source_str)?;
-                // let mut source = Source::from_str(source_str)?;
-                // if let Source::List(_) = source {
-                //     source = Source::List(matches.subcommand_matches("Query").unwrap().value_of("List").unwrap().to_string());
-                // }
+
                 let source = match *source_str {
                     "Infile" => Source::Infile(
                         matches
@@ -172,7 +163,7 @@ impl Mode {
                     .iter()
                     .find(|x| matches.subcommand_matches("Add").unwrap().is_present(x))
                     .unwrap_or(&"None");
-                // let source = Source::from_str(source_str)?;
+
                 let source = match *source_str {
                     "Infile" => Source::Infile(
                         matches
@@ -215,18 +206,11 @@ impl Mode {
                     .unwrap_or(&"None");
                 let partial = Partial::from_str(partial_str)?;
 
-                // let output_str = Output::VARIANTS
-                //     .iter()
-                //     .find(|x| matches.subcommand_matches("Add").unwrap().is_present(x))
-                //     .unwrap_or(&"None");
-                // let output = Output::from_str(output_str)?;
-
                 Ok(Mode::Add {
                     region,
                     source,
                     target,
                     partial,
-                    // output,
                 })
             }
             Some("Remove") => {
@@ -240,7 +224,7 @@ impl Mode {
                     .iter()
                     .find(|x| matches.subcommand_matches("Remove").unwrap().is_present(x))
                     .unwrap_or(&"None");
-                // let source = Source::from_str(source_str)?;
+
                 let source = match *source_str {
                     "Infile" => Source::Infile(
                         matches
@@ -283,21 +267,13 @@ impl Mode {
                     .unwrap_or(&"None");
                 let partial = Partial::from_str(partial_str)?;
 
-                // let output_str = Output::VARIANTS
-                //     .iter()
-                //     .find(|x| matches.subcommand_matches("Remove").unwrap().is_present(x))
-                //     .unwrap_or(&"None");
-                // let output = Output::from_str(output_str)?;
-
                 Ok(Mode::Remove {
                     region,
                     source,
                     target,
                     partial,
-                    // output,
                 })
             }
-            // Some("Interactive") => Ok(Mode::Interactive),
             Some("Write") => {
                 let region_str = Region::VARIANTS
                     .iter()
