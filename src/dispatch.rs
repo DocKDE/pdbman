@@ -68,12 +68,15 @@ pub fn dispatch(
             };
 
             match source {
-                Source::Infile => {
-                    todo!()
-                }
-                Source::List(list) => match target {
+                Source::List(_) | Source::Infile(_) => {
+                let list = match source {
+                    Source::List(l) => l.to_owned(),
+                    Source::Infile(f) => std::fs::read_to_string(f)?.trim().to_owned(),
+                    _ => unreachable!()
+                };
+                match target {
                     Target::Atoms => {
-                        let atomic_list = parse_atomic_list(list, pdb)?;
+                        let atomic_list = parse_atomic_list(&list, pdb)?;
 
                         match region {
                             Region::QM1 | Region::QM2 => {
@@ -84,7 +87,7 @@ pub fn dispatch(
                         }
                     }
                     Target::Residues => {
-                        let residue_list = parse_residue_list(list, pdb)?;
+                        let residue_list = parse_residue_list(&list, pdb)?;
 
                         match region {
                             Region::QM1 | Region::QM2 => {
@@ -97,7 +100,7 @@ pub fn dispatch(
                         }
                     }
                     Target::None => unreachable!(),
-                },
+                }}
                 Source::Sphere(origin_str, radius_str) => {
                     let sphere = Sphere::new(origin_str, radius_str, pdb)?;
                     let list = match target {

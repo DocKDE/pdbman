@@ -47,8 +47,7 @@ pub enum Region {
 // #[derive(Display, PartialEq, Debug, Clone, Copy, EnumString, EnumVariantNames)]
 #[derive(Display, PartialEq, Debug, Clone, EnumString, EnumVariantNames)]
 pub enum Source {
-    Infile,
-    // List,
+    Infile(String),
     List(String),
     Sphere(String, String),
     None,
@@ -98,13 +97,21 @@ impl Mode {
                 //     source = Source::List(matches.subcommand_matches("Query").unwrap().value_of("List").unwrap().to_string());
                 // }
                 let source = match *source_str {
+                    "Infile" => Source::Infile(
+                        matches
+                            .subcommand_matches("Query")
+                            .unwrap()
+                            .value_of("Infile")
+                            .unwrap()
+                            .to_owned(),
+                    ),
                     "List" => Source::List(
                         matches
                             .subcommand_matches("Query")
                             .unwrap()
                             .value_of("List")
                             .unwrap()
-                            .to_string(),
+                            .to_owned(),
                     ),
                     "Sphere" => {
                         let (origin_str, radius_str) = matches
@@ -114,7 +121,7 @@ impl Mode {
                             .unwrap()
                             .next_tuple()
                             .unwrap();
-                        Source::Sphere(origin_str.to_string(), radius_str.to_string())
+                        Source::Sphere(origin_str.to_owned(), radius_str.to_owned())
                     }
                     _ => Source::from_str(source_str)?,
                 };
@@ -165,6 +172,14 @@ impl Mode {
                     .unwrap_or(&"None");
                 // let source = Source::from_str(source_str)?;
                 let source = match *source_str {
+                    "Infile" => Source::Infile(
+                        matches
+                            .subcommand_matches("Add")
+                            .unwrap()
+                            .value_of("Infile")
+                            .unwrap()
+                            .to_owned(),
+                    ),
                     "List" => Source::List(
                         matches
                             .subcommand_matches("Add")
@@ -225,6 +240,14 @@ impl Mode {
                     .unwrap_or(&"None");
                 // let source = Source::from_str(source_str)?;
                 let source = match *source_str {
+                    "Infile" => Source::Infile(
+                        matches
+                            .subcommand_matches("Remove")
+                            .unwrap()
+                            .value_of("Infile")
+                            .unwrap()
+                            .to_owned(),
+                    ),
                     "List" => Source::List(
                         matches
                             .subcommand_matches("Remove")

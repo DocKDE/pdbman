@@ -528,7 +528,6 @@ pub fn parse_residue_list<'a>(input: &'a str, pdb: &'a PDB) -> Result<ResidueLis
                     if end.is_none() {
                         err_vec.push(format!("{}{}", id2, insert2.unwrap_or("")));
                     }
-
                 } else {
                     let re = regex!(r"^(?P<resid>\d+)(?P<insert>[A-Za-z])?$");
                     let caps = re.captures(i).unwrap();
@@ -635,8 +634,7 @@ pub fn query_residues(pdb: &PDB, residue_list: ResidueList) -> Result<(), String
         );
 
         if residue_list.contains(&res) {
-            if residue_list.len() == 1
-            {
+            if residue_list.len() == 1 {
                 key = atom_hier.residue.name();
             }
             table.add_row(row![
