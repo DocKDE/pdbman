@@ -361,7 +361,7 @@ pub fn parse_args() -> App<'static> {
                 Arg::new("QM2")
                     .about("Write QM2 atom list")
                     .long("qm2")
-                    .short('q')
+                    .short('o')
             )
             .arg(
                 Arg::new("Active")
