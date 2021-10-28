@@ -381,7 +381,7 @@ pub fn parse_args() -> App<'static> {
                     .about("Overwrite PDB input file")
                     .long("overwrite")
                     .short('w')
-                    .conflicts_with("region")
+                    .conflicts_with_all(&["QM1", "QM2", "Active"])
             )
             .group(
                 ArgGroup::new("output")

@@ -121,7 +121,7 @@ fn run() -> Result<(), anyhow::Error> {
         let mode = Rc::new(Mode::new(&matches)?);
 
         // Print errors instead of returning them
-        if let Err(e) = dispatch(mode, &mut pdb) {
+        if let Err(e) = dispatch(mode, &mut pdb, filename) {
             println! {"{}", e};
         }
 

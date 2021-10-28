@@ -10,6 +10,7 @@ pub fn dispatch(
     mode: Rc<Mode>,
     // mode: Mode,
     mut pdb: &mut pdbtbx::PDB,
+    infile: &str,
 ) -> Result<(), Box<dyn Error>> {
     match &*mode {
         Mode::Query { source, target } => match source {
@@ -149,7 +150,9 @@ pub fn dispatch(
                 Region::None => print_pdb_to_file(pdb, f)?,
                 _ => std::fs::write(f, get_atomlist(pdb, *region)?)?,
             },
-            Output::Overwrite => {}
+            Output::Overwrite => {
+                print_pdb_to_file(pdb, infile)?
+            }
         },
     }
     Ok(())
