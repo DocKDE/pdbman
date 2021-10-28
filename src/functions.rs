@@ -1,6 +1,10 @@
 use crate::options::{Distance, Partial, Region, Target};
 use crate::residue_ascii::RESIDUE_ASCII;
 
+use std::fs::File;
+use std::io::prelude::Write;
+use std::io::LineWriter;
+
 use anyhow::Result;
 use itertools::Itertools;
 use lazy_regex::regex;
@@ -189,27 +193,66 @@ pub fn remove_active(pdb: &mut PDB) -> Result<(), String> {
     Ok(())
 }
 
-// /// Prints all Atoms in Molecule to stdout in PDB file format This can be redirected
-// /// to a file if desired. This may be obsolete as the functionality of printing to a file
-// /// already exists with a separate flag.
-// pub fn print_to_stdout(pdb: &PDB) -> Result<(), String> {
-//     for atom_hier in pdb.atoms_with_hierarchy() {
-//         println!(
-//             "ATOM  {:>5} {:<4} {:>3}  {:>4}    {:>8.3}{:>8.3}{:>8.3}{:>6.2}{:>6.2}          {:>2}",
-//             atom_hier.atom.serial_number(),
-//             atom_hier.atom.name(),
-//             atom_hier.residue.name().ok_or("No Residue Name")?,
-//             atom_hier.residue.serial_number(),
-//             atom_hier.atom.x(),
-//             atom_hier.atom.y(),
-//             atom_hier.atom.z(),
-//             atom_hier.atom.occupancy(),
-//             atom_hier.atom.b_factor(),
-//             atom_hier.atom.element()
-//         );
-//     }
-//     Ok(())
-// }
+/// Prints all Atoms in Molecule to stdout in PDB file format
+pub fn print_pdb_to_stdout(pdb: &PDB) -> Result<(), String> {
+    for atom_hier in pdb.atoms_with_hierarchy() {
+        println!(
+            "ATOM  {:>5} {:<4} {:>3}  {:>4}    {:>8.3}{:>8.3}{:>8.3}{:>6.2}{:>6.2}          {:>2}",
+            atom_hier.atom.serial_number(),
+            atom_hier.atom.name(),
+            atom_hier.residue.name().ok_or("No Residue Name")?,
+            atom_hier.residue.serial_number(),
+            atom_hier.atom.x(),
+            atom_hier.atom.y(),
+            atom_hier.atom.z(),
+            atom_hier.atom.occupancy(),
+            atom_hier.atom.b_factor(),
+            atom_hier.atom.element()
+        );
+    }
+    Ok(())
+}
+
+/// Print all Atoms in PDB to a file given in path
+pub fn print_pdb_to_file(pdb: &PDB, path: &str) -> Result<(), anyhow::Error> {
+    let file = File::create(path)?;
+    let mut file = LineWriter::new(file);
+
+    for atom_hier in pdb.atoms_with_hierarchy() {
+        // Deal with residue numbers above 9999
+        let mut resn = atom_hier.residue.serial_number();
+
+        if resn >= 10_000 {
+            resn -= (resn / 10_000)  * 10_000;
+        };
+
+        // Deal with atom numbers above 99999
+        let mut atomn = atom_hier.atom.serial_number();
+        if atomn >= 100_000 {
+            atomn -= (atomn / 100_000) * 100_000
+        }
+
+        file.write_all(
+            format!(
+            "ATOM  {:>5} {:<4} {:>3}  {:>4}    {:>8.3}{:>8.3}{:>8.3}{:>6.2}{:>6.2}          {:>2}\n",
+            // atom_hier.atom.serial_number(),
+            atomn,
+            atom_hier.atom.name(),
+            atom_hier.residue.name().ok_or("No Residue Name").unwrap(),
+            // atom_hier.residue.serial_number(),
+            resn,
+            atom_hier.atom.x(),
+            atom_hier.atom.y(),
+            atom_hier.atom.z(),
+            atom_hier.atom.occupancy(),
+            atom_hier.atom.b_factor(),
+            atom_hier.atom.element(),
+        )
+            .as_bytes(),
+        )?;
+    }
+    Ok(())
+}
 
 /// Takes an Atom struct as point of origin and a radius in A. Returns a Vector of Atom IDs
 /// of Atoms within the given radius wrapped in a Result. Origin can be included or excluded.
@@ -612,6 +655,44 @@ pub fn query_atoms(pdb: &PDB, atom_list: AtomList) -> Result<(), String> {
     table.printstd();
     Ok(())
 }
+
+pub fn get_atomlist(pdb: &PDB, region: Region) -> Result<String, anyhow::Error> {
+    let filt_value = match region {
+        Region::QM1 => 1.00,
+        Region::QM2 => 2.00,
+        Region::Active => 1.00,
+        _ => bail!("Invalid input for 'region' argument."),
+    };
+
+    let str_vec = pdb
+        .par_atoms()
+        .filter(|a| match region {
+            Region::QM1 | Region::QM2 => a.occupancy() == filt_value,
+            Region::Active => a.b_factor() == filt_value,
+            Region::None => false,
+        })
+        .map(|a| a.serial_number().to_string())
+        .collect::<Vec<String>>();
+
+    if str_vec.is_empty() {
+        bail!("No atoms in the requested region!")
+    } else {
+        Ok(str_vec.join(","))
+    }
+}
+
+// pub fn get_active_atomlist(pdb: &PDB) -> Result<String, anyhow::Error> {
+//     let str_vec = pdb
+//         .par_atoms()
+//         .filter(|a| a.b_factor() == 1.00)
+//         .map(|a| a.serial_number().to_string()).collect::<Vec<String>>();
+
+//     if str_vec.is_empty() {
+//         bail!("No atoms in the requested region!")
+//     } else {
+//         Ok(str_vec.join(","))
+//     }
+// }
 
 pub fn query_residues(pdb: &PDB, residue_list: ResidueList) -> Result<(), String> {
     let mut table = Table::new();

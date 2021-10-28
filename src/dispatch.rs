@@ -69,38 +69,41 @@ pub fn dispatch(
 
             match source {
                 Source::List(_) | Source::Infile(_) => {
-                let list = match source {
-                    Source::List(l) => l.to_owned(),
-                    Source::Infile(f) => std::fs::read_to_string(f)?.trim().to_owned(),
-                    _ => unreachable!()
-                };
-                match target {
-                    Target::Atoms => {
-                        let atomic_list = parse_atomic_list(&list, pdb)?;
+                    let list = match source {
+                        Source::List(l) => l.to_owned(),
+                        Source::Infile(f) => std::fs::read_to_string(f)?.trim().to_owned(),
+                        _ => unreachable!(),
+                    };
+                    match target {
+                        Target::Atoms => {
+                            let atomic_list = parse_atomic_list(&list, pdb)?;
 
-                        match region {
-                            Region::QM1 | Region::QM2 => {
-                                edit_qm_atoms(&mut pdb, edit_value, atomic_list)?
+                            match region {
+                                Region::QM1 | Region::QM2 => {
+                                    edit_qm_atoms(&mut pdb, edit_value, atomic_list)?
+                                }
+                                Region::Active => {
+                                    edit_active_atoms(&mut pdb, edit_value, atomic_list)?
+                                }
+                                Region::None => unreachable!(),
                             }
-                            Region::Active => edit_active_atoms(&mut pdb, edit_value, atomic_list)?,
-                            Region::None => unreachable!(),
                         }
-                    }
-                    Target::Residues => {
-                        let residue_list = parse_residue_list(&list, pdb)?;
+                        Target::Residues => {
+                            let residue_list = parse_residue_list(&list, pdb)?;
 
-                        match region {
-                            Region::QM1 | Region::QM2 => {
-                                edit_qm_residues(pdb, edit_value, residue_list, *partial)?
+                            match region {
+                                Region::QM1 | Region::QM2 => {
+                                    edit_qm_residues(pdb, edit_value, residue_list, *partial)?
+                                }
+                                Region::Active => {
+                                    edit_active_residues(pdb, edit_value, residue_list, *partial)?
+                                }
+                                Region::None => unreachable!(),
                             }
-                            Region::Active => {
-                                edit_active_residues(pdb, edit_value, residue_list, *partial)?
-                            }
-                            Region::None => unreachable!(),
                         }
+                        Target::None => unreachable!(),
                     }
-                    Target::None => unreachable!(),
-                }}
+                }
                 Source::Sphere(origin_str, radius_str) => {
                     let sphere = Sphere::new(origin_str, radius_str, pdb)?;
                     let list = match target {
@@ -137,6 +140,17 @@ pub fn dispatch(
                 }
             }
         }
+        Mode::Write { output, region } => match output {
+            Output::None => match region {
+                Region::None => print_pdb_to_stdout(pdb)?,
+                _ => println!("{}", get_atomlist(pdb, *region)?),
+            },
+            Output::Outfile(f) => match region {
+                Region::None => print_pdb_to_file(pdb, f)?,
+                _ => std::fs::write(f, get_atomlist(pdb, *region)?)?,
+            },
+            Output::Overwrite => {}
+        },
     }
     Ok(())
 }

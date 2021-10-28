@@ -56,7 +56,6 @@ fn run() -> Result<(), anyhow::Error> {
         }
     };
 
-    let mut parse = false;
     env_logger::init();
 
     let config = Config::builder()
@@ -87,7 +86,12 @@ fn run() -> Result<(), anyhow::Error> {
         rl.helper_mut().expect("No helper").colored_prompt = format!("\x1b[1;32m{}\x1b[0m", p);
 
         let command = match rl.readline(p) {
-            Ok(c) => c,
+            Ok(c) => match c.as_str() {
+                "exit" => break,
+                "e" => break,
+                "quit" => break,
+                _ => c,
+            },
             Err(ReadlineError::Interrupted) => {
                 println!("CTRL-C");
                 break;
@@ -99,18 +103,13 @@ fn run() -> Result<(), anyhow::Error> {
             Err(e) => bail!(e),
         };
 
-        if command == "exit" || command == "quit" || command == "e" {
-            break;
-        }
+        rl.add_history_entry(&command);
 
         let args = parse_args();
         // Don't return when an error occurs because it would break the loop and disrupt the workflow.
         // Errors returned from here mostly come from parsing the in-shell command line options.
         let matches = match args.try_get_matches_from(command.split_ascii_whitespace()) {
-            Ok(m) => {
-                rl.add_history_entry(command);
-                m
-            }
+            Ok(m) => m,
             Err(e) => {
                 println!("{}", e);
                 continue;
@@ -122,25 +121,26 @@ fn run() -> Result<(), anyhow::Error> {
         let mode = Rc::new(Mode::new(&matches)?);
 
         // Print errors instead of returning them
-        if let Err(e) = dispatch(Rc::clone(&mode), &mut pdb) {
-            // if let Err(e) = dispatch(matches, mode, &mut pdb) {
+        // if let Err(e) = dispatch(Rc::clone(&mode), &mut pdb) {
+        // if let Err(e) = dispatch(mode, &mut pdb) {
+        if let Err(e) = dispatch(mode, &mut pdb) {
             println! {"{}", e};
         }
 
-        if mode.to_string() == "Add" || mode.to_string() == "Remove" {
-            parse = true;
-        }
+        // if mode.to_string() == "Add" || mode.to_string() == "Remove" {
+        //     parse = true;
+        // }
     }
 
     // Only print to file if any changes were made and only once the loop was broken
-    if parse {
-        let filename_new = filename.to_string() + "_new";
+    // if parse {
+    //     let filename_new = filename.to_string() + "_new";
 
-        println!("Saving changes to {}", filename_new);
-        if let Err(e) = pdbtbx::save_pdb(pdb, &filename_new, StrictnessLevel::Loose) {
-            e.iter().for_each(|x| println!("{}", x))
-        };
-    }
+    //     println!("Saving changes to {}", filename_new);
+    //     if let Err(e) = pdbtbx::save_pdb(pdb, &filename_new, StrictnessLevel::Loose) {
+    //         e.iter().for_each(|x| println!("{}", x))
+    //     };
+    // }
     Ok(())
 }
 

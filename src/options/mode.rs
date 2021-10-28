@@ -32,8 +32,10 @@ pub enum Mode {
         partial: Partial,
         // output: Output,
     },
-    // Interactive,
-    // None,
+    Write {
+        output: Output,
+        region: Region,
+    },
 }
 
 #[derive(Display, PartialEq, Debug, Clone, Copy, EnumString, EnumVariantNames)]
@@ -60,12 +62,12 @@ pub enum Target {
     None,
 }
 
-// #[derive(Display, PartialEq, Debug, Clone, Copy, EnumString, EnumVariantNames)]
-// pub enum Output {
-//     Outfile,
-//     Overwrite,
-//     None,
-// }
+#[derive(Display, PartialEq, Debug, Clone, EnumString, EnumVariantNames)]
+pub enum Output {
+    Outfile(String),
+    Overwrite,
+    None,
+}
 
 #[derive(Display, PartialEq, Debug, Clone, Copy, EnumString, EnumVariantNames)]
 pub enum Partial {
@@ -296,9 +298,33 @@ impl Mode {
                 })
             }
             // Some("Interactive") => Ok(Mode::Interactive),
-            Some(_) => unreachable!(),
-            // None => Ok(Mode::None),
-            None => unreachable!(),
+            Some("Write") => {
+                let region_str = Region::VARIANTS
+                    .iter()
+                    .find(|x| matches.subcommand_matches("Write").unwrap().is_present(x))
+                    .unwrap_or(&"None");
+                let region = Region::from_str(region_str)?;
+
+                let output_str = Output::VARIANTS
+                    .iter()
+                    .find(|x| matches.subcommand_matches("Write").unwrap().is_present(x))
+                    .unwrap_or(&"None");
+
+                let output = match *output_str {
+                    "Outfile" => Output::Outfile(
+                        matches
+                            .subcommand_matches("Write")
+                            .unwrap()
+                            .value_of("Outfile")
+                            .unwrap()
+                            .to_owned(),
+                    ),
+                    _ => Output::from_str(output_str)?,
+                };
+
+                Ok(Mode::Write { output, region })
+            }
+            _ => unreachable!(),
         }
     }
 }

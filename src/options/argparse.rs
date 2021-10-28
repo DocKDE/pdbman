@@ -348,4 +348,48 @@ pub fn parse_args() -> App<'static> {
                     .args(&["Infile", "List", "Sphere"])
                     .requires_all(&["target", "region"]))
         )
+        .subcommand(App::new("Write")
+            .about("Write Mode")
+            .visible_aliases(&["write", "wri", "W", "w"])
+            .arg(
+                Arg::new("QM1")
+                    .about("Write QM1 atom list")
+                    .long("qm1")
+                    .short('q')
+            )
+            .arg(
+                Arg::new("QM2")
+                    .about("Write QM2 atom list")
+                    .long("qm2")
+                    .short('q')
+            )
+            .arg(
+                Arg::new("Active")
+                    .about("Write active atom list")
+                    .long("active")
+                    .short('a')
+            )
+            .arg(
+                Arg::new("Outfile")
+                    .about("File path for writing PDB")
+                    .long("file")
+                    .short('f')
+                    .takes_value(true),
+            )
+            .arg(
+                Arg::new("Overwrite")
+                    .about("Overwrite PDB input file")
+                    .long("overwrite")
+                    .short('w')
+                    .conflicts_with("region")
+            )
+            .group(
+                ArgGroup::new("output")
+                    .args(&["Outfile", "Overwrite"])
+            )
+            .group(
+                ArgGroup::new("region")
+                    .args(&["QM1", "QM2", "Active"])
+            )
+        )
 }
