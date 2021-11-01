@@ -15,149 +15,65 @@ use rayon::prelude::ParallelIterator;
 type AtomList = Vec<usize>;
 type ResidueList = Vec<(isize, Option<String>)>;
 
-#[derive(PartialEq, Debug, Clone)]
-pub struct Sphere<'a> {
-    pub origin: pdbtbx::AtomWithHierarchy<'a>,
-    pub radius: f64,
+/// This function edits the q or b value of a given residue list (used by ORCA as input for active section
+/// selection) by Residue.
+pub fn edit_residues(
+    pdb: &mut PDB,
+    list: ResidueList,
+    partial: Partial,
+    region: Region,
+) -> Result<(), String> {
+    let edit = |a: &mut Atom| match region {
+        Region::QM1 => a.set_occupancy(1.00),
+        Region::QM2 => a.set_occupancy(2.00),
+        Region::Active => a.set_b_factor(1.00),
+        Region::None => Err("Test".into()),
+    };
+
+    pdb.par_residues_mut()
+        .try_for_each(|res| -> Result<(), String> {
+            if list.contains(&(
+                res.serial_number(),
+                res.insertion_code().map(ToOwned::to_owned),
+            )) {
+                res.par_atoms_mut()
+                    .try_for_each(|atom| -> Result<(), String> {
+                        match partial {
+                            Partial::None => edit(atom)?,
+                            Partial::Sidechain => {
+                                if !atom.is_backbone() {
+                                    edit(atom)?
+                                }
+                            }
+                            Partial::Backbone => {
+                                if atom.is_backbone() {
+                                    edit(atom)?
+                                }
+                            }
+                        }
+                        Ok(())
+                    })?;
+            };
+            Ok(())
+        })
 }
 
-/// This function parses the values of option 'Sphere' into a usize and an f64 and returns
-/// a reference to the corresponding Atom and the radius. The return values are organized
-/// in a Sphere struct to facilitate usage.
-impl<'a> Sphere<'a> {
-    pub fn new(
-        origin_str: &str,
-        radius_str: &str,
-        pdb: &'a PDB,
-    ) -> Result<Sphere<'a>, anyhow::Error> {
-        // The sphere validator rejects anything containing something else than digits and dots.
-        // Since it validates both arguments the same, it will not reject a decimal point in the Atom
-        // ID which is taken care of here.
-        let origin_id: usize = match origin_str.parse() {
-            Ok(v) => v,
-            Err(_) => bail!("Decimal points are not allowed in Atom IDs."),
+/// This functions edits the q or b value of the PDB file (used by ORCA as input for QM region
+/// selection) by Atom.
+pub fn edit_atoms(pdb: &mut PDB, list: AtomList, region: Region) -> Result<(), String> {
+    let edit = |a: &mut Atom| match region {
+        Region::QM1 => a.set_occupancy(1.00),
+        Region::QM2 => a.set_occupancy(2.00),
+        Region::Active => a.set_b_factor(1.00),
+        Region::None => Err("Test".into()),
+    };
+
+    pdb.par_atoms_mut().try_for_each(|a| -> Result<(), String> {
+        if list.contains(&a.serial_number()) {
+            edit(a)?
         };
-
-        // No more error handling should be necessary since the sphere validator already
-        // takes care of everything that is not a float. Everything that can be constructed
-        // with dots and digits is valid input for radius.
-        let radius: f64 = radius_str.parse()?;
-
-        let origin = pdb
-            .par_atoms_with_hierarchy()
-            .find_any(|x| x.atom.serial_number() == origin_id)
-            .ok_or_else(|| anyhow!("No atom corresponding to the given ID could be found."))?;
-
-        Ok(Sphere { origin, radius })
-    }
-}
-
-/// This function edits the q value of the Molecule (used by ORCA as input for QM section
-/// selection) by Residue. It takes a mutable reference of a PDB struct, the desired value q should
-/// be set to, and a list of Residue serial numbers for the Atoms to edit.
-/// The last option recognizes 'backbone', 'sidechain' and 'None' as options and will select the
-/// correspdonding Atoms from each Residue.
-pub fn edit_qm_residues(
-    pdb: &mut PDB,
-    qm_val: f64,
-    list: ResidueList,
-    partial: Partial,
-) -> Result<(), String> {
-    pdb.par_residues_mut()
-        .try_for_each(|res| -> Result<(), String> {
-            if list.contains(&(
-                res.serial_number(),
-                res.insertion_code().map(ToOwned::to_owned),
-            )) {
-                res.par_atoms_mut()
-                    .try_for_each(|atom| -> Result<(), String> {
-                        match partial {
-                            Partial::None => atom.set_occupancy(qm_val)?,
-                            Partial::Sidechain => {
-                                if !atom.is_backbone() {
-                                    atom.set_occupancy(qm_val)?
-                                }
-                            }
-                            Partial::Backbone => {
-                                if atom.is_backbone() {
-                                    atom.set_occupancy(qm_val)?
-                                }
-                            }
-                        }
-                        Ok(())
-                    })?;
-            };
-            Ok(())
-        })?;
-    Ok(())
-}
-
-/// This function edits the b value of the Molecule (used by ORCA as input for active section
-/// selection) by Residue. It takes a mutable reference of a PDB struct, the desired value b should
-/// be set to, and a list of Residue IDs for the Residues to edit.
-/// The last option recognizes 'backbone', 'sidechain' and 'None' as options and will select the
-/// correspdonding Atoms from each Residue.
-pub fn edit_active_residues(
-    pdb: &mut PDB,
-    active_val: f64,
-    list: ResidueList,
-    partial: Partial,
-) -> Result<(), String> {
-    pdb.par_residues_mut()
-        .try_for_each(|res| -> Result<(), String> {
-            if list.contains(&(
-                res.serial_number(),
-                res.insertion_code().map(ToOwned::to_owned),
-            )) {
-                // if list.contains(&(res.id())) {
-                res.par_atoms_mut()
-                    .try_for_each(|atom| -> Result<(), String> {
-                        match partial {
-                            Partial::None => atom.set_b_factor(active_val)?,
-                            Partial::Sidechain => {
-                                if !atom.is_backbone() {
-                                    atom.set_b_factor(active_val)?
-                                }
-                            }
-                            Partial::Backbone => {
-                                if atom.is_backbone() {
-                                    atom.set_b_factor(active_val)?
-                                }
-                            }
-                        }
-                        Ok(())
-                    })?;
-            };
-            Ok(())
-        })?;
-
-    Ok(())
-}
-
-/// This functions edits the q value of the PDB file (used by ORCA as input for QM region
-/// selection) by Atom. It takes a mutable reference to a PDB struct, the desired value
-/// q should be set to and a vector of Atom IDs.
-pub fn edit_qm_atoms(pdb: &mut PDB, qm_val: f64, list: AtomList) -> Result<(), String> {
-    pdb.par_atoms_mut()
-        .try_for_each(|atom: &mut Atom| -> Result<(), String> {
-            if list.contains(&atom.serial_number()) {
-                atom.set_occupancy(qm_val)?;
-            };
-            Ok(())
-        })
-}
-
-/// This functions edits the b value of the PDB file (used by ORCA as input for QM region
-/// selection) by Atom. It takes a mutable reference to a PDB struct, the desired value
-/// b should be set to and a vector of Atom IDs.
-pub fn edit_active_atoms(pdb: &mut PDB, active_val: f64, list: AtomList) -> Result<(), String> {
-    pdb.par_atoms_mut()
-        .try_for_each(|atom: &mut Atom| -> Result<(), String> {
-            if list.contains(&atom.serial_number()) {
-                atom.set_b_factor(active_val)?;
-            };
-            Ok(())
-        })
+        Ok(())
+    })
 }
 
 /// Removes a whole region from PDB file.
@@ -293,8 +209,8 @@ pub fn calc_residue_sphere(
 }
 
 /// Finds and prints all contacts present in the PDB file structure. Definition of
-/// 'contact' is given by the 'level' arg which is 1.0A for 'level' = 0 and the
-/// respective atomic radius for 'level' = 1.
+/// 'contact' is given by the 'level' arg which is 1.0A for Clashes and depends
+/// on the atomic radius of the involved atoms for Contacts.
 pub fn find_contacts(pdb: &PDB, level: Distance) -> Result<Table, String> {
     let mut table = Table::new();
     table.set_format(*format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
@@ -634,20 +550,16 @@ pub fn query_atoms(pdb: &PDB, atom_list: AtomList) {
 }
 
 pub fn get_atomlist(pdb: &PDB, region: Region) -> Result<String, anyhow::Error> {
-    let filt_value = match region {
-        Region::QM1 => 1.00,
-        Region::QM2 => 2.00,
-        Region::Active => 1.00,
-        _ => bail!("Invalid input for 'region' argument."),
+    let filt_closure = match region {
+        Region::QM1 => |a: &Atom| a.occupancy() == 1.00,
+        Region::QM2 => |a: &Atom| a.occupancy() == 2.00,
+        Region::Active => |a: &Atom| a.b_factor() == 1.00,
+        Region::None => bail!("Invalid input for 'region' argument."),
     };
 
     let str_vec = pdb
         .par_atoms()
-        .filter(|a| match region {
-            Region::QM1 | Region::QM2 => a.occupancy() == filt_value,
-            Region::Active => a.b_factor() == filt_value,
-            Region::None => false,
-        })
+        .filter(|&a| filt_closure(a))
         .map(|a| a.serial_number().to_string())
         .collect::<Vec<String>>();
 
@@ -697,10 +609,9 @@ pub fn query_residues(pdb: &PDB, residue_list: ResidueList) {
     }
 
     if let Some(k) = key {
-        println!(
-            "{}",
-            RESIDUE_ASCII.get(&k.to_uppercase().as_ref()).unwrap_or(&"")
-        );
+        if let Some(res_ascii) = RESIDUE_ASCII.get(&k.to_uppercase().as_ref()) {
+            println!("{}", res_ascii)
+        }
     }
 
     table.printstd();
@@ -717,27 +628,33 @@ pub fn analyze(pdb: &PDB, region: Region, target: Target) -> Result<(), anyhow::
     for residue in pdb.residues() {
         for atom in residue.atoms() {
             if atom.occupancy() == 1.00 {
-                if !qm1_residue_list.contains(&residue) {
-                    qm1_residue_list.push(residue);
-                }
+                qm1_residue_list.push(residue);
                 qm1_atom_list.push(atom)
             }
 
             if atom.occupancy() == 2.00 {
-                if !qm2_residue_list.contains(&residue) {
-                    qm2_residue_list.push(residue);
-                }
+                qm2_residue_list.push(residue);
                 qm2_atom_list.push(atom)
             }
 
             if atom.b_factor() == 1.00 {
-                if !active_residue_list.contains(&residue) {
-                    active_residue_list.push(residue);
-                }
+                active_residue_list.push(residue);
                 active_atom_list.push(atom)
             }
         }
     }
+
+    // It's much faster to just dedup the vecs once than check whether
+    // the respective item is already present every time. Also since
+    // the residues are iterated serially, sorting should not be necessary.
+
+    // qm1_residue_list.sort();
+    // qm2_residue_list.sort();
+    // active_residue_list.sort();
+
+    qm1_residue_list.dedup();
+    qm2_residue_list.dedup();
+    active_residue_list.dedup();
 
     let basic_table = table!(
         ["", "# of Atoms", "# of Residues"],
@@ -753,7 +670,6 @@ pub fn analyze(pdb: &PDB, region: Region, target: Target) -> Result<(), anyhow::
             Region::QM1 => qm1_residue_list,
             Region::QM2 => qm2_residue_list,
             Region::Active => active_residue_list,
-            // Region::None => return Err("Invalid argument for 'region'".into()),
             Region::None => bail!("Invalid argument for 'region'"),
         };
         if !residue_list.is_empty() {
@@ -766,7 +682,6 @@ pub fn analyze(pdb: &PDB, region: Region, target: Target) -> Result<(), anyhow::
                     Region::QM1 => "# of QM1 Atoms",
                     Region::QM2 => "# of QM2 Atoms",
                     Region::Active => "# of Active Atoms",
-                    // Region::None => return Err("Invalid argument for 'region'".into()),
                     Region::None => bail!("Invalid argument for 'region'"),
                 }
             ]);
@@ -1000,8 +915,9 @@ mod tests {
     fn edit_atoms_test() {
         let mut pdb = test_pdb("tests/test_blank.pdb");
         let atom_id_list = vec![1, 5, 9];
-        edit_qm_atoms(&mut pdb, 1.00, atom_id_list.clone()).unwrap();
-        edit_active_atoms(&mut pdb, 1.00, atom_id_list.clone()).unwrap();
+        edit_atoms(&mut pdb, atom_id_list.clone(), Region::QM1).unwrap();
+        // edit_qm_atoms(&mut pdb, 1.00, atom_id_list.clone()).unwrap();
+        edit_atoms(&mut pdb, atom_id_list.clone(), Region::Active).unwrap();
 
         let atom_list = pdb
             .atoms()
@@ -1017,8 +933,8 @@ mod tests {
         let mut pdb = test_pdb("tests/test_blank.pdb");
         let res_id_list = vec![(2, None), (4, None)];
 
-        edit_qm_residues(&mut pdb, 2.00, res_id_list.clone(), Partial::None).unwrap();
-        edit_active_residues(&mut pdb, 1.00, res_id_list.clone(), Partial::None).unwrap();
+        edit_residues(&mut pdb, res_id_list.clone(), Partial::None, Region::QM2).unwrap();
+        edit_residues(&mut pdb, res_id_list.clone(), Partial::None, Region::Active).unwrap();
 
         let res_list = pdb.residues().filter(|x| {
             res_id_list.contains(&(x.serial_number(), x.insertion_code().map(ToOwned::to_owned)))
@@ -1037,8 +953,20 @@ mod tests {
         let mut pdb = test_pdb("tests/test_blank.pdb");
         let res_id_list = vec![(2, None), (4, None)];
 
-        edit_qm_residues(&mut pdb, 2.00, res_id_list.clone(), Partial::Sidechain).unwrap();
-        edit_active_residues(&mut pdb, 1.00, res_id_list.clone(), Partial::Sidechain).unwrap();
+        edit_residues(
+            &mut pdb,
+            res_id_list.clone(),
+            Partial::Sidechain,
+            Region::QM2,
+        )
+        .unwrap();
+        edit_residues(
+            &mut pdb,
+            res_id_list.clone(),
+            Partial::Sidechain,
+            Region::Active,
+        )
+        .unwrap();
 
         let res_list = pdb.residues().filter(|x| {
             res_id_list.contains(&(x.serial_number(), x.insertion_code().map(ToOwned::to_owned)))
@@ -1058,8 +986,20 @@ mod tests {
     fn edit_residues_test_back() {
         let mut pdb = test_pdb("tests/test_blank.pdb");
         let res_id_list = vec![(2, None), (4, None)];
-        edit_qm_residues(&mut pdb, 2.00, res_id_list.clone(), Partial::Backbone).unwrap();
-        edit_active_residues(&mut pdb, 1.00, res_id_list.clone(), Partial::Backbone).unwrap();
+        edit_residues(
+            &mut pdb,
+            res_id_list.clone(),
+            Partial::Backbone,
+            Region::QM2,
+        )
+        .unwrap();
+        edit_residues(
+            &mut pdb,
+            res_id_list.clone(),
+            Partial::Backbone,
+            Region::Active,
+        )
+        .unwrap();
 
         let res_list = pdb.residues().filter(|x| {
             res_id_list.contains(&(x.serial_number(), x.insertion_code().map(ToOwned::to_owned)))

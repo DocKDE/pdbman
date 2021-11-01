@@ -20,8 +20,8 @@ rustyline-derive = "0.5"
 env_logger = "0.9"
 anyhow = "1.0.44"
 # pdbtbx = {version = "^0.7", features = ["rayon", "rstar"]}
-pdbtbx = {git = "https://github.com/nonnominandus/pdbtbx", branch = "master", features = ["rayon", "rstar"]}
-#  pdbtbx = {path = "../pdbtbx", branch = "hierarchy_mut", features = ["rayon", "rstar"]}
+# pdbtbx = {git = "https://github.com/nonnominandus/pdbtbx", branch = "master", features = ["rayon", "rstar"]}
+ pdbtbx = {path = "../pdbtbx", features = ["rayon", "rstar"]}
 
 [dev-dependencies]
 prettytable-rs = {version = "0.8.0", default-features = true}

@@ -46,7 +46,7 @@ pub enum Region {
 pub enum Source {
     Infile(String),
     List(String),
-    Sphere(String, String),
+    Sphere(usize, f64),
     None,
 }
 
@@ -114,7 +114,7 @@ impl Mode {
                             .unwrap()
                             .next_tuple()
                             .unwrap();
-                        Source::Sphere(origin_str.to_owned(), radius_str.to_owned())
+                        Source::Sphere(origin_str.parse()?, radius_str.parse()?)
                     }
                     _ => Source::from_str(source_str)?,
                 };
@@ -189,7 +189,7 @@ impl Mode {
                             .unwrap()
                             .next_tuple()
                             .unwrap();
-                        Source::Sphere(origin_str.to_string(), radius_str.to_string())
+                        Source::Sphere(origin_str.parse()?, radius_str.parse()?)
                     }
                     _ => Source::from_str(source_str)?,
                 };
@@ -250,7 +250,7 @@ impl Mode {
                             .unwrap()
                             .next_tuple()
                             .unwrap();
-                        Source::Sphere(origin_str.to_string(), radius_str.to_string())
+                        Source::Sphere(origin_str.parse()?, radius_str.parse()?)
                     }
                     _ => Source::from_str(source_str)?,
                 };

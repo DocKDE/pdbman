@@ -19,7 +19,7 @@ mod residue_ascii;
 mod shell;
 
 use std::process;
-use std::rc::Rc;
+// use std::rc::Rc;
 
 use anyhow::Result;
 use clap::Arg;
@@ -116,36 +116,30 @@ fn run() -> Result<(), anyhow::Error> {
             }
         };
 
-        // If something goes wrong here, it should actually return
         // let mode = Mode::new(&matches)?;
-        let mode = Rc::new(Mode::new(&matches)?);
+        // Error raised here are probably parse errors from faulty user input
+        let mode = match Mode::new(&matches) {
+            Ok(m) => m,
+            // Ok(m) => Rc::new(m),
+            Err(e) => {
+                println!("{}", e);
+                continue;
+            }
+        };
+        // let mode = Rc::new(Mode::new(&matches)?);
 
         // Print errors instead of returning them
         if let Err(e) = dispatch(mode, &mut pdb, filename) {
             println! {"{}", e};
         }
-
-        // if mode.to_string() == "Add" || mode.to_string() == "Remove" {
-        //     parse = true;
-        // }
     }
 
-    // Only print to file if any changes were made and only once the loop was broken
-    // if parse {
-    //     let filename_new = filename.to_string() + "_new";
-
-    //     println!("Saving changes to {}", filename_new);
-    //     if let Err(e) = pdbtbx::save_pdb(pdb, &filename_new, StrictnessLevel::Loose) {
-    //         e.iter().for_each(|x| println!("{}", x))
-    //     };
-    // }
     Ok(())
 }
 
-fn main() -> Result<(), anyhow::Error> {
+fn main() {
     if let Err(e) = run() {
         eprintln!("{}", e);
         process::exit(1);
     }
-    Ok(())
 }
