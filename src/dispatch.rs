@@ -9,7 +9,6 @@ use crate::options::*;
 // Run function that handles the logic of when to call which function given an enum with the
 // command line options. Hands all occurring errors to calöer.
 pub fn dispatch(
-    // mode: Rc<Mode>,
     mode: Mode,
     mut pdb: &mut pdbtbx::PDB,
     infile: &str,
@@ -63,8 +62,8 @@ pub fn dispatch(
         } => match source {
             Source::List(_) | Source::Infile(_) => {
                 let list = match source {
-                    Source::List(l) => l.to_owned(),
-                    Source::Infile(f) => std::fs::read_to_string(f)?.trim().to_owned(),
+                    Source::List(l) => l.to_string(),
+                    Source::Infile(f) => std::fs::read_to_string(f)?,
                     _ => unreachable!(),
                 };
                 match target {

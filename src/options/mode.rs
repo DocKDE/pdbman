@@ -6,9 +6,9 @@ use strum::VariantNames;
 use strum_macros::{Display, EnumString, EnumVariantNames};
 
 #[derive(Display, PartialEq, Debug, EnumVariantNames)]
-pub enum Mode {
+pub enum Mode<'a> {
     Query {
-        source: Source,
+        source: Source<'a>,
         target: Target,
     },
     Analyze {
@@ -18,18 +18,18 @@ pub enum Mode {
     },
     Add {
         region: Region,
-        source: Source,
+        source: Source<'a>,
         target: Target,
         partial: Partial,
     },
     Remove {
         region: Region,
-        source: Source,
+        source: Source<'a>,
         target: Target,
         partial: Partial,
     },
     Write {
-        output: Output,
+        output: Output<'a>,
         region: Region,
     },
 }
@@ -43,9 +43,9 @@ pub enum Region {
 }
 
 #[derive(Display, PartialEq, Debug, Clone, EnumString, EnumVariantNames)]
-pub enum Source {
-    Infile(String),
-    List(String),
+pub enum Source<'a> {
+    Infile(&'a str),
+    List(&'a str),
     Sphere(usize, f64),
     None,
 }
@@ -58,8 +58,8 @@ pub enum Target {
 }
 
 #[derive(Display, PartialEq, Debug, Clone, EnumString, EnumVariantNames)]
-pub enum Output {
-    Outfile(String),
+pub enum Output<'a> {
+    Outfile(&'a str),
     Overwrite,
     None,
 }
@@ -78,7 +78,7 @@ pub enum Distance {
     None,
 }
 
-impl Mode {
+impl <'a>Mode<'a> {
     /// Creates new Mode enum from clap::ArgMatches struct. This is
     /// where the given command line options are stored for later use.
     pub fn new(matches: &clap::ArgMatches) -> Result<Mode, anyhow::Error> {
@@ -96,7 +96,7 @@ impl Mode {
                             .unwrap()
                             .value_of("Infile")
                             .unwrap()
-                            .to_owned(),
+                            // .to_owned(),
                     ),
                     "List" => Source::List(
                         matches
@@ -104,7 +104,7 @@ impl Mode {
                             .unwrap()
                             .value_of("List")
                             .unwrap()
-                            .to_owned(),
+                            // .to_owned(),
                     ),
                     "Sphere" => {
                         let (origin_str, radius_str) = matches
@@ -171,7 +171,7 @@ impl Mode {
                             .unwrap()
                             .value_of("Infile")
                             .unwrap()
-                            .to_owned(),
+                            // .to_owned(),
                     ),
                     "List" => Source::List(
                         matches
@@ -179,7 +179,7 @@ impl Mode {
                             .unwrap()
                             .value_of("List")
                             .unwrap()
-                            .to_string(),
+                            // .to_string(),
                     ),
                     "Sphere" => {
                         let (origin_str, radius_str) = matches
@@ -232,7 +232,7 @@ impl Mode {
                             .unwrap()
                             .value_of("Infile")
                             .unwrap()
-                            .to_owned(),
+                            // .to_owned(),
                     ),
                     "List" => Source::List(
                         matches
@@ -240,7 +240,7 @@ impl Mode {
                             .unwrap()
                             .value_of("List")
                             .unwrap()
-                            .to_string(),
+                            // .to_string(),
                     ),
                     "Sphere" => {
                         let (origin_str, radius_str) = matches
@@ -293,7 +293,7 @@ impl Mode {
                             .unwrap()
                             .value_of("Outfile")
                             .unwrap()
-                            .to_owned(),
+                            // .to_owned(),
                     ),
                     _ => Output::from_str(output_str)?,
                 };
