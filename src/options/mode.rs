@@ -78,7 +78,7 @@ pub enum Distance {
     None,
 }
 
-impl <'a>Mode<'a> {
+impl<'a> Mode<'a> {
     /// Creates new Mode enum from clap::ArgMatches struct. This is
     /// where the given command line options are stored for later use.
     pub fn new(matches: &clap::ArgMatches) -> Result<Mode, anyhow::Error> {
@@ -95,16 +95,14 @@ impl <'a>Mode<'a> {
                             .subcommand_matches("Query")
                             .unwrap()
                             .value_of("Infile")
-                            .unwrap()
-                            // .to_owned(),
+                            .unwrap(), // .to_owned(),
                     ),
                     "List" => Source::List(
                         matches
                             .subcommand_matches("Query")
                             .unwrap()
                             .value_of("List")
-                            .unwrap()
-                            // .to_owned(),
+                            .unwrap(), // .to_owned(),
                     ),
                     "Sphere" => {
                         let (origin_str, radius_str) = matches
@@ -170,16 +168,14 @@ impl <'a>Mode<'a> {
                             .subcommand_matches("Add")
                             .unwrap()
                             .value_of("Infile")
-                            .unwrap()
-                            // .to_owned(),
+                            .unwrap(), // .to_owned(),
                     ),
                     "List" => Source::List(
                         matches
                             .subcommand_matches("Add")
                             .unwrap()
                             .value_of("List")
-                            .unwrap()
-                            // .to_string(),
+                            .unwrap(), // .to_string(),
                     ),
                     "Sphere" => {
                         let (origin_str, radius_str) = matches
@@ -231,16 +227,14 @@ impl <'a>Mode<'a> {
                             .subcommand_matches("Remove")
                             .unwrap()
                             .value_of("Infile")
-                            .unwrap()
-                            // .to_owned(),
+                            .unwrap(), // .to_owned(),
                     ),
                     "List" => Source::List(
                         matches
                             .subcommand_matches("Remove")
                             .unwrap()
                             .value_of("List")
-                            .unwrap()
-                            // .to_string(),
+                            .unwrap(), // .to_string(),
                     ),
                     "Sphere" => {
                         let (origin_str, radius_str) = matches
@@ -292,8 +286,7 @@ impl <'a>Mode<'a> {
                             .subcommand_matches("Write")
                             .unwrap()
                             .value_of("Outfile")
-                            .unwrap()
-                            // .to_owned(),
+                            .unwrap(), // .to_owned(),
                     ),
                     _ => Output::from_str(output_str)?,
                 };

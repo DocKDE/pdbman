@@ -3,7 +3,7 @@ use crate::residue_ascii::RESIDUE_ASCII;
 
 use std::fs::File;
 use std::io::prelude::Write;
-use std::io::LineWriter;
+use std::io::{self, BufWriter};
 
 use anyhow::Result;
 use itertools::Itertools;
@@ -52,8 +52,8 @@ pub fn edit_residues(
                             }
                         }
                         Ok(())
-                    })?;
-            };
+                    })?
+            }
             Ok(())
         })
 }
@@ -71,7 +71,7 @@ pub fn edit_atoms(pdb: &mut PDB, list: AtomList, region: Region) -> Result<(), S
     pdb.par_atoms_mut().try_for_each(|a| -> Result<(), String> {
         if list.contains(&a.serial_number()) {
             edit(a)?
-        };
+        }
         Ok(())
     })
 }
@@ -85,13 +85,16 @@ pub fn remove_region(pdb: &mut PDB, region: Region) {
             atom.set_b_factor(0.00).unwrap();
             atom.set_occupancy(0.00).unwrap()
         }
-    });
+    })
 }
 
 /// Prints all Atoms in Molecule to stdout in PDB file format
-pub fn print_pdb_to_stdout(pdb: &PDB) {
+pub fn print_pdb_to_stdout(pdb: &PDB) -> Result<(), std::io::Error> {
+    let stdout = io::stdout();
+    let mut handle = stdout.lock();
     for atom_hier in pdb.atoms_with_hierarchy() {
-        println!(
+        writeln!(
+            handle,
             "ATOM  {:>5} {:<4} {:>3}  {:>4}    {:>8.3}{:>8.3}{:>8.3}{:>6.2}{:>6.2}          {:>2}",
             atom_hier.atom.serial_number(),
             atom_hier.atom.name(),
@@ -103,14 +106,14 @@ pub fn print_pdb_to_stdout(pdb: &PDB) {
             atom_hier.atom.occupancy(),
             atom_hier.atom.b_factor(),
             atom_hier.atom.element()
-        );
+        )?
     }
+    Ok(())
 }
 
 /// Print all Atoms in PDB to a file given in path
 pub fn print_pdb_to_file(pdb: &PDB, path: &str) -> Result<(), std::io::Error> {
-    let file = File::create(path)?;
-    let mut file = LineWriter::new(file);
+    let mut file = BufWriter::new(File::create(path)?);
 
     for atom_hier in pdb.atoms_with_hierarchy() {
         // Deal with residue numbers above 9999
@@ -211,7 +214,7 @@ pub fn calc_residue_sphere(
 /// Finds and prints all contacts present in the PDB file structure. Definition of
 /// 'contact' is given by the 'level' arg which is 1.0A for Clashes and depends
 /// on the atomic radius of the involved atoms for Contacts.
-pub fn find_contacts(pdb: &PDB, level: Distance) -> Result<Table, String> {
+pub fn find_contacts(pdb: &PDB, level: Distance) -> Result<Table, anyhow::Error> {
     let mut table = Table::new();
     table.set_format(*format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
     table.set_titles(row![
@@ -232,12 +235,12 @@ pub fn find_contacts(pdb: &PDB, level: Distance) -> Result<Table, String> {
             Distance::Contacts => atom_hier
                 .atom
                 .atomic_radius()
-                .ok_or(format!(
+                .ok_or_else(|| anyhow!(
                     "No radius found for given atom type: {}",
                     atom_hier.atom.element()
                 ))?
                 .powf(2.0),
-            _ => return Err("Invalid".into()),
+            _ => bail!("Invalid"),
         };
 
         let contacts = tree.locate_within_distance(atom_hier.atom.pos_array(), radius);
@@ -294,13 +297,13 @@ pub fn find_contacts(pdb: &PDB, level: Distance) -> Result<Table, String> {
 
     if !table.is_empty() {
         if level == Distance::Clashes {
-            println!("\nClash Analysis");
+            writeln!(io::stdout(), "\nClash Analysis")?;
         } else if level == Distance::Contacts {
-            println!("\nContact Analysis");
+            writeln!(io::stdout(), "\nContact Analysis")?;
         }
         Ok(table)
     } else {
-        Err("No contacts found!".into())
+        bail!("No contacts found!")
     }
 }
 
@@ -549,7 +552,7 @@ pub fn query_atoms(pdb: &PDB, atom_list: AtomList) {
     table.printstd();
 }
 
-pub fn get_atomlist(pdb: &PDB, region: Region) -> Result<String, anyhow::Error> {
+pub fn get_atomlist(pdb: &PDB, region: Region) -> Result<Vec<String>, anyhow::Error> {
     let filt_closure = match region {
         Region::QM1 => |a: &Atom| a.occupancy() == 1.00,
         Region::QM2 => |a: &Atom| a.occupancy() == 2.00,
@@ -566,13 +569,13 @@ pub fn get_atomlist(pdb: &PDB, region: Region) -> Result<String, anyhow::Error> 
     if str_vec.is_empty() {
         bail!("No atoms in the requested region!")
     } else {
-        Ok(str_vec.join(","))
+        Ok(str_vec)
     }
 }
 
 // This cannot fail because if no residues can be queried, the
 // parse_residue_list would have returned an error beforehand
-pub fn query_residues(pdb: &PDB, residue_list: ResidueList) {
+pub fn query_residues(pdb: &PDB, residue_list: ResidueList) -> Result<(), io::Error> {
     let mut table = Table::new();
 
     table.add_row(row![
@@ -610,11 +613,12 @@ pub fn query_residues(pdb: &PDB, residue_list: ResidueList) {
 
     if let Some(k) = key {
         if let Some(res_ascii) = RESIDUE_ASCII.get(&k.to_uppercase().as_ref()) {
-            println!("{}", res_ascii)
+            writeln!(io::stdout(), "{}", res_ascii)?
         }
     }
 
     table.printstd();
+    Ok(())
 }
 
 pub fn analyze(pdb: &PDB, region: Region, target: Target) -> Result<(), anyhow::Error> {
@@ -706,7 +710,7 @@ pub fn analyze(pdb: &PDB, region: Region, target: Target) -> Result<(), anyhow::
                     resid_atoms,
                 ]);
             }
-            println!("\n{} Residues", region.to_owned());
+            writeln!(io::stdout(), "\n{} Residues", region.to_owned())?;
             residue_table.printstd();
         } else {
             bail!("No Residues found in given region!");
@@ -745,7 +749,7 @@ pub fn analyze(pdb: &PDB, region: Region, target: Target) -> Result<(), anyhow::
                     }
                 }
             }
-            println!("\n{} Atoms", region.to_owned());
+            writeln!(io::stdout(), "\n{} Atoms", region.to_owned())?;
             atom_table.printstd();
         } else {
             bail!("No Atoms found in given region!")

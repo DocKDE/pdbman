@@ -1,23 +1,23 @@
 use std::error::Error;
+use std::fs::File;
+use std::io::{self, BufRead, BufReader, BufWriter, Write};
+// use std::path::Path;
 // use std::rc::Rc;
 
+// use itertools::Itertools;
 use rayon::iter::ParallelIterator;
 
 use crate::functions::*;
 use crate::options::*;
 
 // Run function that handles the logic of when to call which function given an enum with the
-// command line options. Hands all occurring errors to calöer.
-pub fn dispatch(
-    mode: Mode,
-    mut pdb: &mut pdbtbx::PDB,
-    infile: &str,
-) -> Result<(), Box<dyn Error>> {
+// command line options. Hands all occurring errors to caller.
+pub fn dispatch(mode: Mode, mut pdb: &mut pdbtbx::PDB, infile: &str) -> Result<(), Box<dyn Error>> {
     match &mode {
         Mode::Query { source, target } => match source {
             Source::List(list) => match target {
                 Target::Atoms => query_atoms(pdb, parse_atomic_list(list, pdb)?),
-                Target::Residues => query_residues(pdb, parse_residue_list(list, pdb)?),
+                Target::Residues => query_residues(pdb, parse_residue_list(list, pdb)?)?,
                 Target::None => unreachable!(),
             },
             Source::Sphere(origin_id, radius) => {
@@ -63,7 +63,17 @@ pub fn dispatch(
             Source::List(_) | Source::Infile(_) => {
                 let list = match source {
                     Source::List(l) => l.to_string(),
-                    Source::Infile(f) => std::fs::read_to_string(f)?,
+                    Source::Infile(f) => {
+                        let file = BufReader::new(File::open(f)?);
+                        let list = file
+                            .lines()
+                            .map(|l| -> Result<String, anyhow::Error> {
+                                let s = l?.trim().to_owned();
+                                Ok(s)
+                            })
+                            .collect::<Result<Vec<String>, anyhow::Error>>()?;
+                        list.join(",")
+                    }
                     _ => unreachable!(),
                 };
                 match target {
@@ -131,12 +141,23 @@ pub fn dispatch(
         },
         Mode::Write { output, region } => match output {
             Output::None => match region {
-                Region::None => print_pdb_to_stdout(pdb),
-                _ => println!("{}", get_atomlist(pdb, *region)?),
+                Region::None => print_pdb_to_stdout(pdb)?,
+                _ => {
+                    let stdout = io::stdout();
+                    let mut handle = stdout.lock();
+                    for num in get_atomlist(pdb, *region)? {
+                        writeln!(handle, "{}", num)?
+                    }
+                }
             },
             Output::Outfile(f) => match region {
                 Region::None => print_pdb_to_file(pdb, f)?,
-                _ => std::fs::write(f, get_atomlist(pdb, *region)?)?,
+                _ => {
+                    let mut file = BufWriter::new(File::create(f)?);
+                    for num in get_atomlist(pdb, *region)? {
+                        file.write_all((num + "\n").as_bytes())?;
+                    }
+                }
             },
             Output::Overwrite => print_pdb_to_file(pdb, infile)?,
         },
