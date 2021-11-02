@@ -623,7 +623,11 @@ pub fn query_residues(pdb: &PDB, residue_list: ResidueList) -> Result<(), io::Er
     Ok(())
 }
 
-pub fn analyze(pdb: &PDB, region: Option<Region>, target: Option<Target>) -> Result<(), anyhow::Error> {
+pub fn analyze(
+    pdb: &PDB,
+    region: Option<Region>,
+    target: Option<Target>,
+) -> Result<(), anyhow::Error> {
     let mut qm1_residue_list = Vec::new();
     let mut qm1_atom_list = Vec::new();
     let mut qm2_residue_list = Vec::new();

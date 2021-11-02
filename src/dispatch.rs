@@ -98,8 +98,7 @@ pub fn dispatch(mode: Mode, mut pdb: &mut pdbtbx::PDB, infile: &str) -> Result<(
                             Region::Active => edit_residues(pdb, residue_list, *partial, *region)?,
                             // None => unreachable!(),
                         }
-                    }
-                    // Target::None => unreachable!(),
+                    } // Target::None => unreachable!(),
                 }
             }
             Some(Source::Sphere(origin_id, radius)) => {
@@ -123,10 +122,7 @@ pub fn dispatch(mode: Mode, mut pdb: &mut pdbtbx::PDB, infile: &str) -> Result<(
                 }
             }
             None => {
-                if mode.to_string() == "Remove"
-                    && *region == None
-                    && *target == None
-                {
+                if mode.to_string() == "Remove" && *region == None && *target == None {
                     remove_region(&mut pdb, None)
                 } else if { *region == Some(Region::QM1) || *region == Some(Region::QM2) }
                     && *target == None
