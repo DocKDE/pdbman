@@ -155,7 +155,7 @@ pub fn dispatch(mode: Mode, mut pdb: &mut pdbtbx::PDB, infile: &str) -> Result<(
                 _ => {
                     let mut file = BufWriter::new(File::create(f)?);
                     for num in get_atomlist(pdb, *region)? {
-                        file.write_all((num + "\n").as_bytes())?;
+                        writeln!(file, "{}", num)?;
                     }
                 }
             },

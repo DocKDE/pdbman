@@ -35,7 +35,6 @@ use rustyline::{Cmd, ColorMode, CompletionType, Config, EditMode, Editor, KeyEve
 use dispatch::dispatch;
 use options::{parse_args, Mode};
 use shell::ShellHelper;
-// use options::Mode2;
 
 fn run() -> Result<(), anyhow::Error> {
     let pdbman_match = app_from_crate!()
