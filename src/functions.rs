@@ -20,14 +20,14 @@ type ResidueList = Vec<(isize, Option<String>)>;
 pub fn edit_residues(
     pdb: &mut PDB,
     list: ResidueList,
-    partial: Partial,
-    region: Region,
+    partial: Option<Partial>,
+    region: Option<Region>,
 ) -> Result<(), String> {
     let edit = |a: &mut Atom| match region {
-        Region::QM1 => a.set_occupancy(1.00),
-        Region::QM2 => a.set_occupancy(2.00),
-        Region::Active => a.set_b_factor(1.00),
-        Region::None => Err("Test".into()),
+        Some(Region::QM1) => a.set_occupancy(1.00),
+        Some(Region::QM2) => a.set_occupancy(2.00),
+        Some(Region::Active) => a.set_b_factor(1.00),
+        None => Err("Test".into()),
     };
 
     pdb.par_residues_mut()
@@ -39,13 +39,13 @@ pub fn edit_residues(
                 res.par_atoms_mut()
                     .try_for_each(|atom| -> Result<(), String> {
                         match partial {
-                            Partial::None => edit(atom)?,
-                            Partial::Sidechain => {
+                            None => edit(atom)?,
+                            Some(Partial::Sidechain) => {
                                 if !atom.is_backbone() {
                                     edit(atom)?
                                 }
                             }
-                            Partial::Backbone => {
+                            Some(Partial::Backbone) => {
                                 if atom.is_backbone() {
                                     edit(atom)?
                                 }
@@ -60,12 +60,12 @@ pub fn edit_residues(
 
 /// This functions edits the q or b value of the PDB file (used by ORCA as input for QM region
 /// selection) by Atom.
-pub fn edit_atoms(pdb: &mut PDB, list: AtomList, region: Region) -> Result<(), String> {
+pub fn edit_atoms(pdb: &mut PDB, list: AtomList, region: Option<Region>) -> Result<(), String> {
     let edit = |a: &mut Atom| match region {
-        Region::QM1 => a.set_occupancy(1.00),
-        Region::QM2 => a.set_occupancy(2.00),
-        Region::Active => a.set_b_factor(1.00),
-        Region::None => Err("Test".into()),
+        Some(Region::QM1) => a.set_occupancy(1.00),
+        Some(Region::QM2) => a.set_occupancy(2.00),
+        Some(Region::Active) => a.set_b_factor(1.00),
+        None => Err("Test".into()),
     };
 
     pdb.par_atoms_mut().try_for_each(|a| -> Result<(), String> {
@@ -77,11 +77,11 @@ pub fn edit_atoms(pdb: &mut PDB, list: AtomList, region: Region) -> Result<(), S
 }
 
 /// Removes a whole region from PDB file.
-pub fn remove_region(pdb: &mut PDB, region: Region) {
+pub fn remove_region(pdb: &mut PDB, region: Option<Region>) {
     pdb.par_atoms_mut().for_each(|atom| match region {
-        Region::QM1 | Region::QM2 => atom.set_occupancy(0.00).unwrap(),
-        Region::Active => atom.set_b_factor(0.00).unwrap(),
-        Region::None => {
+        Some(Region::QM1) | Some(Region::QM2) => atom.set_occupancy(0.00).unwrap(),
+        Some(Region::Active) => atom.set_b_factor(0.00).unwrap(),
+        None => {
             atom.set_b_factor(0.00).unwrap();
             atom.set_occupancy(0.00).unwrap()
         }
@@ -214,7 +214,7 @@ pub fn calc_residue_sphere(
 /// Finds and prints all contacts present in the PDB file structure. Definition of
 /// 'contact' is given by the 'level' arg which is 1.0A for Clashes and depends
 /// on the atomic radius of the involved atoms for Contacts.
-pub fn find_contacts(pdb: &PDB, level: Distance) -> Result<Table, anyhow::Error> {
+pub fn find_contacts(pdb: &PDB, level: Option<Distance>) -> Result<Table, anyhow::Error> {
     let mut table = Table::new();
     table.set_format(*format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
     table.set_titles(row![
@@ -231,14 +231,16 @@ pub fn find_contacts(pdb: &PDB, level: Distance) -> Result<Table, anyhow::Error>
 
     for atom_hier in pdb.atoms_with_hierarchy() {
         let radius: f64 = match level {
-            Distance::Clashes => 1.0,
-            Distance::Contacts => atom_hier
+            Some(Distance::Clashes) => 1.0,
+            Some(Distance::Contacts) => atom_hier
                 .atom
                 .atomic_radius()
-                .ok_or_else(|| anyhow!(
-                    "No radius found for given atom type: {}",
-                    atom_hier.atom.element()
-                ))?
+                .ok_or_else(|| {
+                    anyhow!(
+                        "No radius found for given atom type: {}",
+                        atom_hier.atom.element()
+                    )
+                })?
                 .powf(2.0),
             _ => bail!("Invalid"),
         };
@@ -296,9 +298,9 @@ pub fn find_contacts(pdb: &PDB, level: Distance) -> Result<Table, anyhow::Error>
     }
 
     if !table.is_empty() {
-        if level == Distance::Clashes {
+        if level == Some(Distance::Clashes) {
             writeln!(io::stdout(), "\nClash Analysis")?;
-        } else if level == Distance::Contacts {
+        } else if level == Some(Distance::Contacts) {
             writeln!(io::stdout(), "\nContact Analysis")?;
         }
         Ok(table)
@@ -552,12 +554,12 @@ pub fn query_atoms(pdb: &PDB, atom_list: AtomList) {
     table.printstd();
 }
 
-pub fn get_atomlist(pdb: &PDB, region: Region) -> Result<Vec<String>, anyhow::Error> {
+pub fn get_atomlist(pdb: &PDB, region: Option<Region>) -> Result<Vec<String>, anyhow::Error> {
     let filt_closure = match region {
-        Region::QM1 => |a: &Atom| a.occupancy() == 1.00,
-        Region::QM2 => |a: &Atom| a.occupancy() == 2.00,
-        Region::Active => |a: &Atom| a.b_factor() == 1.00,
-        Region::None => bail!("Invalid input for 'region' argument."),
+        Some(Region::QM1) => |a: &Atom| a.occupancy() == 1.00,
+        Some(Region::QM2) => |a: &Atom| a.occupancy() == 2.00,
+        Some(Region::Active) => |a: &Atom| a.b_factor() == 1.00,
+        None => bail!("Invalid input for 'region' argument."),
     };
 
     let str_vec = pdb
@@ -621,7 +623,7 @@ pub fn query_residues(pdb: &PDB, residue_list: ResidueList) -> Result<(), io::Er
     Ok(())
 }
 
-pub fn analyze(pdb: &PDB, region: Region, target: Target) -> Result<(), anyhow::Error> {
+pub fn analyze(pdb: &PDB, region: Option<Region>, target: Option<Target>) -> Result<(), anyhow::Error> {
     let mut qm1_residue_list = Vec::new();
     let mut qm1_atom_list = Vec::new();
     let mut qm2_residue_list = Vec::new();
@@ -669,12 +671,12 @@ pub fn analyze(pdb: &PDB, region: Region, target: Target) -> Result<(), anyhow::
 
     basic_table.printstd();
 
-    if target == Target::Residues {
+    if target == Some(Target::Residues) {
         let residue_list = match region {
-            Region::QM1 => qm1_residue_list,
-            Region::QM2 => qm2_residue_list,
-            Region::Active => active_residue_list,
-            Region::None => bail!("Invalid argument for 'region'"),
+            Some(Region::QM1) => qm1_residue_list,
+            Some(Region::QM2) => qm2_residue_list,
+            Some(Region::Active) => active_residue_list,
+            None => bail!("Invalid argument for 'region'"),
         };
         if !residue_list.is_empty() {
             let mut residue_table = Table::new();
@@ -683,10 +685,10 @@ pub fn analyze(pdb: &PDB, region: Region, target: Target) -> Result<(), anyhow::
                 "Residue Name",
                 "# of Atoms",
                 match region {
-                    Region::QM1 => "# of QM1 Atoms",
-                    Region::QM2 => "# of QM2 Atoms",
-                    Region::Active => "# of Active Atoms",
-                    Region::None => bail!("Invalid argument for 'region'"),
+                    Some(Region::QM1) => "# of QM1 Atoms",
+                    Some(Region::QM2) => "# of QM2 Atoms",
+                    Some(Region::Active) => "# of Active Atoms",
+                    None => bail!("Invalid argument for 'region'"),
                 }
             ]);
 
@@ -695,9 +697,9 @@ pub fn analyze(pdb: &PDB, region: Region, target: Target) -> Result<(), anyhow::
                 let mut atom_counter = 0;
                 for atom in residue.atoms() {
                     atom_counter += 1;
-                    if (region == Region::QM1 && atom.occupancy() == 1.00)
-                        || (region == Region::QM2 && atom.occupancy() == 2.00)
-                        || (region == Region::Active && atom.b_factor() == 1.00)
+                    if (region == Some(Region::QM1) && atom.occupancy() == 1.00)
+                        || (region == Some(Region::QM2) && atom.occupancy() == 2.00)
+                        || (region == Some(Region::Active) && atom.b_factor() == 1.00)
                     {
                         resid_atoms += 1;
                     }
@@ -710,17 +712,17 @@ pub fn analyze(pdb: &PDB, region: Region, target: Target) -> Result<(), anyhow::
                     resid_atoms,
                 ]);
             }
-            writeln!(io::stdout(), "\n{} Residues", region.to_owned())?;
+            writeln!(io::stdout(), "\n{} Residues", region.unwrap().to_owned())?;
             residue_table.printstd();
         } else {
             bail!("No Residues found in given region!");
         }
-    } else if target == Target::Atoms {
+    } else if target == Some(Target::Atoms) {
         let (atom_list, residue_list) = match region {
-            Region::QM1 => (qm1_atom_list, qm1_residue_list),
-            Region::QM2 => (qm2_atom_list, qm2_residue_list),
-            Region::Active => (active_atom_list, active_residue_list),
-            Region::None => bail!("Invalid argument for 'region'"),
+            Some(Region::QM1) => (qm1_atom_list, qm1_residue_list),
+            Some(Region::QM2) => (qm2_atom_list, qm2_residue_list),
+            Some(Region::Active) => (active_atom_list, active_residue_list),
+            None => bail!("Invalid argument for 'region'"),
         };
 
         if !atom_list.is_empty() {
@@ -749,7 +751,7 @@ pub fn analyze(pdb: &PDB, region: Region, target: Target) -> Result<(), anyhow::
                     }
                 }
             }
-            writeln!(io::stdout(), "\n{} Atoms", region.to_owned())?;
+            writeln!(io::stdout(), "\n{} Atoms", region.unwrap().to_owned())?;
             atom_table.printstd();
         } else {
             bail!("No Atoms found in given region!")
@@ -919,9 +921,9 @@ mod tests {
     fn edit_atoms_test() {
         let mut pdb = test_pdb("tests/test_blank.pdb");
         let atom_id_list = vec![1, 5, 9];
-        edit_atoms(&mut pdb, atom_id_list.clone(), Region::QM1).unwrap();
+        edit_atoms(&mut pdb, atom_id_list.clone(), Some(Region::QM1)).unwrap();
         // edit_qm_atoms(&mut pdb, 1.00, atom_id_list.clone()).unwrap();
-        edit_atoms(&mut pdb, atom_id_list.clone(), Region::Active).unwrap();
+        edit_atoms(&mut pdb, atom_id_list.clone(), Some(Region::Active)).unwrap();
 
         let atom_list = pdb
             .atoms()
@@ -937,8 +939,8 @@ mod tests {
         let mut pdb = test_pdb("tests/test_blank.pdb");
         let res_id_list = vec![(2, None), (4, None)];
 
-        edit_residues(&mut pdb, res_id_list.clone(), Partial::None, Region::QM2).unwrap();
-        edit_residues(&mut pdb, res_id_list.clone(), Partial::None, Region::Active).unwrap();
+        edit_residues(&mut pdb, res_id_list.clone(), None, Some(Region::QM2)).unwrap();
+        edit_residues(&mut pdb, res_id_list.clone(), None, Some(Region::Active)).unwrap();
 
         let res_list = pdb.residues().filter(|x| {
             res_id_list.contains(&(x.serial_number(), x.insertion_code().map(ToOwned::to_owned)))
@@ -960,15 +962,15 @@ mod tests {
         edit_residues(
             &mut pdb,
             res_id_list.clone(),
-            Partial::Sidechain,
-            Region::QM2,
+            Some(Partial::Sidechain),
+            Some(Region::QM2),
         )
         .unwrap();
         edit_residues(
             &mut pdb,
             res_id_list.clone(),
-            Partial::Sidechain,
-            Region::Active,
+            Some(Partial::Sidechain),
+            Some(Region::Active),
         )
         .unwrap();
 
@@ -993,15 +995,15 @@ mod tests {
         edit_residues(
             &mut pdb,
             res_id_list.clone(),
-            Partial::Backbone,
-            Region::QM2,
+            Some(Partial::Backbone),
+            Some(Region::QM2),
         )
         .unwrap();
         edit_residues(
             &mut pdb,
             res_id_list.clone(),
-            Partial::Backbone,
-            Region::Active,
+            Some(Partial::Backbone),
+            Some(Region::Active),
         )
         .unwrap();
 
@@ -1019,7 +1021,7 @@ mod tests {
     #[test]
     fn remove_all_test() {
         let mut pdb = test_pdb("tests/test_full.pdb");
-        remove_region(&mut pdb, Region::None);
+        remove_region(&mut pdb, None);
 
         for atom in pdb.atoms() {
             assert_eq!(atom.occupancy(), 0.00);
@@ -1030,8 +1032,8 @@ mod tests {
     #[test]
     fn contacts_test() {
         let pdb = test_pdb("tests/test_clash.pdb");
-        let clashes = find_contacts(&pdb, Distance::Clashes).unwrap();
-        let contacts = find_contacts(&pdb, Distance::Contacts).unwrap();
+        let clashes = find_contacts(&pdb, Some(Distance::Clashes)).unwrap();
+        let contacts = find_contacts(&pdb, Some(Distance::Contacts)).unwrap();
 
         // Because prettytable table formatting differs between tables created from
         // scratch and tables read from csv the test is run by creating a table, saving

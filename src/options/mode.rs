@@ -12,25 +12,25 @@ pub enum Mode<'a> {
         target: Target,
     },
     Analyze {
-        region: Region,
-        target: Target,
-        distance: Distance,
+        region: Option<Region>,
+        target: Option<Target>,
+        distance: Option<Distance>,
     },
     Add {
-        region: Region,
-        source: Source<'a>,
-        target: Target,
-        partial: Partial,
+        region: Option<Region>,
+        source: Option<Source<'a>>,
+        target: Option<Target>,
+        partial: Option<Partial>,
     },
     Remove {
-        region: Region,
-        source: Source<'a>,
-        target: Target,
-        partial: Partial,
+        region: Option<Region>,
+        source: Option<Source<'a>>,
+        target: Option<Target>,
+        partial: Option<Partial>,
     },
     Write {
-        output: Output<'a>,
-        region: Region,
+        output: Option<Output<'a>>,
+        region: Option<Region>,
     },
 }
 
@@ -39,7 +39,7 @@ pub enum Region {
     QM1,
     QM2,
     Active,
-    None,
+    // None,
 }
 
 #[derive(Display, PartialEq, Debug, Clone, EnumString, EnumVariantNames)]
@@ -47,35 +47,35 @@ pub enum Source<'a> {
     Infile(&'a str),
     List(&'a str),
     Sphere(usize, f64),
-    None,
+    // None,
 }
 
 #[derive(Display, PartialEq, Debug, Clone, Copy, EnumString, EnumVariantNames)]
 pub enum Target {
     Atoms,
     Residues,
-    None,
+    // None,
 }
 
 #[derive(Display, PartialEq, Debug, Clone, EnumString, EnumVariantNames)]
 pub enum Output<'a> {
     Outfile(&'a str),
     Overwrite,
-    None,
+    // None,
 }
 
 #[derive(Display, PartialEq, Debug, Clone, Copy, EnumString, EnumVariantNames)]
 pub enum Partial {
     Sidechain,
     Backbone,
-    None,
+    // None,
 }
 
 #[derive(Display, PartialEq, Debug, Clone, Copy, EnumString, EnumVariantNames)]
 pub enum Distance {
     Clashes,
     Contacts,
-    None,
+    // None,
 }
 
 impl<'a> Mode<'a> {
@@ -126,23 +126,41 @@ impl<'a> Mode<'a> {
                 Ok(Mode::Query { source, target })
             }
             Some("Analyze") => {
-                let region_str = Region::VARIANTS
+                // let region_str = Region::VARIANTS
+                let region= Region::VARIANTS
                     .iter()
                     .find(|x| matches.subcommand_matches("Analyze").unwrap().is_present(x))
-                    .unwrap_or(&"None");
-                let region = Region::from_str(region_str)?;
+                    .and_then(|s| Some(Region::from_str(s).unwrap()));
+                    // .unwrap_or(&"None");
+                // let region = Region::from_str(region_str)?;
+                // let region = match region_str {
+                //     Some(s) => Some(Region::from_str(s)?),
+                //     None => None,
+                // };
 
-                let target_str = Target::VARIANTS
+                // let target_str = Target::VARIANTS
+                let target= Target::VARIANTS
                     .iter()
                     .find(|x| matches.subcommand_matches("Analyze").unwrap().is_present(x))
-                    .unwrap_or(&"None");
-                let target = Target::from_str(target_str)?;
+                    .and_then(|s| Some(Target::from_str(s).unwrap()));
+                    // .unwrap_or(&"None");
+                // let target = Target::from_str(target_str)?;
+                // let target = match target_str {
+                //     Some(s) => Some(Target::from_str(s)?),
+                //     None => None,
+                // };
 
-                let distance_str = Distance::VARIANTS
+                // let distance_str = Distance::VARIANTS
+                let distance= Distance::VARIANTS
                     .iter()
                     .find(|x| matches.subcommand_matches("Analyze").unwrap().is_present(x))
-                    .unwrap_or(&"None");
-                let distance = Distance::from_str(distance_str)?;
+                    .and_then(|s| Some(Distance::from_str(s).unwrap()));
+                    // .unwrap_or(&"None");
+                // let distance = Distance::from_str(distance_str)?;
+                // let distance = match distance_str {
+                //     Some(s) => Some(Distance::from_str(s)?),
+                //     None => None,
+                // };
 
                 Ok(Mode::Analyze {
                     region,
@@ -151,32 +169,36 @@ impl<'a> Mode<'a> {
                 })
             }
             Some("Add") => {
-                let region_str = Region::VARIANTS
+                // let region_str = Region::VARIANTS
+                //     .iter()
+                //     .find(|x| matches.subcommand_matches("Add").unwrap().is_present(x))
+                //     .unwrap_or(&"None");
+                // let region = Region::from_str(region_str)?;
+                let region= Region::VARIANTS
                     .iter()
                     .find(|x| matches.subcommand_matches("Add").unwrap().is_present(x))
-                    .unwrap_or(&"None");
-                let region = Region::from_str(region_str)?;
+                    .and_then(|s| Some(Region::from_str(s).unwrap()));
 
                 let source_str = Source::VARIANTS
                     .iter()
                     .find(|x| matches.subcommand_matches("Add").unwrap().is_present(x))
-                    .unwrap_or(&"None");
+                    .unwrap();
 
                 let source = match *source_str {
-                    "Infile" => Source::Infile(
+                    "Infile" => Some(Source::Infile(
                         matches
                             .subcommand_matches("Add")
                             .unwrap()
                             .value_of("Infile")
                             .unwrap(), // .to_owned(),
-                    ),
-                    "List" => Source::List(
+                    )),
+                    "List" => Some(Source::List(
                         matches
                             .subcommand_matches("Add")
                             .unwrap()
                             .value_of("List")
                             .unwrap(), // .to_string(),
-                    ),
+                    )),
                     "Sphere" => {
                         let (origin_str, radius_str) = matches
                             .subcommand_matches("Add")
@@ -185,22 +207,26 @@ impl<'a> Mode<'a> {
                             .unwrap()
                             .next_tuple()
                             .unwrap();
-                        Source::Sphere(origin_str.parse()?, radius_str.parse()?)
+                        Some(Source::Sphere(origin_str.parse()?, radius_str.parse()?))
                     }
-                    _ => Source::from_str(source_str)?,
+                    _ => None
                 };
 
-                let target_str = Target::VARIANTS
+                // let target_str = Target::VARIANTS
+                let target= Target::VARIANTS
                     .iter()
                     .find(|x| matches.subcommand_matches("Add").unwrap().is_present(x))
-                    .unwrap_or(&"None");
-                let target = Target::from_str(target_str)?;
+                    .and_then(|s| Some(Target::from_str(s).unwrap()));
+                    // .unwrap_or(&"None");
+                // let target = Target::from_str(target_str)?;
 
-                let partial_str = Partial::VARIANTS
+                // let partial_str = Partial::VARIANTS
+                let partial= Partial::VARIANTS
                     .iter()
                     .find(|x| matches.subcommand_matches("Add").unwrap().is_present(x))
-                    .unwrap_or(&"None");
-                let partial = Partial::from_str(partial_str)?;
+                    .and_then(|s| Some(Partial::from_str(s).unwrap()));
+                    // .unwrap_or(&"None");
+                // let partial = Partial::from_str(partial_str)?;
 
                 Ok(Mode::Add {
                     region,
@@ -210,11 +236,15 @@ impl<'a> Mode<'a> {
                 })
             }
             Some("Remove") => {
-                let region_str = Region::VARIANTS
+                // let region_str = Region::VARIANTS
+                //     .iter()
+                //     .find(|x| matches.subcommand_matches("Remove").unwrap().is_present(x))
+                //     .unwrap_or(&"None");
+                // let region = Region::from_str(region_str)?;
+                let region= Region::VARIANTS
                     .iter()
                     .find(|x| matches.subcommand_matches("Remove").unwrap().is_present(x))
-                    .unwrap_or(&"None");
-                let region = Region::from_str(region_str)?;
+                    .and_then(|s| Some(Region::from_str(s).unwrap()));
 
                 let source_str = Source::VARIANTS
                     .iter()
@@ -222,20 +252,20 @@ impl<'a> Mode<'a> {
                     .unwrap_or(&"None");
 
                 let source = match *source_str {
-                    "Infile" => Source::Infile(
+                    "Infile" => Some(Source::Infile(
                         matches
                             .subcommand_matches("Remove")
                             .unwrap()
                             .value_of("Infile")
                             .unwrap(), // .to_owned(),
-                    ),
-                    "List" => Source::List(
+                    )),
+                    "List" => Some(Source::List(
                         matches
                             .subcommand_matches("Remove")
                             .unwrap()
                             .value_of("List")
                             .unwrap(), // .to_string(),
-                    ),
+                    )),
                     "Sphere" => {
                         let (origin_str, radius_str) = matches
                             .subcommand_matches("Remove")
@@ -244,22 +274,26 @@ impl<'a> Mode<'a> {
                             .unwrap()
                             .next_tuple()
                             .unwrap();
-                        Source::Sphere(origin_str.parse()?, radius_str.parse()?)
+                        Some(Source::Sphere(origin_str.parse()?, radius_str.parse()?))
                     }
-                    _ => Source::from_str(source_str)?,
+                    _ => None
                 };
 
-                let target_str = Target::VARIANTS
+                // let target_str = Target::VARIANTS
+                let target= Target::VARIANTS
                     .iter()
                     .find(|x| matches.subcommand_matches("Remove").unwrap().is_present(x))
-                    .unwrap_or(&"None");
-                let target = Target::from_str(target_str)?;
+                    .and_then(|s| Some(Target::from_str(s).unwrap()));
+                    // .unwrap_or(&"None");
+                // let target = Target::from_str(target_str)?;
 
-                let partial_str = Partial::VARIANTS
+                // let partial_str = Partial::VARIANTS
+                let partial= Partial::VARIANTS
                     .iter()
                     .find(|x| matches.subcommand_matches("Remove").unwrap().is_present(x))
-                    .unwrap_or(&"None");
-                let partial = Partial::from_str(partial_str)?;
+                    .and_then(|s| Some(Partial::from_str(s).unwrap()));
+                    // .unwrap_or(&"None");
+                // let partial = Partial::from_str(partial_str)?;
 
                 Ok(Mode::Remove {
                     region,
@@ -269,11 +303,15 @@ impl<'a> Mode<'a> {
                 })
             }
             Some("Write") => {
-                let region_str = Region::VARIANTS
+                // let region_str = Region::VARIANTS
+                //     .iter()
+                //     .find(|x| matches.subcommand_matches("Write").unwrap().is_present(x))
+                //     .unwrap_or(&"None");
+                // let region = Region::from_str(region_str)?;
+                let region= Region::VARIANTS
                     .iter()
                     .find(|x| matches.subcommand_matches("Write").unwrap().is_present(x))
-                    .unwrap_or(&"None");
-                let region = Region::from_str(region_str)?;
+                    .and_then(|s| Some(Region::from_str(s).unwrap()));
 
                 let output_str = Output::VARIANTS
                     .iter()
@@ -281,14 +319,15 @@ impl<'a> Mode<'a> {
                     .unwrap_or(&"None");
 
                 let output = match *output_str {
-                    "Outfile" => Output::Outfile(
+                    "Outfile" => Some(Output::Outfile(
                         matches
                             .subcommand_matches("Write")
                             .unwrap()
                             .value_of("Outfile")
                             .unwrap(), // .to_owned(),
-                    ),
-                    _ => Output::from_str(output_str)?,
+                    )),
+                    "Overwrite" => Some(Output::from_str(output_str)?),
+                    _ => None
                 };
 
                 Ok(Mode::Write { output, region })
