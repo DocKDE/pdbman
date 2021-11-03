@@ -19,7 +19,6 @@ mod residue_ascii;
 mod shell;
 
 use std::process;
-// use std::rc::Rc;
 
 use anyhow::Result;
 use clap::Arg;
@@ -107,7 +106,7 @@ fn run() -> Result<(), anyhow::Error> {
         let args = parse_args();
         // Don't return when an error occurs because it would break the loop and disrupt the workflow.
         // Errors returned from here mostly come from parsing the in-shell command line options.
-        let matches = match args.try_get_matches_from(command.split_ascii_whitespace()) {
+        let matches = match args.try_get_matches_from(command.split_whitespace()) {
             Ok(m) => m,
             Err(e) => {
                 println!("{}", e);
@@ -115,7 +114,6 @@ fn run() -> Result<(), anyhow::Error> {
             }
         };
 
-        // let mode = Mode::new(&matches)?;
         // Error raised here are probably parse errors from faulty user input
         let mode = match Mode::new(&matches) {
             Ok(m) => m,
@@ -125,7 +123,6 @@ fn run() -> Result<(), anyhow::Error> {
                 continue;
             }
         };
-        // let mode = Rc::new(Mode::new(&matches)?);
 
         // Print errors instead of returning them
         if let Err(e) = dispatch(mode, &mut pdb, filename) {

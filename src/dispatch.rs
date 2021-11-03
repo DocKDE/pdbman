@@ -1,10 +1,8 @@
-use std::error::Error;
+// use std::error::Error;
 use std::fs::File;
 use std::io::{self, BufRead, BufReader, BufWriter, Write};
-// use std::path::Path;
-// use std::rc::Rc;
 
-// use itertools::Itertools;
+use pdbtbx::save_pdb;
 use rayon::iter::ParallelIterator;
 
 use crate::functions::*;
@@ -12,31 +10,30 @@ use crate::options::*;
 
 // Run function that handles the logic of when to call which function given an enum with the
 // command line options. Hands all occurring errors to caller.
-pub fn dispatch(mode: Mode, mut pdb: &mut pdbtbx::PDB, infile: &str) -> Result<(), Box<dyn Error>> {
+pub fn dispatch(mode: Mode, mut pdb: &mut pdbtbx::PDB, infile: &str) -> Result<(), anyhow::Error> {
     match &mode {
         Mode::Query { source, target } => match source {
             Source::List(list) => match target {
                 Target::Atoms => query_atoms(pdb, parse_atomic_list(list, pdb)?),
                 Target::Residues => query_residues(pdb, parse_residue_list(list, pdb)?)?,
-                // Target::None => unreachable!(),
             },
             Source::Sphere(origin_id, radius) => {
                 let sphere_origin = pdb
                     .par_atoms_with_hierarchy()
                     .find_any(|a| a.atom.serial_number() == *origin_id)
                     .ok_or_else::<_, _>(|| {
-                        format!("No Atom with serial number {} could be found", origin_id)
+                        anyhow!("No Atom with serial number {} could be found", origin_id)
                     })?;
 
                 let list = match target {
                     Target::Atoms => calc_atom_sphere(pdb, &sphere_origin, *radius, false)?,
                     Target::Residues => calc_residue_sphere(pdb, &sphere_origin, *radius, false)?,
-                    // Target::None => unreachable!(),
                 };
 
                 query_atoms(pdb, list);
             }
-            _ => return Err("Please specify another input for a query.".into()),
+            // _ => return Err("Please don't do this to me...".into()),
+            _ => bail!("Please don't do this to me...")
         },
         Mode::Analyze {
             region,
@@ -44,8 +41,8 @@ pub fn dispatch(mode: Mode, mut pdb: &mut pdbtbx::PDB, infile: &str) -> Result<(
             distance,
         } => {
             analyze(pdb, *region, *target)?;
-            if *distance == Some(Distance::Clashes) || *distance == Some(Distance::Contacts) {
-                find_contacts(pdb, *distance)?.printstd();
+            if let Some(d) = *distance {
+                find_contacts(pdb, d)?.printstd();
             }
         }
         Mode::Add {
@@ -60,6 +57,8 @@ pub fn dispatch(mode: Mode, mut pdb: &mut pdbtbx::PDB, infile: &str) -> Result<(
             target,
             partial,
         } => match source {
+            // If source is Some(_), clap requires target and region arguments as well, hence
+            // calling unwrap on them is fine.
             Some(Source::List(_)) | Some(Source::Infile(_)) => {
                 let list = match *source.as_ref().unwrap() {
                     Source::List(l) => l.to_string(),
@@ -82,10 +81,9 @@ pub fn dispatch(mode: Mode, mut pdb: &mut pdbtbx::PDB, infile: &str) -> Result<(
 
                         match region.unwrap() {
                             Region::QM1 | Region::QM2 => {
-                                edit_atoms(&mut pdb, atomic_list, *region)?
+                                edit_atoms(&mut pdb, atomic_list, region.unwrap())
                             }
-                            Region::Active => edit_atoms(&mut pdb, atomic_list, *region)?,
-                            // None => unreachable!(),
+                            Region::Active => edit_atoms(&mut pdb, atomic_list, region.unwrap()),
                         }
                     }
                     Target::Residues => {
@@ -93,12 +91,13 @@ pub fn dispatch(mode: Mode, mut pdb: &mut pdbtbx::PDB, infile: &str) -> Result<(
 
                         match region.unwrap() {
                             Region::QM1 | Region::QM2 => {
-                                edit_residues(pdb, residue_list, *partial, *region)?
+                                edit_residues(pdb, residue_list, *partial, region.unwrap())
                             }
-                            Region::Active => edit_residues(pdb, residue_list, *partial, *region)?,
-                            // None => unreachable!(),
+                            Region::Active => {
+                                edit_residues(pdb, residue_list, *partial, region.unwrap())
+                            }
                         }
-                    } // Target::None => unreachable!(),
+                    }
                 }
             }
             Some(Source::Sphere(origin_id, radius)) => {
@@ -106,19 +105,17 @@ pub fn dispatch(mode: Mode, mut pdb: &mut pdbtbx::PDB, infile: &str) -> Result<(
                     .par_atoms_with_hierarchy()
                     .find_any(|a| a.atom.serial_number() == *origin_id)
                     .ok_or_else::<_, _>(|| {
-                        format!("No Atom with serial number {} could be found", origin_id)
+                        anyhow!("No Atom with serial number {} could be found", origin_id)
                     })?;
 
                 let list = match target.unwrap() {
                     Target::Atoms => calc_atom_sphere(pdb, &sphere_origin, *radius, true)?,
                     Target::Residues => calc_residue_sphere(pdb, &sphere_origin, *radius, true)?,
-                    // Target::None => unreachable!(),
                 };
 
                 match region.unwrap() {
-                    Region::QM1 | Region::QM2 => edit_atoms(&mut pdb, list, *region)?,
-                    Region::Active => edit_atoms(&mut pdb, list, *region)?,
-                    // None => unreachable!(),
+                    Region::QM1 | Region::QM2 => edit_atoms(&mut pdb, list, region.unwrap()),
+                    Region::Active => edit_atoms(&mut pdb, list, region.unwrap()),
                 }
             }
             None => {
@@ -131,7 +128,8 @@ pub fn dispatch(mode: Mode, mut pdb: &mut pdbtbx::PDB, infile: &str) -> Result<(
                 } else if *region == Some(Region::Active) && *target == None {
                     remove_region(&mut pdb, Some(Region::Active))
                 } else {
-                    return Err("Please provide the approprate options (see --help).".into());
+                    // return Err("Please provide the approprate options (see --help).".into());
+                    bail!("Please provide the approprate options (see --help).")
                 }
             }
         },
@@ -141,21 +139,30 @@ pub fn dispatch(mode: Mode, mut pdb: &mut pdbtbx::PDB, infile: &str) -> Result<(
                 _ => {
                     let stdout = io::stdout();
                     let mut handle = stdout.lock();
-                    for num in get_atomlist(pdb, *region)? {
+                    for num in get_atomlist(pdb, region.unwrap())? {
                         writeln!(handle, "{}", num)?
                     }
                 }
             },
             Some(Output::Outfile(f)) => match region {
-                None => print_pdb_to_file(pdb, f)?,
+                None => {
+                    if let Err(e) = save_pdb(pdb, f, pdbtbx::StrictnessLevel::Loose) {
+                        e.into_iter().for_each(|e| println!("{}", e))
+                    }
+                }
+                // None => print_pdb_to_file(pdb, f)?,
                 _ => {
                     let mut file = BufWriter::new(File::create(f)?);
-                    for num in get_atomlist(pdb, *region)? {
+                    for num in get_atomlist(pdb, region.unwrap())? {
                         writeln!(file, "{}", num)?;
                     }
                 }
             },
-            Some(Output::Overwrite) => print_pdb_to_file(pdb, infile)?,
+            Some(Output::Overwrite) => {
+                if let Err(e) = save_pdb(pdb, infile, pdbtbx::StrictnessLevel::Loose) {
+                    e.into_iter().for_each(|e| println!("{}", e))
+                }
+            } // Some(Output::Overwrite) => print_pdb_to_file(pdb, infile)?,
         },
     }
     Ok(())

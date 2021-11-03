@@ -39,7 +39,6 @@ pub enum Region {
     QM1,
     QM2,
     Active,
-    // None,
 }
 
 #[derive(Display, PartialEq, Debug, Clone, EnumString, EnumVariantNames)]
@@ -47,35 +46,30 @@ pub enum Source<'a> {
     Infile(&'a str),
     List(&'a str),
     Sphere(usize, f64),
-    // None,
 }
 
 #[derive(Display, PartialEq, Debug, Clone, Copy, EnumString, EnumVariantNames)]
 pub enum Target {
     Atoms,
     Residues,
-    // None,
 }
 
 #[derive(Display, PartialEq, Debug, Clone, EnumString, EnumVariantNames)]
 pub enum Output<'a> {
     Outfile(&'a str),
     Overwrite,
-    // None,
 }
 
 #[derive(Display, PartialEq, Debug, Clone, Copy, EnumString, EnumVariantNames)]
 pub enum Partial {
     Sidechain,
     Backbone,
-    // None,
 }
 
 #[derive(Display, PartialEq, Debug, Clone, Copy, EnumString, EnumVariantNames)]
 pub enum Distance {
     Clashes,
     Contacts,
-    // None,
 }
 
 impl<'a> Mode<'a> {

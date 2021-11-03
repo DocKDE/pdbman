@@ -1,9 +1,10 @@
 use crate::options::{Distance, Partial, Region, Target};
 use crate::residue_ascii::RESIDUE_ASCII;
 
-use std::fs::File;
+// use std::fs::File;
+use std::io;
 use std::io::prelude::Write;
-use std::io::{self, BufWriter};
+// use std::io::{self, BufWriter};
 
 use anyhow::Result;
 use itertools::Itertools;
@@ -17,62 +18,50 @@ type ResidueList = Vec<(isize, Option<String>)>;
 
 /// This function edits the q or b value of a given residue list (used by ORCA as input for active section
 /// selection) by Residue.
-pub fn edit_residues(
-    pdb: &mut PDB,
-    list: ResidueList,
-    partial: Option<Partial>,
-    region: Option<Region>,
-) -> Result<(), String> {
+pub fn edit_residues(pdb: &mut PDB, list: ResidueList, partial: Option<Partial>, region: Region) {
     let edit = |a: &mut Atom| match region {
-        Some(Region::QM1) => a.set_occupancy(1.00),
-        Some(Region::QM2) => a.set_occupancy(2.00),
-        Some(Region::Active) => a.set_b_factor(1.00),
-        None => Err("Test".into()),
+        // This cannot fail because new values are finite and positive
+        Region::QM1 => a.set_occupancy(1.00).unwrap(),
+        Region::QM2 => a.set_occupancy(2.00).unwrap(),
+        Region::Active => a.set_b_factor(1.00).unwrap(),
     };
 
-    pdb.par_residues_mut()
-        .try_for_each(|res| -> Result<(), String> {
-            if list.contains(&(
-                res.serial_number(),
-                res.insertion_code().map(ToOwned::to_owned),
-            )) {
-                res.par_atoms_mut()
-                    .try_for_each(|atom| -> Result<(), String> {
-                        match partial {
-                            None => edit(atom)?,
-                            Some(Partial::Sidechain) => {
-                                if !atom.is_backbone() {
-                                    edit(atom)?
-                                }
-                            }
-                            Some(Partial::Backbone) => {
-                                if atom.is_backbone() {
-                                    edit(atom)?
-                                }
-                            }
-                        }
-                        Ok(())
-                    })?
-            }
-            Ok(())
-        })
+    pdb.par_residues_mut().for_each(|res| {
+        if list.contains(&(
+            res.serial_number(),
+            res.insertion_code().map(ToOwned::to_owned),
+        )) {
+            res.par_atoms_mut().for_each(|atom| match partial {
+                None => edit(atom),
+                Some(Partial::Sidechain) => {
+                    if !atom.is_backbone() {
+                        edit(atom)
+                    }
+                }
+                Some(Partial::Backbone) => {
+                    if atom.is_backbone() {
+                        edit(atom)
+                    }
+                }
+            })
+        }
+    })
 }
 
 /// This functions edits the q or b value of the PDB file (used by ORCA as input for QM region
 /// selection) by Atom.
-pub fn edit_atoms(pdb: &mut PDB, list: AtomList, region: Option<Region>) -> Result<(), String> {
+pub fn edit_atoms(pdb: &mut PDB, list: AtomList, region: Region) {
     let edit = |a: &mut Atom| match region {
-        Some(Region::QM1) => a.set_occupancy(1.00),
-        Some(Region::QM2) => a.set_occupancy(2.00),
-        Some(Region::Active) => a.set_b_factor(1.00),
-        None => Err("Test".into()),
+        // This cannot fail because new values are finite and positive
+        Region::QM1 => a.set_occupancy(1.00).unwrap(),
+        Region::QM2 => a.set_occupancy(2.00).unwrap(),
+        Region::Active => a.set_b_factor(1.00).unwrap(),
     };
 
-    pdb.par_atoms_mut().try_for_each(|a| -> Result<(), String> {
+    pdb.par_atoms_mut().for_each(|a| {
         if list.contains(&a.serial_number()) {
-            edit(a)?
+            edit(a)
         }
-        Ok(())
     })
 }
 
@@ -95,10 +84,11 @@ pub fn print_pdb_to_stdout(pdb: &PDB) -> Result<(), std::io::Error> {
     for atom_hier in pdb.atoms_with_hierarchy() {
         writeln!(
             handle,
-            "ATOM  {:>5} {:<4} {:>3}  {:>4}    {:>8.3}{:>8.3}{:>8.3}{:>6.2}{:>6.2}          {:>2}",
+            "ATOM  {:>5} {:<4} {:>3} {:1}{:>4}    {:>8.3}{:>8.3}{:>8.3}{:>6.2}{:>6.2}          {:>2}",
             atom_hier.atom.serial_number(),
             atom_hier.atom.name(),
             atom_hier.residue.name().unwrap_or(""),
+            atom_hier.chain.id(),
             atom_hier.residue.serial_number(),
             atom_hier.atom.x(),
             atom_hier.atom.y(),
@@ -112,42 +102,43 @@ pub fn print_pdb_to_stdout(pdb: &PDB) -> Result<(), std::io::Error> {
 }
 
 /// Print all Atoms in PDB to a file given in path
-pub fn print_pdb_to_file(pdb: &PDB, path: &str) -> Result<(), std::io::Error> {
-    let mut file = BufWriter::new(File::create(path)?);
+// pub fn print_pdb_to_file(pdb: &PDB, path: &str) -> Result<(), std::io::Error> {
+//     let mut file = BufWriter::new(File::create(path)?);
 
-    for atom_hier in pdb.atoms_with_hierarchy() {
-        // Deal with residue numbers above 9999
-        let mut resn = atom_hier.residue.serial_number();
+//     for atom_hier in pdb.atoms_with_hierarchy() {
+//         // Deal with residue numbers above 9999
+//         let mut resn = atom_hier.residue.serial_number();
 
-        if resn >= 10_000 {
-            resn -= (resn / 10_000) * 10_000;
-        };
+//         if resn >= 10_000 {
+//             resn -= (resn / 10_000) * 10_000;
+//         };
 
-        // Deal with atom numbers above 99999
-        let mut atomn = atom_hier.atom.serial_number();
-        if atomn >= 100_000 {
-            atomn -= (atomn / 100_000) * 100_000
-        }
+//         // Deal with atom numbers above 99999
+//         let mut atomn = atom_hier.atom.serial_number();
+//         if atomn >= 100_000 {
+//             atomn -= (atomn / 100_000) * 100_000
+//         }
 
-        file.write_all(
-            format!(
-            "ATOM  {:>5} {:<4} {:>3}  {:>4}    {:>8.3}{:>8.3}{:>8.3}{:>6.2}{:>6.2}          {:>2}\n",
-            atomn,
-            atom_hier.atom.name(),
-            atom_hier.residue.name().unwrap_or(""),
-            resn,
-            atom_hier.atom.x(),
-            atom_hier.atom.y(),
-            atom_hier.atom.z(),
-            atom_hier.atom.occupancy(),
-            atom_hier.atom.b_factor(),
-            atom_hier.atom.element(),
-        )
-            .as_bytes(),
-        )?;
-    }
-    Ok(())
-}
+//         file.write_all(
+//             format!(
+//             "ATOM  {:>5} {:<4} {:>3} {:1}{:>4}    {:>8.3}{:>8.3}{:>8.3}{:>6.2}{:>6.2}          {:>2}\n",
+//             atomn,
+//             atom_hier.atom.name(),
+//             atom_hier.residue.name().unwrap_or(""),
+//             atom_hier.chain.id(),
+//             resn,
+//             atom_hier.atom.x(),
+//             atom_hier.atom.y(),
+//             atom_hier.atom.z(),
+//             atom_hier.atom.occupancy(),
+//             atom_hier.atom.b_factor(),
+//             atom_hier.atom.element(),
+//         )
+//             .as_bytes(),
+//         )?;
+//     }
+//     Ok(())
+// }
 
 /// Takes an Atom struct as point of origin and a radius in A. Returns a Vector of Atom IDs
 /// of Atoms within the given radius wrapped in a Result. Origin can be included or excluded.
@@ -156,7 +147,7 @@ pub fn calc_atom_sphere(
     origin: &AtomWithHierarchy,
     radius: f64,
     include_self: bool,
-) -> Result<AtomList, String> {
+) -> Result<AtomList, anyhow::Error> {
     let tree = pdb.create_atom_rtree();
     let mut sphere_atoms: AtomList = tree
         .locate_within_distance(origin.atom.pos_array(), radius.powf(2.0))
@@ -169,11 +160,15 @@ pub fn calc_atom_sphere(
 
     sphere_atoms.sort_unstable();
 
-    if !sphere_atoms.is_empty() {
-        Ok(sphere_atoms)
-    } else {
-        Err("Calculated sphere doesn't contain any atoms.".into())
-    }
+    ensure!(sphere_atoms.is_empty(), "Calculated sphere doesn't contain any atoms.");
+    Ok(sphere_atoms)
+
+    // if !sphere_atoms.is_empty() {
+    //     Ok(sphere_atoms)
+    // } else {
+        // Err("Calculated sphere doesn't contain any atoms.".into())
+    //     bail!("Calculated sphere doesn't contain any atoms.")
+    // }
 }
 
 /// Takes an Atom struct as point of origin, a radius in A. Returns a Vector of Atom IDs
@@ -184,7 +179,7 @@ pub fn calc_residue_sphere(
     origin: &AtomWithHierarchy,
     radius: f64,
     include_self: bool,
-) -> Result<AtomList, String> {
+) -> Result<AtomList, anyhow::Error> {
     let tree = pdb.create_atom_with_hierarchy_rtree();
 
     let mut sphere_atoms: AtomList = tree
@@ -204,17 +199,20 @@ pub fn calc_residue_sphere(
         sphere_atoms.retain(|x| !origin_res_atoms.contains(x))
     }
 
-    if !sphere_atoms.is_empty() {
-        Ok(sphere_atoms)
-    } else {
-        Err("Calculated sphere doesn't contain any atoms.".into())
-    }
+    ensure!(sphere_atoms.is_empty(), "Calculated sphere doesn't contain any atoms.");
+    Ok(sphere_atoms)
+    // if !sphere_atoms.is_empty() {
+    //     Ok(sphere_atoms)
+    // } else {
+    //     // Err("Calculated sphere doesn't contain any atoms.".into())
+    //     bail!("Calculated sphere doesn't contain any atoms.")
+    // }
 }
 
 /// Finds and prints all contacts present in the PDB file structure. Definition of
 /// 'contact' is given by the 'level' arg which is 1.0A for Clashes and depends
 /// on the atomic radius of the involved atoms for Contacts.
-pub fn find_contacts(pdb: &PDB, level: Option<Distance>) -> Result<Table, anyhow::Error> {
+pub fn find_contacts(pdb: &PDB, level: Distance) -> Result<Table, anyhow::Error> {
     let mut table = Table::new();
     table.set_format(*format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
     table.set_titles(row![
@@ -231,8 +229,8 @@ pub fn find_contacts(pdb: &PDB, level: Option<Distance>) -> Result<Table, anyhow
 
     for atom_hier in pdb.atoms_with_hierarchy() {
         let radius: f64 = match level {
-            Some(Distance::Clashes) => 1.0,
-            Some(Distance::Contacts) => atom_hier
+            Distance::Clashes => 1.0,
+            Distance::Contacts => atom_hier
                 .atom
                 .atomic_radius()
                 .ok_or_else(|| {
@@ -242,7 +240,6 @@ pub fn find_contacts(pdb: &PDB, level: Option<Distance>) -> Result<Table, anyhow
                     )
                 })?
                 .powf(2.0),
-            _ => bail!("Invalid"),
         };
 
         let contacts = tree.locate_within_distance(atom_hier.atom.pos_array(), radius);
@@ -298,9 +295,9 @@ pub fn find_contacts(pdb: &PDB, level: Option<Distance>) -> Result<Table, anyhow
     }
 
     if !table.is_empty() {
-        if level == Some(Distance::Clashes) {
+        if level == Distance::Clashes {
             writeln!(io::stdout(), "\nClash Analysis")?;
-        } else if level == Some(Distance::Contacts) {
+        } else if level == Distance::Contacts {
             writeln!(io::stdout(), "\nContact Analysis")?;
         }
         Ok(table)
@@ -401,8 +398,7 @@ pub fn parse_atomic_list(input: &str, pdb: &PDB) -> Result<AtomList, anyhow::Err
 /// Parses a string (usually taken from command line) and returns a list of residues given by a tuple
 /// of serial numbers and insertion codes. The input can be either a comma-separated list of serial numbers
 /// and insertion codes or residues names.
-pub fn parse_residue_list<'a>(input: &'a str, pdb: &'a PDB) -> Result<ResidueList> {
-    // ) -> Result<ResidueList<'a>, anyhow::Error> {
+pub fn parse_residue_list<'a>(input: &'a str, pdb: &'a PDB) -> Result<ResidueList, anyhow::Error> {
     let re_num =
         regex!(r"^(?P<id1>\d+)(?P<insert1>[A-Za-z]?)([:-](?P<id2>\d+)(?P<insert2>[A-Za-z]?))?$");
 
@@ -554,12 +550,11 @@ pub fn query_atoms(pdb: &PDB, atom_list: AtomList) {
     table.printstd();
 }
 
-pub fn get_atomlist(pdb: &PDB, region: Option<Region>) -> Result<Vec<String>, anyhow::Error> {
+pub fn get_atomlist(pdb: &PDB, region: Region) -> Result<Vec<String>, anyhow::Error> {
     let filt_closure = match region {
-        Some(Region::QM1) => |a: &Atom| a.occupancy() == 1.00,
-        Some(Region::QM2) => |a: &Atom| a.occupancy() == 2.00,
-        Some(Region::Active) => |a: &Atom| a.b_factor() == 1.00,
-        None => bail!("Invalid input for 'region' argument."),
+        Region::QM1 => |a: &Atom| a.occupancy() == 1.00,
+        Region::QM2 => |a: &Atom| a.occupancy() == 2.00,
+        Region::Active => |a: &Atom| a.b_factor() == 1.00,
     };
 
     let str_vec = pdb
@@ -568,16 +563,19 @@ pub fn get_atomlist(pdb: &PDB, region: Option<Region>) -> Result<Vec<String>, an
         .map(|a| a.serial_number().to_string())
         .collect::<Vec<String>>();
 
-    if str_vec.is_empty() {
-        bail!("No atoms in the requested region!")
-    } else {
-        Ok(str_vec)
-    }
+    ensure!(str_vec.is_empty(), "No atoms in the requested region!");
+    Ok(str_vec)
+
+    // if str_vec.is_empty() {
+    //     bail!("No atoms in the requested region!")
+    // } else {
+    //     Ok(str_vec)
+    // }
 }
 
 // This cannot fail because if no residues can be queried, the
 // parse_residue_list would have returned an error beforehand
-pub fn query_residues(pdb: &PDB, residue_list: ResidueList) -> Result<(), io::Error> {
+pub fn query_residues(pdb: &PDB, residue_list: ResidueList) -> Result<(), anyhow::Error> {
     let mut table = Table::new();
 
     table.add_row(row![
@@ -680,7 +678,8 @@ pub fn analyze(
             Some(Region::QM1) => qm1_residue_list,
             Some(Region::QM2) => qm2_residue_list,
             Some(Region::Active) => active_residue_list,
-            None => bail!("Invalid argument for 'region'"),
+            // Impossible because if target is Some(..), a region is required by clap
+            None => unreachable!(),
         };
         if !residue_list.is_empty() {
             let mut residue_table = Table::new();
@@ -692,7 +691,7 @@ pub fn analyze(
                     Some(Region::QM1) => "# of QM1 Atoms",
                     Some(Region::QM2) => "# of QM2 Atoms",
                     Some(Region::Active) => "# of Active Atoms",
-                    None => bail!("Invalid argument for 'region'"),
+                    None => unreachable!(),
                 }
             ]);
 
@@ -726,7 +725,7 @@ pub fn analyze(
             Some(Region::QM1) => (qm1_atom_list, qm1_residue_list),
             Some(Region::QM2) => (qm2_atom_list, qm2_residue_list),
             Some(Region::Active) => (active_atom_list, active_residue_list),
-            None => bail!("Invalid argument for 'region'"),
+            None => unreachable!(),
         };
 
         if !atom_list.is_empty() {
@@ -925,9 +924,9 @@ mod tests {
     fn edit_atoms_test() {
         let mut pdb = test_pdb("tests/test_blank.pdb");
         let atom_id_list = vec![1, 5, 9];
-        edit_atoms(&mut pdb, atom_id_list.clone(), Some(Region::QM1)).unwrap();
+        edit_atoms(&mut pdb, atom_id_list.clone(), Region::QM1);
         // edit_qm_atoms(&mut pdb, 1.00, atom_id_list.clone()).unwrap();
-        edit_atoms(&mut pdb, atom_id_list.clone(), Some(Region::Active)).unwrap();
+        edit_atoms(&mut pdb, atom_id_list.clone(), Region::Active);
 
         let atom_list = pdb
             .atoms()
@@ -943,8 +942,8 @@ mod tests {
         let mut pdb = test_pdb("tests/test_blank.pdb");
         let res_id_list = vec![(2, None), (4, None)];
 
-        edit_residues(&mut pdb, res_id_list.clone(), None, Some(Region::QM2)).unwrap();
-        edit_residues(&mut pdb, res_id_list.clone(), None, Some(Region::Active)).unwrap();
+        edit_residues(&mut pdb, res_id_list.clone(), None, Region::QM2);
+        edit_residues(&mut pdb, res_id_list.clone(), None, Region::Active);
 
         let res_list = pdb.residues().filter(|x| {
             res_id_list.contains(&(x.serial_number(), x.insertion_code().map(ToOwned::to_owned)))
@@ -967,16 +966,14 @@ mod tests {
             &mut pdb,
             res_id_list.clone(),
             Some(Partial::Sidechain),
-            Some(Region::QM2),
-        )
-        .unwrap();
+            Region::QM2,
+        );
         edit_residues(
             &mut pdb,
             res_id_list.clone(),
             Some(Partial::Sidechain),
-            Some(Region::Active),
-        )
-        .unwrap();
+            Region::Active,
+        );
 
         let res_list = pdb.residues().filter(|x| {
             res_id_list.contains(&(x.serial_number(), x.insertion_code().map(ToOwned::to_owned)))
@@ -1000,16 +997,14 @@ mod tests {
             &mut pdb,
             res_id_list.clone(),
             Some(Partial::Backbone),
-            Some(Region::QM2),
-        )
-        .unwrap();
+            Region::QM2,
+        );
         edit_residues(
             &mut pdb,
             res_id_list.clone(),
             Some(Partial::Backbone),
-            Some(Region::Active),
-        )
-        .unwrap();
+            Region::Active,
+        );
 
         let res_list = pdb.residues().filter(|x| {
             res_id_list.contains(&(x.serial_number(), x.insertion_code().map(ToOwned::to_owned)))
@@ -1036,8 +1031,8 @@ mod tests {
     #[test]
     fn contacts_test() {
         let pdb = test_pdb("tests/test_clash.pdb");
-        let clashes = find_contacts(&pdb, Some(Distance::Clashes)).unwrap();
-        let contacts = find_contacts(&pdb, Some(Distance::Contacts)).unwrap();
+        let clashes = find_contacts(&pdb, Distance::Clashes).unwrap();
+        let contacts = find_contacts(&pdb, Distance::Contacts).unwrap();
 
         // Because prettytable table formatting differs between tables created from
         // scratch and tables read from csv the test is run by creating a table, saving

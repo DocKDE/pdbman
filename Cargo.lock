@@ -581,7 +581,8 @@ dependencies = [
 
 [[package]]
 name = "pdbtbx"
-version = "0.7.0"
+version = "0.8.0"
+source = "git+https://github.com/nonnominandus/pdbtbx?branch=master#2936a7c73a0dd5679edc47e444278deca02047b3"
 dependencies = [
  "doc-cfg",
  "rayon",
