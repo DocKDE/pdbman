@@ -322,9 +322,7 @@ pub fn parse_atomic_list(input: &str, pdb: &PDB) -> Result<AtomList, anyhow::Err
                     // Because ranges are end-exclusive
                     output_vec.extend(&mut (vector[0]..vector[1] + 1));
                 } else {
-                    output_vec.push(
-                        i.parse().unwrap(), 
-                    )
+                    output_vec.push(i.parse().unwrap())
                 }
             }
 
@@ -417,9 +415,7 @@ pub fn parse_residue_list(input: &str, pdb: &PDB) -> Result<ResidueList, anyhow:
                     // Because ranges are end-exclusive
                     output_vec.extend(&mut (vector[0]..vector[1] + 1));
                 } else {
-                    output_vec.push(
-                        i.parse().unwrap(), 
-                    )
+                    output_vec.push(i.parse().unwrap())
                 }
             }
 
@@ -438,7 +434,6 @@ pub fn parse_residue_list(input: &str, pdb: &PDB) -> Result<ResidueList, anyhow:
         }
         false => {
             let input_vec: Vec<&str> = input.split(',').collect();
-
 
             ensure!(
                 !regex!(r"[:-]").is_match(input),
@@ -523,7 +518,7 @@ pub fn parse_residue_list(input: &str, pdb: &PDB) -> Result<ResidueList, anyhow:
 
     //                     if residue.id() == (id2, insert2) {
     //                         // Return prematurely if start is None which means that end < start which is invalid.
-    //                         ensure!(start.is_some(), "Invalid range given: {}{}-{}{}. Left entry must preceed right one in PDB file!", 
+    //                         ensure!(start.is_some(), "Invalid range given: {}{}-{}{}. Left entry must preceed right one in PDB file!",
     //                             id1, insert1.unwrap_or(""), id2, insert2.unwrap_or(""));
     //                         end = Some(index);
     //                         parse_res = false;
