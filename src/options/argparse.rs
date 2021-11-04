@@ -21,16 +21,18 @@ fn list_valid(v: &str) -> Result<(), anyhow::Error> {
     let re_str = regex!(r"^[A-Za-z]+$");
     let re_chars = regex!(r"[\dA-Z-a-z:,-]");
 
-    let err_chars = v
+    let mut err_chars = v
         .chars()
         .filter(|x| !re_chars.is_match(&x.to_string()))
         .sorted()
         .dedup()
-        .collect::<String>();
+        .peekable();
 
-    if !err_chars.is_empty() {
-        return Err(anyhow!("Invalid characters: '{}'", err_chars));
-    }
+    ensure!(
+        err_chars.peek().is_none(),
+        "\nInvalid character(s) found: '{}'",
+        err_chars.join("")
+    );
 
     let mut numerical_inp = false;
     let mut string_inp = false;
@@ -40,24 +42,24 @@ fn list_valid(v: &str) -> Result<(), anyhow::Error> {
             numerical_inp = true;
 
             let caps = re_num.captures(i).unwrap();
-            if caps.name("id2").is_some()
-                && caps.name("id1").unwrap().as_str().parse::<i32>()?
-                    > caps.name("id2").unwrap().as_str().parse::<i32>()?
-            {
-                return Err(anyhow!(
-                    "'{}-{}'. Left number must be lower!",
-                    caps.name("id1").unwrap().as_str(),
-                    caps.name("id2").unwrap().as_str(),
-                ));
-            }
+
+            ensure!(
+                !(caps.name("id2").is_some()
+                    && caps.name("id1").unwrap().as_str().parse::<i32>()?
+                        > caps.name("id2").unwrap().as_str().parse::<i32>()?),
+                "\nLeft number must be lower: '{}-{}'"
+            );
+
         } else if re_str.is_match(i) {
             string_inp = true;
+        } else {
+            bail!("\nIncomplete range found: '{}'", i)
         }
     }
 
     ensure!(
         !(numerical_inp && string_inp),
-        "Input list containts mixed types!"
+        "\nInput list containts mixed types!"
     );
 
     Ok(())

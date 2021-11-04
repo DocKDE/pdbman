@@ -302,7 +302,6 @@ pub fn find_contacts(pdb: &PDB, level: Distance) -> Result<Table, anyhow::Error>
 /// a vector of Atom IDs. The Input may be atom IDs or Atom Names
 pub fn parse_atomic_list(input: &str, pdb: &PDB) -> Result<AtomList, anyhow::Error> {
     let mut output_vec: AtomList = vec![];
-    // let re = regex!(r"(?P<num>\d+)?(?P<str>[A-Za-z])?");
 
     match input
         .split(&[',', '-', ':'][..])
@@ -339,6 +338,9 @@ pub fn parse_atomic_list(input: &str, pdb: &PDB) -> Result<AtomList, anyhow::Err
             // if output_vec != missing_atoms {
             //     output_vec.retain(|i| !missing_atoms.contains(i))
             // }
+
+            // Maybe this can be done better? Currently the PDB is traversed for every item
+            // in the output_vec
             let mut missing_atoms = output_vec
                 .iter()
                 .filter(|&x| !pdb.par_atoms().any(|atom| &atom.serial_number() == x))
