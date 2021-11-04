@@ -337,7 +337,7 @@ pub fn parse_atomic_list(input: &str, pdb: &PDB) -> Result<AtomList, anyhow::Err
                         .split(&['-', ':'][..])
                         .map(|x| x.parse())
                         .try_collect()
-                        .context(format!("Failed to parse to atom list: {}", i))?;
+                        .context(format!("Failed to parse to atom list item: {}", i))?;
 
                     output_vec.extend(&mut (vector[0]..vector[1] + 1));
                 } else {
