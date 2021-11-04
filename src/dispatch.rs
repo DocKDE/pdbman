@@ -2,6 +2,7 @@
 use std::fs::File;
 use std::io::{self, BufRead, BufReader, BufWriter, Write};
 
+use anyhow::Context;
 use pdbtbx::save_pdb;
 use rayon::iter::ParallelIterator;
 
@@ -14,7 +15,7 @@ pub fn dispatch(mode: Mode, mut pdb: &mut pdbtbx::PDB, infile: &str) -> Result<(
     match &mode {
         Mode::Query { source, target } => match source {
             Source::List(list) => match target {
-                Target::Atoms => query_atoms(pdb, parse_atomic_list(list, pdb)?),
+                Target::Atoms => query_atoms(pdb, parse_atomic_list(list, pdb)?)?,
                 Target::Residues => query_residues(pdb, parse_residue_list(list, pdb)?)?,
             },
             Source::Sphere(origin_id, radius) => {
@@ -30,10 +31,9 @@ pub fn dispatch(mode: Mode, mut pdb: &mut pdbtbx::PDB, infile: &str) -> Result<(
                     Target::Residues => calc_residue_sphere(pdb, &sphere_origin, *radius, false)?,
                 };
 
-                query_atoms(pdb, list);
+                query_atoms(pdb, list)?;
             }
-            // _ => return Err("Please don't do this to me...".into()),
-            _ => bail!("Please don't do this to me...")
+            _ => bail!("Please don't do this to me..."),
         },
         Mode::Analyze {
             region,
@@ -63,11 +63,16 @@ pub fn dispatch(mode: Mode, mut pdb: &mut pdbtbx::PDB, infile: &str) -> Result<(
                 let list = match *source.as_ref().unwrap() {
                     Source::List(l) => l.to_string(),
                     Source::Infile(f) => {
-                        let file = BufReader::new(File::open(f)?);
+                        let file =
+                            BufReader::new(File::open(f).context("No such file or directory")?);
                         let list = file
                             .lines()
-                            .map(|l| -> Result<String, anyhow::Error> {
-                                let s = l?.trim().to_owned();
+                            .enumerate()
+                            .map(|(i, l)| -> Result<String, anyhow::Error> {
+                                let s = l
+                                    .context(format!("Couldn't read line {} from file", i))?
+                                    .trim()
+                                    .to_owned();
                                 Ok(s)
                             })
                             .collect::<Result<Vec<String>, anyhow::Error>>()?;
@@ -128,7 +133,6 @@ pub fn dispatch(mode: Mode, mut pdb: &mut pdbtbx::PDB, infile: &str) -> Result<(
                 } else if *region == Some(Region::Active) && *target == None {
                     remove_region(&mut pdb, Some(Region::Active))
                 } else {
-                    // return Err("Please provide the approprate options (see --help).".into());
                     bail!("Please provide the approprate options (see --help).")
                 }
             }
@@ -140,7 +144,8 @@ pub fn dispatch(mode: Mode, mut pdb: &mut pdbtbx::PDB, infile: &str) -> Result<(
                     let stdout = io::stdout();
                     let mut handle = stdout.lock();
                     for num in get_atomlist(pdb, region.unwrap())? {
-                        writeln!(handle, "{}", num)?
+                        writeln!(handle, "{}", num)
+                            .context("Failed to write list of atoms to stdout")?
                     }
                 }
             },
@@ -154,7 +159,8 @@ pub fn dispatch(mode: Mode, mut pdb: &mut pdbtbx::PDB, infile: &str) -> Result<(
                 _ => {
                     let mut file = BufWriter::new(File::create(f)?);
                     for num in get_atomlist(pdb, region.unwrap())? {
-                        writeln!(file, "{}", num)?;
+                        writeln!(file, "{}", num)
+                            .context("Failed to write list of atoms to stdout")?;
                     }
                 }
             },

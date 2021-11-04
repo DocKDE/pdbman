@@ -6,7 +6,7 @@ use std::io;
 use std::io::prelude::Write;
 // use std::io::{self, BufWriter};
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use itertools::Itertools;
 use lazy_regex::regex;
 use pdbtbx::{Atom, AtomWithHierarchy, PDB};
@@ -78,7 +78,7 @@ pub fn remove_region(pdb: &mut PDB, region: Option<Region>) {
 }
 
 /// Prints all Atoms in Molecule to stdout in PDB file format
-pub fn print_pdb_to_stdout(pdb: &PDB) -> Result<(), std::io::Error> {
+pub fn print_pdb_to_stdout(pdb: &PDB) -> Result<(), anyhow::Error> {
     let stdout = io::stdout();
     let mut handle = stdout.lock();
     for atom_hier in pdb.atoms_with_hierarchy() {
@@ -96,7 +96,7 @@ pub fn print_pdb_to_stdout(pdb: &PDB) -> Result<(), std::io::Error> {
             atom_hier.atom.occupancy(),
             atom_hier.atom.b_factor(),
             atom_hier.atom.element()
-        )?
+        ).context("Failed to print PDB to stdout")?
     }
     Ok(())
 }
@@ -160,15 +160,11 @@ pub fn calc_atom_sphere(
 
     sphere_atoms.sort_unstable();
 
-    ensure!(sphere_atoms.is_empty(), "Calculated sphere doesn't contain any atoms.");
+    ensure!(
+        !sphere_atoms.is_empty(),
+        "Calculated sphere doesn't contain any atoms."
+    );
     Ok(sphere_atoms)
-
-    // if !sphere_atoms.is_empty() {
-    //     Ok(sphere_atoms)
-    // } else {
-        // Err("Calculated sphere doesn't contain any atoms.".into())
-    //     bail!("Calculated sphere doesn't contain any atoms.")
-    // }
 }
 
 /// Takes an Atom struct as point of origin, a radius in A. Returns a Vector of Atom IDs
@@ -199,14 +195,11 @@ pub fn calc_residue_sphere(
         sphere_atoms.retain(|x| !origin_res_atoms.contains(x))
     }
 
-    ensure!(sphere_atoms.is_empty(), "Calculated sphere doesn't contain any atoms.");
+    ensure!(
+        !sphere_atoms.is_empty(),
+        "Calculated sphere doesn't contain any atoms."
+    );
     Ok(sphere_atoms)
-    // if !sphere_atoms.is_empty() {
-    //     Ok(sphere_atoms)
-    // } else {
-    //     // Err("Calculated sphere doesn't contain any atoms.".into())
-    //     bail!("Calculated sphere doesn't contain any atoms.")
-    // }
 }
 
 /// Finds and prints all contacts present in the PDB file structure. Definition of
@@ -296,9 +289,11 @@ pub fn find_contacts(pdb: &PDB, level: Distance) -> Result<Table, anyhow::Error>
 
     if !table.is_empty() {
         if level == Distance::Clashes {
-            writeln!(io::stdout(), "\nClash Analysis")?;
+            writeln!(io::stdout(), "\nClash Analysis")
+                .context("Failed to print clash analysis to stdout.")?;
         } else if level == Distance::Contacts {
-            writeln!(io::stdout(), "\nContact Analysis")?;
+            writeln!(io::stdout(), "\nContact Analysis")
+                .context("Failed to print contact analysis to stdout.")?;
         }
         Ok(table)
     } else {
@@ -326,7 +321,7 @@ pub fn parse_atomic_list(input: &str, pdb: &PDB) -> Result<AtomList, anyhow::Err
     ensure!(
         invalid_chars.peek().is_none(),
         "Letters are not allowed in atom list input: {}",
-        invalid_chars.join(",")
+        regex!(r"\d+").replace_all(invalid_chars.join(",").as_str(), "")
     );
 
     match input
@@ -338,12 +333,18 @@ pub fn parse_atomic_list(input: &str, pdb: &PDB) -> Result<AtomList, anyhow::Err
 
             for i in input_vec {
                 if i.contains(&['-', ':'][..]) {
-                    let vector: AtomList =
-                        i.split(&['-', ':'][..]).map(|x| x.parse()).try_collect()?;
+                    let vector: AtomList = i
+                        .split(&['-', ':'][..])
+                        .map(|x| x.parse())
+                        .try_collect()
+                        .context(format!("Failed to parse to atom list: {}", i))?;
 
                     output_vec.extend(&mut (vector[0]..vector[1] + 1));
                 } else {
-                    output_vec.push(i.parse()?)
+                    output_vec.push(
+                        i.parse()
+                            .context(format!("Failed to parse to integer: {}", i))?,
+                    )
                 }
             }
 
@@ -522,7 +523,7 @@ pub fn parse_residue_list<'a>(input: &'a str, pdb: &'a PDB) -> Result<ResidueLis
 /// Residues and/or Atoms will available information that were asked for.
 // This cannot fail because the parse_atom_list is always called before this
 // and would return an error if not atoms were found
-pub fn query_atoms(pdb: &PDB, atom_list: AtomList) {
+pub fn query_atoms(pdb: &PDB, atom_list: AtomList) -> Result<(), anyhow::Error> {
     let mut table = Table::new();
     table.add_row(row![
         "Atom ID",
@@ -533,8 +534,13 @@ pub fn query_atoms(pdb: &PDB, atom_list: AtomList) {
         "Active"
     ]);
 
+    let mut key: Option<&str> = None;
+    let mut resname_vec = Vec::new();
+
     for atom_hier in pdb.atoms_with_hierarchy() {
         if atom_list.contains(&atom_hier.atom.serial_number()) {
+            resname_vec.push(atom_hier.residue.name());
+
             table.add_row(row![
                 atom_hier.atom.serial_number(),
                 atom_hier.atom.name(),
@@ -547,7 +553,19 @@ pub fn query_atoms(pdb: &PDB, atom_list: AtomList) {
         }
     }
 
+    if !resname_vec.is_empty() && resname_vec.iter().all_equal() {
+        key = resname_vec[0]
+    }
+
+    if let Some(k) = key {
+        if let Some(res_ascii) = RESIDUE_ASCII.get(&k.to_uppercase().as_ref()) {
+            writeln!(io::stdout(), "{}", res_ascii)
+                .context("Failed to print residue depiction to stdout")?
+        }
+    }
+
     table.printstd();
+    Ok(())
 }
 
 pub fn get_atomlist(pdb: &PDB, region: Region) -> Result<Vec<String>, anyhow::Error> {
@@ -563,14 +581,8 @@ pub fn get_atomlist(pdb: &PDB, region: Region) -> Result<Vec<String>, anyhow::Er
         .map(|a| a.serial_number().to_string())
         .collect::<Vec<String>>();
 
-    ensure!(str_vec.is_empty(), "No atoms in the requested region!");
+    ensure!(!str_vec.is_empty(), "No atoms in the requested region!");
     Ok(str_vec)
-
-    // if str_vec.is_empty() {
-    //     bail!("No atoms in the requested region!")
-    // } else {
-    //     Ok(str_vec)
-    // }
 }
 
 // This cannot fail because if no residues can be queried, the
@@ -613,7 +625,8 @@ pub fn query_residues(pdb: &PDB, residue_list: ResidueList) -> Result<(), anyhow
 
     if let Some(k) = key {
         if let Some(res_ascii) = RESIDUE_ASCII.get(&k.to_uppercase().as_ref()) {
-            writeln!(io::stdout(), "{}", res_ascii)?
+            writeln!(io::stdout(), "{}", res_ascii)
+                .context("Failed to print residue depiction to stdout")?
         }
     }
 
@@ -715,7 +728,8 @@ pub fn analyze(
                     resid_atoms,
                 ]);
             }
-            writeln!(io::stdout(), "\n{} Residues", region.unwrap().to_owned())?;
+            writeln!(io::stdout(), "\n{} Residues", region.unwrap().to_owned())
+                .context("Failed to print residues to stdout")?;
             residue_table.printstd();
         } else {
             bail!("No Residues found in given region!");
@@ -754,7 +768,8 @@ pub fn analyze(
                     }
                 }
             }
-            writeln!(io::stdout(), "\n{} Atoms", region.unwrap().to_owned())?;
+            writeln!(io::stdout(), "\n{} Atoms", region.unwrap().to_owned())
+                .context("Failed to print atoms to stdout")?;
             atom_table.printstd();
         } else {
             bail!("No Atoms found in given region!")
