@@ -17,8 +17,7 @@ fn sphere_valid(v: &str) -> Result<(), String> {
 }
 
 fn list_valid(v: &str) -> Result<(), anyhow::Error> {
-    let re_num =
-        regex!(r"^(?P<id1>\d+)(?P<insert1>[A-Za-z]?)([:-](?P<id2>\d+)(?P<insert2>[A-Za-z]?))?$");
+    let re_num = regex!(r"^(?P<id1>\d+)([:-](?P<id2>\d+))?$");
     let re_str = regex!(r"^[A-Za-z]+$");
     let re_chars = regex!(r"[\dA-Z-a-z:,-]");
 
@@ -30,7 +29,7 @@ fn list_valid(v: &str) -> Result<(), anyhow::Error> {
         .collect::<String>();
 
     if !err_chars.is_empty() {
-        return Err(anyhow!("Invalid characters: {:?}", err_chars));
+        return Err(anyhow!("Invalid characters: '{}'", err_chars));
     }
 
     let mut numerical_inp = false;
@@ -44,26 +43,22 @@ fn list_valid(v: &str) -> Result<(), anyhow::Error> {
             if caps.name("id2").is_some()
                 && caps.name("id1").unwrap().as_str().parse::<i32>()?
                     > caps.name("id2").unwrap().as_str().parse::<i32>()?
-                // && caps.name("insert1").unwrap().as_str() >= caps.name("insert2").unwrap().as_str()
-                && caps.name("insert1").unwrap().as_str() == ""
-                && caps.name("insert2").unwrap().as_str() == ""
             {
                 return Err(anyhow!(
-                        "Invalid range given: {}{}-{}{}. Left entry must preceed right one in PDB file!",
-                        caps.name("id1").unwrap().as_str(),
-                        caps.name("insert1").unwrap().as_str(),
-                        caps.name("id2").unwrap().as_str(),
-                        caps.name("insert2").unwrap().as_str(),
-                    ));
+                    "'{}-{}'. Left number must be lower!",
+                    caps.name("id1").unwrap().as_str(),
+                    caps.name("id2").unwrap().as_str(),
+                ));
             }
         } else if re_str.is_match(i) {
             string_inp = true;
         }
     }
 
-    if numerical_inp && string_inp {
-        return Err(anyhow!("Input List contains mixed types."));
-    }
+    ensure!(
+        !(numerical_inp && string_inp),
+        "Input list containts mixed types!"
+    );
 
     Ok(())
 }
