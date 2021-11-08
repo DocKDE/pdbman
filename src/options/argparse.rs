@@ -42,18 +42,16 @@ fn list_valid(v: &str) -> Result<(), anyhow::Error> {
             numerical_inp = true;
 
             let caps = re_num.captures(i).unwrap();
+            let id1 = caps.name("id1").unwrap().as_str().parse::<i32>()?;
+            let id2 = caps.name("id2").map(|m| m.as_str().parse::<i32>().unwrap());
 
-            ensure!(
-                !(caps.name("id2").is_some()
-                    && caps.name("id1").unwrap().as_str().parse::<i32>()?
-                        > caps.name("id2").unwrap().as_str().parse::<i32>()?),
-                "\nLeft number must be lower: '{}-{}'"
-            );
-
+            if let Some(id2) = id2 {
+                ensure!(id1 < id2, "\nLeft number must be lower: '{}-{}'", id1, id2)
+            }
         } else if re_str.is_match(i) {
             string_inp = true;
         } else {
-            bail!("\nIncomplete range found: '{}'", i)
+            bail!("\nInvalid range definition found: '{}'", i)
         }
     }
 

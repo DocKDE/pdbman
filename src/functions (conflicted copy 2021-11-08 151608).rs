@@ -31,7 +31,8 @@ pub fn edit_residues(
             Region::Active => a.set_b_factor(1.00).unwrap(),
         },
         "Remove" => match region {
-            Region::QM1 | Region::QM2 => a.set_occupancy(0.00).unwrap(),
+            Region::QM1 => a.set_occupancy(0.00).unwrap(),
+            Region::QM2 => a.set_occupancy(0.00).unwrap(),
             Region::Active => a.set_b_factor(0.00).unwrap(),
         },
         _ => unreachable!(),
@@ -73,7 +74,9 @@ pub fn edit_atoms(pdb: &mut PDB, list: AtomList, mode: &str, region: Region) {
             Region::Active => a.set_b_factor(1.00).unwrap(),
         },
         "Remove" => match region {
-            Region::QM1 | Region::QM2 => a.set_occupancy(0.00).unwrap(),
+            Region::QM1 | Region::QM2 => ,.
+            // Region::QM1 => a.set_occupancy(0.00).unwrap(),
+            // Region::QM2 => a.set_occupancy(0.00).unwrap(),
             Region::Active => a.set_b_factor(0.00).unwrap(),
         },
         _ => unreachable!(),
