@@ -196,7 +196,8 @@ pub fn calc_residue_sphere(
     let mut sphere_atoms: AtomList = tree
         .locate_within_distance(origin.atom.pos_array(), radius.powf(2.0))
         .flat_map(|atom_hier| atom_hier.residue.atoms().map(|atom| atom.serial_number()))
-        .unique()
+        .sorted()
+        .dedup()
         .collect();
 
     let origin_res_atoms: AtomList = origin
@@ -360,7 +361,8 @@ pub fn parse_atomic_list(input: &str, pdb: &PDB) -> Result<AtomList, anyhow::Err
             let mut missing_atoms = output_vec
                 .iter()
                 .filter(|&x| !pdb.par_atoms().any(|atom| &atom.serial_number() == x))
-                .unique()
+                .sorted()
+                .dedup()
                 .peekable();
 
             ensure!(
@@ -383,7 +385,8 @@ pub fn parse_atomic_list(input: &str, pdb: &PDB) -> Result<AtomList, anyhow::Err
                     !pdb.par_atoms()
                         .any(|atom| atom.name().to_lowercase() == x.to_lowercase())
                 })
-                .unique()
+                .sorted()
+                .dedup()
                 .peekable();
 
             ensure!(
@@ -435,7 +438,8 @@ pub fn parse_residue_list(input: &str, pdb: &PDB) -> Result<ResidueList, anyhow:
             let mut missing_residues = output_vec
                 .iter()
                 .filter(|&x| !pdb.par_residues().any(|res| &res.serial_number() == x))
-                .unique()
+                .sorted()
+                .dedup()
                 .peekable();
 
             ensure!(
@@ -458,7 +462,8 @@ pub fn parse_residue_list(input: &str, pdb: &PDB) -> Result<ResidueList, anyhow:
                     !pdb.par_residues()
                         .any(|res| res.name().unwrap().to_lowercase() == x.to_lowercase())
                 })
-                .unique()
+                .sorted()
+                .dedup()
                 .peekable();
 
             ensure!(
@@ -915,18 +920,45 @@ mod tests {
         assert_eq!(parse_atomic_list(str_list, &pdb).unwrap(), vec!(39, 40));
     }
 
-    #[test]
-    fn parse_residue_list_test() {
-        let num_list = "1,2:5,6-7";
-        let str_list = "gly,wat";
-        let pdb = test_pdb("tests/test_blank.pdb");
+    // #[test]
+    // fn parse_residue_list_test() {
+    //     let num_list1 = "1-2,3:4,6,7";
+    //     let num_list2 = "9999A:1B,6B,8B-10B";
+    //     let str_list = "cu,NA+";
 
-        assert_eq!(
-            parse_atomic_list(num_list, &pdb).unwrap(),
-            vec!(1, 2, 3, 4, 5, 6, 7)
-        );
-        assert_eq!(parse_residue_list(str_list, &pdb).unwrap(), vec![2, 6, 7])
-    }
+    //     let pdb1 = test_pdb("tests/test_blank.pdb");
+    //     let pdb2 = test_pdb("tests/test_insert.pdb");
+
+    //     assert_eq!(
+    //         parse_residue_list(num_list1, &pdb1).unwrap(),
+    //         vec!(
+    //             (1, None),
+    //             (2, None),
+    //             (3, None),
+    //             (4, None),
+    //             (6, None),
+    //             (7, None),
+    //         )
+    //     );
+
+    //     assert_eq!(
+    //         parse_residue_list(num_list2, &pdb2).unwrap(),
+    //         vec!(
+    //             (9999, Some("A")),
+    //             (0, Some("B")),
+    //             (1, Some("B")),
+    //             (6, Some("B")),
+    //             (8, Some("B")),
+    //             (9, Some("B")),
+    //             (10, Some("B")),
+    //         )
+    //     );
+
+    //     assert_eq!(
+    //         parse_residue_list(str_list, &pdb2).unwrap(),
+    //         vec!((228, Some("A")), (229, Some("A")))
+    //     );
+    // }
 
     #[test]
     fn atom_sphere_test() {
@@ -988,28 +1020,17 @@ mod tests {
     #[test]
     fn edit_atoms_test() {
         let mut pdb = test_pdb("tests/test_blank.pdb");
-        let atom_id_list = [1, 5, 9];
-        edit_atoms(&mut pdb, atom_id_list.to_vec(), "Add", Region::QM1);
-        edit_atoms(&mut pdb, atom_id_list.to_vec(), "Add", Region::Active);
+        let atom_id_list = vec![1, 5, 9];
+        edit_atoms(&mut pdb, atom_id_list.clone(), "Add", Region::QM1);
+        // edit_qm_atoms(&mut pdb, 1.00, atom_id_list.clone()).unwrap();
+        edit_atoms(&mut pdb, atom_id_list.clone(), "Add", Region::Active);
 
-        let atom_list: Vec<&Atom> = pdb
+        let atom_list = pdb
             .atoms()
-            .filter(|x| atom_id_list.contains(&x.serial_number()))
-            .collect();
-        for atom in atom_list.iter() {
+            .filter(|x| atom_id_list.contains(&x.serial_number()));
+        for atom in atom_list {
             assert_eq!(atom.occupancy(), 1.00);
             assert_eq!(atom.b_factor(), 1.00);
-        }
-
-        edit_atoms(&mut pdb, atom_id_list.to_vec(), "Remove", Region::QM1);
-        edit_atoms(&mut pdb, atom_id_list.to_vec(), "Remove", Region::Active);
-        let atom_list: Vec<&Atom> = pdb
-            .atoms()
-            .filter(|x| atom_id_list.contains(&x.serial_number()))
-            .collect();
-        for atom in atom_list.iter() {
-            assert_eq!(atom.occupancy(), 0.00);
-            assert_eq!(atom.b_factor(), 0.00);
         }
     }
 
@@ -1029,20 +1050,6 @@ mod tests {
             for atom in residue.atoms() {
                 assert_eq!(atom.occupancy(), 2.00);
                 assert_eq!(atom.b_factor(), 1.00);
-            }
-        }
-
-        edit_residues(&mut pdb, res_id_list.clone(), "Remove", None, Region::QM2);
-        edit_residues(&mut pdb, res_id_list.clone(), "Remove", None, Region::Active);
-
-        let res_list = pdb
-            .residues()
-            .filter(|x| res_id_list.contains(&x.serial_number()));
-
-        for residue in res_list {
-            for atom in residue.atoms() {
-                assert_eq!(atom.occupancy(), 0.00);
-                assert_eq!(atom.b_factor(), 0.00);
             }
         }
     }
@@ -1112,28 +1119,6 @@ mod tests {
     }
 
     #[test]
-    fn remove_qm_region() {
-        let mut pdb = test_pdb("tests/test_full.pdb");
-        remove_region(&mut pdb, Some(Region::QM1));
-
-        for atom in pdb.atoms() {
-            assert_eq!(atom.occupancy(), 0.00);
-            assert_eq!(atom.b_factor(), 1.00);
-        }
-    }
-
-    #[test]
-    fn remove_active_region() {
-        let mut pdb = test_pdb("tests/test_full.pdb");
-        remove_region(&mut pdb, Some(Region::Active));
-
-        for atom in pdb.atoms() {
-            assert_eq!(atom.occupancy(), 1.00);
-            assert_eq!(atom.b_factor(), 0.00);
-        }
-    }
-
-    #[test]
     fn remove_all_test() {
         let mut pdb = test_pdb("tests/test_full.pdb");
         remove_region(&mut pdb, None);
@@ -1175,17 +1160,5 @@ mod tests {
 
         remove_file("tests/test_clashes.csv_tmp").unwrap();
         remove_file("tests/test_contacts.csv_tmp").unwrap();
-    }
-
-    #[test]
-    fn get_atomlist_test() {
-        let pdb = test_pdb("tests/test_get_atomlist.pdb");
-        let qm1_atoms = get_atomlist(&pdb, Region::QM1).unwrap();
-        let qm2_atoms = get_atomlist(&pdb, Region::QM2).unwrap();
-        let active_atoms = get_atomlist(&pdb, Region::Active).unwrap();
-
-        assert_eq!(qm1_atoms, vec!["1","2","4","5","6"]);
-        assert_eq!(qm2_atoms, vec!["8", "9", "11", "12"]);
-        assert_eq!(active_atoms, vec!["1", "2", "3", "5", "6", "8", "9"]);
     }
 }

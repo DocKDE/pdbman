@@ -988,25 +988,23 @@ mod tests {
     #[test]
     fn edit_atoms_test() {
         let mut pdb = test_pdb("tests/test_blank.pdb");
-        let atom_id_list = [1, 5, 9];
-        edit_atoms(&mut pdb, atom_id_list.to_vec(), "Add", Region::QM1);
-        edit_atoms(&mut pdb, atom_id_list.to_vec(), "Add", Region::Active);
+        let atom_id_list = vec![1, 5, 9];
+        edit_atoms(&mut pdb, atom_id_list.clone(), "Add", Region::QM1);
+        edit_atoms(&mut pdb, atom_id_list.clone(), "Add", Region::Active);
 
-        let atom_list: Vec<&Atom> = pdb
+        let pdb2 = pdb.clone();
+        let atom_list: Vec<&Atom> = pdb2
             .atoms()
             .filter(|x| atom_id_list.contains(&x.serial_number()))
             .collect();
+
         for atom in atom_list.iter() {
             assert_eq!(atom.occupancy(), 1.00);
             assert_eq!(atom.b_factor(), 1.00);
         }
 
-        edit_atoms(&mut pdb, atom_id_list.to_vec(), "Remove", Region::QM1);
-        edit_atoms(&mut pdb, atom_id_list.to_vec(), "Remove", Region::Active);
-        let atom_list: Vec<&Atom> = pdb
-            .atoms()
-            .filter(|x| atom_id_list.contains(&x.serial_number()))
-            .collect();
+        edit_atoms(&mut pdb, atom_id_list.clone(), "Remove", Region::QM1);
+        edit_atoms(&mut pdb, atom_id_list.clone(), "Remove", Region::Active);
         for atom in atom_list.iter() {
             assert_eq!(atom.occupancy(), 0.00);
             assert_eq!(atom.b_factor(), 0.00);
@@ -1029,20 +1027,6 @@ mod tests {
             for atom in residue.atoms() {
                 assert_eq!(atom.occupancy(), 2.00);
                 assert_eq!(atom.b_factor(), 1.00);
-            }
-        }
-
-        edit_residues(&mut pdb, res_id_list.clone(), "Remove", None, Region::QM2);
-        edit_residues(&mut pdb, res_id_list.clone(), "Remove", None, Region::Active);
-
-        let res_list = pdb
-            .residues()
-            .filter(|x| res_id_list.contains(&x.serial_number()));
-
-        for residue in res_list {
-            for atom in residue.atoms() {
-                assert_eq!(atom.occupancy(), 0.00);
-                assert_eq!(atom.b_factor(), 0.00);
             }
         }
     }
@@ -1112,28 +1096,6 @@ mod tests {
     }
 
     #[test]
-    fn remove_qm_region() {
-        let mut pdb = test_pdb("tests/test_full.pdb");
-        remove_region(&mut pdb, Some(Region::QM1));
-
-        for atom in pdb.atoms() {
-            assert_eq!(atom.occupancy(), 0.00);
-            assert_eq!(atom.b_factor(), 1.00);
-        }
-    }
-
-    #[test]
-    fn remove_active_region() {
-        let mut pdb = test_pdb("tests/test_full.pdb");
-        remove_region(&mut pdb, Some(Region::Active));
-
-        for atom in pdb.atoms() {
-            assert_eq!(atom.occupancy(), 1.00);
-            assert_eq!(atom.b_factor(), 0.00);
-        }
-    }
-
-    #[test]
     fn remove_all_test() {
         let mut pdb = test_pdb("tests/test_full.pdb");
         remove_region(&mut pdb, None);
@@ -1175,17 +1137,5 @@ mod tests {
 
         remove_file("tests/test_clashes.csv_tmp").unwrap();
         remove_file("tests/test_contacts.csv_tmp").unwrap();
-    }
-
-    #[test]
-    fn get_atomlist_test() {
-        let pdb = test_pdb("tests/test_get_atomlist.pdb");
-        let qm1_atoms = get_atomlist(&pdb, Region::QM1).unwrap();
-        let qm2_atoms = get_atomlist(&pdb, Region::QM2).unwrap();
-        let active_atoms = get_atomlist(&pdb, Region::Active).unwrap();
-
-        assert_eq!(qm1_atoms, vec!["1","2","4","5","6"]);
-        assert_eq!(qm2_atoms, vec!["8", "9", "11", "12"]);
-        assert_eq!(active_atoms, vec!["1", "2", "3", "5", "6", "8", "9"]);
     }
 }
