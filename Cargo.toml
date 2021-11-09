@@ -1,6 +1,6 @@
 [package]
 name = "pdbman"
-version = "0.7.1"
+version = "0.8.0"
 authors = ["Benedikt M. Flöser <benedikt.floeser@cec.mpg.de>"]
 edition = "2021"
 description = "Analyzes and edits PDB files for usage in QM/MM calculations with the ORCA Quantum Chemistry package"
@@ -19,6 +19,8 @@ rustyline = "9.0"
 rustyline-derive = "0.5"
 env_logger = "0.9"
 anyhow = "1.0.44"
+indoc = "1.0.3"
+colored = "2.0.0"
 # pdbtbx = {version = "^0.7", features = ["rayon", "rstar"]}
 pdbtbx = {git = "https://github.com/nonnominandus/pdbtbx", branch = "master", features = ["rayon", "rstar"]}
 #  pdbtbx = {path = "../pdbtbx", features = ["rayon", "rstar"]}

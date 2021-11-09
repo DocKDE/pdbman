@@ -3,6 +3,7 @@ use std::fs::File;
 use std::io::{self, BufRead, BufReader, BufWriter, Write};
 
 use anyhow::Context;
+use colored::Colorize;
 use pdbtbx::save_pdb;
 use rayon::iter::ParallelIterator;
 
@@ -23,7 +24,12 @@ pub fn dispatch(mode: Mode, mut pdb: &mut pdbtbx::PDB, infile: &str) -> Result<(
                     .par_atoms_with_hierarchy()
                     .find_any(|a| a.atom.serial_number() == *origin_id)
                     .ok_or_else::<_, _>(|| {
-                        anyhow!("No Atom with serial number {} could be found", origin_id)
+                        // anyhow!("No Atom with serial number {} could be found", origin_id)
+                        anyhow!(
+                            "{} {}",
+                            "No Atom with serial number found with serial number:".red(),
+                            origin_id.to_string().red(),
+                        )
                     })?;
 
                 let list = match target {
@@ -70,7 +76,7 @@ pub fn dispatch(mode: Mode, mut pdb: &mut pdbtbx::PDB, infile: &str) -> Result<(
                             .enumerate()
                             .map(|(i, l)| -> Result<String, anyhow::Error> {
                                 let s = l
-                                    .context(format!("Couldn't read line {} from file", i))?
+                                    .context(format!("Couldn't read line {} from file", i).red())?
                                     .trim()
                                     .to_owned();
                                 Ok(s)
@@ -126,7 +132,12 @@ pub fn dispatch(mode: Mode, mut pdb: &mut pdbtbx::PDB, infile: &str) -> Result<(
                     .par_atoms_with_hierarchy()
                     .find_any(|a| a.atom.serial_number() == *origin_id)
                     .ok_or_else::<_, _>(|| {
-                        anyhow!("No Atom with serial number {} could be found", origin_id)
+                        // anyhow!("No Atom with serial number {} could be found", origin_id)
+                        anyhow!(
+                            "{} {}",
+                            "No Atom with serial number found with serial number:".red(),
+                            origin_id.to_string().red(),
+                        )
                     })?;
 
                 let list = match target.unwrap() {
@@ -153,7 +164,7 @@ pub fn dispatch(mode: Mode, mut pdb: &mut pdbtbx::PDB, infile: &str) -> Result<(
                 } else if *region == Some(Region::Active) && *target == None {
                     remove_region(&mut pdb, Some(Region::Active))
                 } else {
-                    bail!("Please provide the approprate options (see --help).")
+                    bail!("Please provide the approprate options (see --help).".green())
                 }
             }
         },
@@ -165,7 +176,7 @@ pub fn dispatch(mode: Mode, mut pdb: &mut pdbtbx::PDB, infile: &str) -> Result<(
                     let mut handle = stdout.lock();
                     for num in get_atomlist(pdb, region.unwrap())? {
                         writeln!(handle, "{}", num)
-                            .context("Failed to write list of atoms to stdout")?
+                            .context("Failed to write list of atoms to stdout".red())?
                     }
                 }
             },
@@ -180,7 +191,7 @@ pub fn dispatch(mode: Mode, mut pdb: &mut pdbtbx::PDB, infile: &str) -> Result<(
                     let mut file = BufWriter::new(File::create(f)?);
                     for num in get_atomlist(pdb, region.unwrap())? {
                         writeln!(file, "{}", num)
-                            .context("Failed to write list of atoms to stdout")?;
+                            .context("Failed to write list of atoms to stdout".red())?;
                     }
                 }
             },
