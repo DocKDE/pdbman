@@ -26,7 +26,7 @@ use anyhow::Context;
 use anyhow::Result;
 use clap::{AppSettings, Arg};
 use colored::*;
-use indoc::indoc;
+use itertools::Itertools;
 use pdbtbx::StrictnessLevel;
 use rustyline::completion::FilenameCompleter;
 use rustyline::config::OutputStreamType;
@@ -40,10 +40,61 @@ use dispatch::dispatch;
 use options::{parse_args, Mode};
 use shell::ShellHelper;
 
+const HELP_LONG: &str = "
+pdbman 0.8.0
+    
+Benedikt M. Flöser <benedikt.floeser@cec.mpg.de>
+    
+Analyzes and edits PDB files for usage in QM/MM calculations with the ORCA Quantum Chemistry package
+    
+USAGE:
+    pdbman <PDBFILE> <[OPTIONS]|[SUBCOMMAND]>
+    
+ARGS:
+    <PDBFILE>    Path to PDB file
+    \
+OPTIONS:
+    -f, --file <File>    Read commands from file
+    -h, --help           Display help message
+    -i, --interactive    Enter interactive mode
+
+SUBCOMMANDS:
+    Add                  Add atoms or residues to QM1/QM2/Active region
+    Remove               Remove atoms or residues from QM1/QM2/Active region
+    Query                Query atoms or residues
+    Analyse              Analyze PDB file and QM1/QM2/Active region
+    Write                Write changes to file or stdout
+
+Calling a subcommand with the '--help/-h' flag will display a help message for it
+";
+
+const HELP_SHORT: &str = "
+USAGE:
+    pdbman <PDBFILE> <[OPTIONS]|[SUBCOMMAND]>
+    
+ARGS:
+    <PDBFILE>    Path to PDB file
+    \
+OPTIONS:
+    -f, --file <File>    Read commands from file
+    -h, --help           Display help message
+    -i, --interactive    Enter interactive mode
+
+SUBCOMMANDS:
+    Add                  Add atoms or residues to QM1/QM2/Active region
+    Remove               Remove atoms or residues from QM1/QM2/Active region
+    Query                Query atoms or residues
+    Analyse              Analyze PDB file and QM1/QM2/Active region
+    Write                Write changes to file or stdout
+
+Calling a subcommand with the '--help/-h' flag will display a help message for it
+";
+
 fn run() -> Result<(), anyhow::Error> {
     let pdbman_match = app_from_crate!()
         .setting(AppSettings::DisableVersionFlag)
         .setting(AppSettings::IgnoreErrors)
+        // .setting(AppSettings::AllowExternalSubcommands)
         .setting(AppSettings::NoAutoHelp)
         .arg(Arg::new("PDBFILE").about("Path to PDB file").required(true))
         .arg(
@@ -69,58 +120,8 @@ fn run() -> Result<(), anyhow::Error> {
         )
         .get_matches();
 
-    let help_long = indoc! {"
-    pdbman 0.8.0
-     
-    Benedikt M. Flöser <benedikt.floeser@cec.mpg.de>
-     
-    Analyzes and edits PDB files for usage in QM/MM calculations with the ORCA Quantum Chemistry package
-     
-    USAGE:
-        pdbman <PDBFILE> <[OPTIONS]|[SUBCOMMAND]>
-     
-    ARGS:
-        <PDBFILE>    Path to PDB file
-        \
-    OPTIONS:
-        -f, --file <File>    Read commands from file
-        -h, --help           Display help message
-        -i, --interactive    Enter interactive mode
-
-    SUBCOMMANDS:
-        Add                  Add atoms or residues to QM1/QM2/Active region
-        Remove               Remove atoms or residues from QM1/QM2/Active region
-        Query                Query atoms or residues
-        Analyse              Analyze PDB file and QM1/QM2/Active region
-        Write                Write changes to file or stdout
-
-    Calling a subcommand with the '--help/-h' flag will display a help message for it
-    "};
-
-    let help_short = indoc! {"
-    USAGE:
-        pdbman <PDBFILE> <[OPTIONS]|[SUBCOMMAND]>
-     
-    ARGS:
-        <PDBFILE>    Path to PDB file
-        \
-    OPTIONS:
-        -f, --file <File>    Read commands from file
-        -h, --help           Display help message
-        -i, --interactive    Enter interactive mode
-
-    SUBCOMMANDS:
-        Add                  Add atoms or residues to QM1/QM2/Active region
-        Remove               Remove atoms or residues from QM1/QM2/Active region
-        Query                Query atoms or residues
-        Analyse              Analyze PDB file and QM1/QM2/Active region
-        Write                Write changes to file or stdout
-
-    Calling a subcommand with the '--help/-h' flag will display a help message for it
-    "};
-
     if pdbman_match.is_present("Help") {
-        println!("{}", help_long);
+        println!("{}", HELP_LONG);
         return Ok(());
     }
 
@@ -128,7 +129,7 @@ fn run() -> Result<(), anyhow::Error> {
     // let filename = pdbman_match.value_of("PDBFILE").unwrap();
     let filename = match pdbman_match.value_of("PDBFILE") {
         Some(s) => s,
-        None => bail!("No path for PDB file was given!".red()),
+        None => bail!("No PDB file path was given!".red()),
     };
 
     let read_pdb = || -> Result<pdbtbx::PDB, anyhow::Error> {
@@ -230,7 +231,7 @@ fn run() -> Result<(), anyhow::Error> {
                 bail!(
                     "{}\n\n{}",
                     "No input file path for the '--file' option was given!".red(),
-                    help_short
+                    HELP_SHORT
                 )
             }
         };
@@ -241,25 +242,22 @@ fn run() -> Result<(), anyhow::Error> {
         let mut pdb = read_pdb()?;
 
         for arg in args {
-            let app = parse_args();
-            let matches = app.try_get_matches_from(arg.trim().split_whitespace())?;
+            let matches = parse_args().try_get_matches_from(arg.trim().split_whitespace())?;
             let mode = Mode::new(&matches)?;
             dispatch(mode, &mut pdb, filename)?
         }
     } else {
-        let args = &(env::args().collect::<Vec<String>>())[2..];
+        let args = env::args().skip(2).join(" ");
 
         ensure!(
-            !args.is_empty(),
+            !args.trim().is_empty(),
             "{}\n\n{}",
             "No actionable arguments were provided!".red(),
-            help_short
+            HELP_SHORT
         );
 
         let mut pdb = read_pdb()?;
-
-        let args_space = args.join(" ");
-        let args_split = args_space.split('/');
+        let args_split = args.split('/');
 
         for arg in args_split {
             let app = parse_args();
