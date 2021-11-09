@@ -603,9 +603,7 @@ pub fn parse_residue_list(input: &str, pdb: &PDB) -> Result<ResidueList, anyhow:
 }
 
 /// Query Molecule for information. Depending on the input this will print a table of
-/// Residues and/or Atoms will available information that were asked for.
-// This cannot fail because the parse_atom_list is always called before this
-// and would return an error if not atoms were found
+/// Residues and/or Atoms with available information that were asked for.
 pub fn query_atoms(pdb: &PDB, atom_list: AtomList) -> Result<(), anyhow::Error> {
     let mut table = Table::new();
     table.add_row(row![
@@ -664,7 +662,10 @@ pub fn get_atomlist(pdb: &PDB, region: Region) -> Result<Vec<String>, anyhow::Er
         .map(|a| a.serial_number().to_string())
         .collect::<Vec<String>>();
 
-    ensure!(!str_vec.is_empty(), "No atoms in the requested region!".red());
+    ensure!(
+        !str_vec.is_empty(),
+        "No atoms in the requested region!".red()
+    );
     Ok(str_vec)
 }
 

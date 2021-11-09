@@ -131,14 +131,16 @@ fn run() -> Result<(), anyhow::Error> {
         None => bail!("No path for PDB file was given!".red()),
     };
 
-    let mut pdb = match pdbtbx::open_pdb(filename, StrictnessLevel::Strict) {
-        Ok((pdb_read, errors)) => {
-            errors.iter().for_each(|x| println!("{}", x));
-            pdb_read
-        }
-        Err(errors) => {
-            errors.iter().for_each(|x| println!("{}", x));
-            bail!("Exiting...".red())
+    let read_pdb = || -> Result<pdbtbx::PDB, anyhow::Error> {
+        match pdbtbx::open_pdb(filename, StrictnessLevel::Strict) {
+            Ok((pdb_read, errors)) => {
+                errors.iter().for_each(|x| println!("{}", x));
+                Ok(pdb_read)
+            }
+            Err(errors) => {
+                errors.iter().for_each(|x| println!("{}", x));
+                bail!("Exiting...".red())
+            }
         }
     };
 
@@ -166,6 +168,8 @@ fn run() -> Result<(), anyhow::Error> {
         rl.set_helper(Some(helper));
         rl.bind_sequence(KeyEvent::alt('n'), Cmd::HistorySearchForward);
         rl.bind_sequence(KeyEvent::alt('p'), Cmd::HistorySearchBackward);
+
+        let mut pdb = read_pdb()?;
 
         // Be careful not to return any error unnecessarily because they would break the loop
         loop {
@@ -234,6 +238,8 @@ fn run() -> Result<(), anyhow::Error> {
             .with_context(|| format!("File '{}' could not be found", inpfile).red())?;
         let args = input.split('/');
 
+        let mut pdb = read_pdb()?;
+
         for arg in args {
             let app = parse_args();
             let matches = app.try_get_matches_from(arg.trim().split_whitespace())?;
@@ -249,6 +255,8 @@ fn run() -> Result<(), anyhow::Error> {
             "No actionable arguments were provided!".red(),
             help_short
         );
+
+        let mut pdb = read_pdb()?;
 
         let args_space = args.join(" ");
         let args_split = args_space.split('/');

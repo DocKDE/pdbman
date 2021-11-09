@@ -3,15 +3,17 @@ use clap::{App, AppSettings, Arg, ArgGroup};
 use itertools::Itertools;
 use lazy_regex::{regex, regex_is_match};
 
-fn sphere_valid(v: &str) -> Result<(), String> {
+fn sphere_valid(v: &str) -> Result<(), anyhow::Error> {
     let err_chars = v
         .chars()
         .filter(|x| !regex_is_match!(r"[\d.]", &x.to_string()))
         .collect::<String>();
 
-    if !err_chars.is_empty() {
-        return Err(format!("Invalid characters: {}", err_chars));
-    }
+    ensure!(
+        err_chars.is_empty(),
+        "\nInvalid characters: '{}'",
+        err_chars
+    );
 
     Ok(())
 }
