@@ -90,6 +90,33 @@ SUBCOMMANDS:
 Calling a subcommand with the '--help/-h' flag will display a help message for it
 ";
 
+struct PDBCacher<T>
+where
+    T: Fn() -> Result<pdbtbx::PDB, anyhow::Error>,
+{
+    calculation: T,
+    value: Option<Result<pdbtbx::PDB, anyhow::Error>>,
+}
+
+impl<T> PDBCacher<T>
+where
+    T: Fn() -> Result<pdbtbx::PDB, anyhow::Error>,
+{
+    fn new(calculation: T) -> PDBCacher<T> {
+        PDBCacher {
+            calculation,
+            value: None,
+        }
+    }
+
+    fn get_pdb(&mut self) -> &mut Result<pdbtbx::PDB, anyhow::Error> {
+        if self.value.is_none() {
+            self.value = Some((self.calculation)());
+        }
+        self.value.as_mut().unwrap()
+    }
+}
+
 fn run() -> Result<(), anyhow::Error> {
     let pdbman_match = app_from_crate!()
         .setting(AppSettings::DisableVersionFlag)
@@ -212,7 +239,6 @@ fn run() -> Result<(), anyhow::Error> {
             // Error raised here are probably parse errors from faulty user input
             let mode = match Mode::new(&matches) {
                 Ok(m) => m,
-                // Ok(m) => Rc::new(m),
                 Err(e) => {
                     println!("{}", e);
                     continue;
@@ -237,14 +263,19 @@ fn run() -> Result<(), anyhow::Error> {
         };
         let input = fs::read_to_string(inpfile)
             .with_context(|| format!("File '{}' could not be found", inpfile).red())?;
-        let args = input.split('/');
+        let args = input.trim().split('\n');
 
-        let mut pdb = read_pdb()?;
+        let mut pdb_cache = PDBCacher::new(read_pdb);
 
         for arg in args {
             let matches = parse_args().try_get_matches_from(arg.trim().split_whitespace())?;
             let mode = Mode::new(&matches)?;
-            dispatch(mode, &mut pdb, filename)?
+            let pdb = match pdb_cache.get_pdb().as_mut() {
+                Ok(p) => p,
+                Err(e) => bail!(e.to_string()),
+            };
+
+            dispatch(mode, pdb, filename)?
         }
     } else {
         let args = env::args().skip(2).join(" ");
@@ -256,14 +287,19 @@ fn run() -> Result<(), anyhow::Error> {
             HELP_SHORT
         );
 
-        let mut pdb = read_pdb()?;
+        let mut pdb_cache = PDBCacher::new(read_pdb);
         let args_split = args.split('/');
 
         for arg in args_split {
             let app = parse_args();
             let matches = app.try_get_matches_from(arg.trim().split_whitespace())?;
             let mode = Mode::new(&matches)?;
-            dispatch(mode, &mut pdb, filename)?
+            let pdb = match pdb_cache.get_pdb().as_mut() {
+                Ok(p) => p,
+                Err(e) => bail!(e.to_string()),
+            };
+
+            dispatch(mode, pdb, filename)?;
         }
     }
 
