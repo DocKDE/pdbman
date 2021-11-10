@@ -1,6 +1,7 @@
 use std::str::FromStr;
 
-use anyhow::Result;
+use anyhow::{Context, Result};
+use colored::Colorize;
 use itertools::Itertools;
 use strum::VariantNames;
 use strum_macros::{Display, EnumString, EnumVariantNames};
@@ -106,7 +107,12 @@ impl<'a> Mode<'a> {
                             .unwrap()
                             .next_tuple()
                             .unwrap();
-                        Source::Sphere(origin_str.parse()?, radius_str.parse()?)
+                        Source::Sphere(
+                            origin_str.parse().context(
+                                format!("Invalid input for atom ID: '{}'", origin_str).red(),
+                            )?,
+                            radius_str.parse()?,
+                        )
                     }
                     _ => unreachable!(),
                 };
@@ -179,7 +185,12 @@ impl<'a> Mode<'a> {
                             .unwrap()
                             .next_tuple()
                             .unwrap();
-                        Some(Source::Sphere(origin_str.parse()?, radius_str.parse()?))
+                        Some(Source::Sphere(
+                            origin_str.parse().context(
+                                format!("Invalid input for atom ID: '{}'", origin_str).red(),
+                            )?,
+                            radius_str.parse()?,
+                        ))
                     }
                     _ => unreachable!(),
                 };
@@ -235,7 +246,13 @@ impl<'a> Mode<'a> {
                             .unwrap()
                             .next_tuple()
                             .unwrap();
-                        Some(Source::Sphere(origin_str.parse()?, radius_str.parse()?))
+                        // Some(Source::Sphere(origin_str.parse()?, radius_str.parse()?))
+                        Some(Source::Sphere(
+                            origin_str.parse().context(
+                                format!("Invalid input for atom ID: '{}'", origin_str).red(),
+                            )?,
+                            radius_str.parse()?,
+                        ))
                     }
                     _ => None,
                 };

@@ -27,7 +27,7 @@ pub fn dispatch(mode: Mode, mut pdb: &mut pdbtbx::PDB, infile: &str) -> Result<(
                         // anyhow!("No Atom with serial number {} could be found", origin_id)
                         anyhow!(
                             "{} {}",
-                            "No Atom with serial number found with serial number:".red(),
+                            "No Atom with found with serial number:".red(),
                             origin_id.to_string().red(),
                         )
                     })?;

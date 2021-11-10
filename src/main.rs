@@ -250,56 +250,82 @@ fn run() -> Result<(), anyhow::Error> {
                 println! {"{}", e};
             }
         }
-    } else if pdbman_match.is_present("File") {
-        let inpfile = match pdbman_match.value_of("File") {
-            Some(s) => s,
-            None => {
-                bail!(
+    } else {
+        let input;
+        let args_env;
+
+        let args = match pdbman_match.is_present("File") {
+            true => {
+                let inpfile = match pdbman_match.value_of("File") {
+                    Some(s) => s,
+                    None => {
+                        bail!(
+                            "{}\n\n{}",
+                            "No input file path for the '--file' option was given!".red(),
+                            HELP_SHORT
+                        )
+                    }
+                };
+                input = fs::read_to_string(inpfile)
+                    .with_context(|| format!("File '{}' could not be found", inpfile).red())?;
+                let args = input.trim().split('\n');
+                args
+            }
+            false => {
+                args_env = env::args().skip(2).join(" ");
+
+                ensure!(
+                    !args_env.trim().is_empty(),
                     "{}\n\n{}",
-                    "No input file path for the '--file' option was given!".red(),
+                    "No actionable arguments were provided!".red(),
                     HELP_SHORT
-                )
+                );
+
+                args_env.split('/')
             }
         };
-        let input = fs::read_to_string(inpfile)
-            .with_context(|| format!("File '{}' could not be found", inpfile).red())?;
-        let args = input.trim().split('\n');
 
         let mut pdb_cache = PDBCacher::new(read_pdb);
 
-        for arg in args {
-            let matches = parse_args().try_get_matches_from(arg.trim().split_whitespace())?;
-            let mode = Mode::new(&matches)?;
-            let pdb = match pdb_cache.get_pdb().as_mut() {
-                Ok(p) => p,
-                Err(e) => bail!(e.to_string()),
+        // Test for input errors before actually processing anything
+        for arg in args.clone() {
+            let matches = match parse_args().try_get_matches_from(arg.trim().split_whitespace()) {
+                Ok(m) => m,
+                Err(e) => bail!("\nParsing input '{}' failed\n\n{}", arg.green(), e),
             };
 
-            dispatch(mode, pdb, filename)?
+            if let Err(e) = Mode::new(&matches) {
+                bail!("\nParsing input '{}' failed\n{}", arg.green(), e)
+            };
         }
-    } else {
-        let args = env::args().skip(2).join(" ");
 
-        ensure!(
-            !args.trim().is_empty(),
-            "{}\n\n{}",
-            "No actionable arguments were provided!".red(),
-            HELP_SHORT
-        );
+        // Process inputs, unwrap is fine because everything has been checked previously
+        for arg in args {
+            // let matches = match parse_args().try_get_matches_from(arg.trim().split_whitespace()) {
+            //     Ok(m) => m,
+            //     Err(e) => bail!("\nParsing input '{}' failed\n\n{}", arg.green(), e),
+            // };
 
-        let mut pdb_cache = PDBCacher::new(read_pdb);
-        let args_split = args.split('/');
+            // let mode = Mode::new(&matches)?;
+            // let mode = match Mode::new(&matches) {
+            //     Ok(m) => m,
+            //     Err(e) => bail!("\nParsing input '{}' failed\n{}", arg.green(), e),
+            // };
 
-        for arg in args_split {
-            let app = parse_args();
-            let matches = app.try_get_matches_from(arg.trim().split_whitespace())?;
-            let mode = Mode::new(&matches)?;
+            let matches = parse_args()
+                .try_get_matches_from(arg.trim().split_whitespace())
+                .unwrap();
+            let mode = Mode::new(&matches).unwrap();
+
             let pdb = match pdb_cache.get_pdb().as_mut() {
                 Ok(p) => p,
                 Err(e) => bail!(e.to_string()),
             };
 
-            dispatch(mode, pdb, filename)?;
+            // dispatch(mode, pdb, filename)?;
+            if let Err(e) = dispatch(mode, pdb, filename) {
+                bail!("Processing '{}' returned error\n\n{}", arg.green(), e)
+            };
         }
     }
 
