@@ -18,19 +18,80 @@ Note that for the time being two version of this software is provided: a Python 
 - Add or remove atoms or residues to QM or active region by ID or name
 - Add or remove atoms and residues to QM or active region by calculating a sphere of given radius around a given atom
 - Add or remove only the sidechain or backbone of residues by ID or name
+- Write changes to stdout or file
+- Lists of QM or active atoms can be saved to or loaded from files
 
 The several options are provided via command line flags (the ordering of the flags does not matter). Additional information can be obtained from `help`
 
 ---
 
-### Options
+### Modes of operation
 
-Four different subcommands are available (equivalent aliases given in parentheses):
+There are three ways to use `pdbman`:
+
+1. shell mode
+
+2. directly from the command line
+
+3. with input loaded from a file
+
+Depending on what you want to use the program for, each of these may come in handy. 
+
+#### Shell mode
+
+For workflows where you want to enter several commands in quick succession the shell mode is recommended. It is started simply by calling `pdbman` with the file you want to work with as argument and the `--interactive` option (or `-i` in short):
+
+```
+pdbman myfile.pdb -i
+```
+
+This will drop you in a shell where you can then enter commands:
+
+```
+pdbman>
+```
+
+#### Command line
+
+For single queries or scripting purposes pdbman can be called from command line, even with multiple commands. For this, call the program with the PDB file you want to use as first argument and any commands after that. 
+
+If several commands are to be run in succession, they can be chained by using `/` as a separator like so:
+
+```
+pdbman myfile.pdb command1 / command2 / command3
+```
+
+This makes it easier to use pdbman in scripts but will also make the output less legible when calling several queries in succession.
+
+#### Load commands from file
+
+If many commands are to be executed in an automated fashion, they can be saved in a file and called from there. In this case the `--File` (short: `-f`) option needs to be given, followed by the name of the file which holds the commands to be executed:
+
+```
+pdbman myfile.pdb -f mycommands.txt
+```
+
+`pdbman` expects one command per line in the given file:
+
+```
+command1
+command2
+command2
+```
+
+It is also possible to utilize this mode of operation for scripting in which case a file holding the commands needs to be present.
+
+---
+
+### Commands
+
+Five different subcommands are available (equivalent aliases given in parentheses):
 
 - `Analyze` (`analyze`, `ana`, `Y`, `y`), analyzes the QM and active region definitions currently in place
 - `Remove` (`remove`, `rem`, `R`, `r`), removes atoms or residues from QM or active region
 - `Add` (`add`, `A`, `a`), adds atoms or residues from QM or active regions
 - `Query` (`query`, `que`, `Q`, `q`), queries the PDB file for information on atoms, residues, atom names etc.
+- `Write` (`write`, `wri`, `W`, `w`), writes information about the current state of the PDB structure in memory to stdout or file
 
 Each subcommand can be called by any of its aliases like so:
 
@@ -42,36 +103,117 @@ Each subcommand can be called by any of its aliases like so:
 
 &nbsp;
 
-Each subcommand has a set of options they accept which are in turn divided into groups:
+#### Analyze
 
-#### Region
+This mode will show the number of atoms and residues in the QM1, QM2 and active regions. If only a part of a residue is present in one region, the residue will still be counted.
 
-Defines which region pdbman acts on. Relevant for `Add`, `Remove` and `Analyze` subcommands.
+If the `--residues`/`-r` or `--atoms`/`-t` flag is given in conjunction with a `--qm1`/`-q`, `--qm2`/`-o` or `--active`/`-a` flag the residues/atoms of the respective region will be listed.
 
-- QM1 (`-q`)
-- QM2 (`-o`), this is only relevant for ONIOM calculations.
-- Active (`-a`)
+Examples:
 
-#### Target
+```
+y -rq
+y -ta
+```
 
-Defines whether atoms or residues are targeted. Relevant for all subcommands.
+If the `--clashes`/`-c` or `--contacts`/`-n` flags are given, van-der-Waals clashes or contacts will be listed, respectively, if present. Especially close contacts will be colorized.
 
-- atoms (`-t`)
-- residues (`-r`)
+#### Remove
 
-#### Source
+This mode will remove atoms and/or residues from the specified region.
 
-The source of user-input. Relevant for `Add`, `Remove` and `Query` subcommands.
+If no other flags are given, all atoms will be remove from all regions. If only a region flag (``--qm1`/`-q`, `--qm2`/`-o` or `--active`/`-a) is given, all atoms will be removed from the specified region.
 
-- list (`-l`), takes a comma-separated list of IDs **or** names, ranges are also supported.
-- sphere (`-s`), takes an atom ID and a radius in Angström as arguments.
+Example:
 
-#### Partials
+```
+r
+r -q
+r -o
+```
 
-For cases when only a part of one or more residues should be manipulated. Relevant for `Add` and `Remove` subcommands. Requires the `residues` option.
+If an `--atoms`/`-t` or `--residues`/`-r` flag is also present, specific atoms/residues will be remove from the specified region. In this case a source of atoms/residues must be given. This can be a command line list given after a `--list`/`-l` flag, a list read from a file specified with `--file`/`-f` or a calculated sphere around a given atom specified with the `--sphere`/`-s` flag.
 
-- backbone (`-b`)
-- sidechain (`-d`)
+In the latter case an atom ID and a radius must be given. All atoms within the given radius around the given atom will be processed. If the `--residues`/`-r` flag is active, all residues that have at least one atom within the given sphere will be removed.
+
+A `--list`/`-l` flag must be followed by a comma-separated list of items that are to be processed. This can consist of atom/residue IDs or names thereof, but not both.
+
+`pdbman` recognizes ranges of lists separated with a colon (`:`) or dash (`-`).
+
+Examples:
+
+```
+r -tql 16,17
+r -ral 1-12,49,128
+r -tof atomlist.txt
+r -tas 3230 10
+```
+
+#### Add
+
+The syntax is exactly the same as for the `Remove` subcommand, except that is does not accept blanket additions of whole regions. 
+
+Examples:
+
+```
+a -tql 16,17
+a -ral 1-12,49,128
+a -tof atomlist.txt
+a -tas 3230 10
+```
+
+#### Query
+
+This command allows getting information on atoms and residues in the PDB file. It has to be called with a target (`--atoms`/`-t` or `--residues`/`-r`) and a source (`--list`/`l`, `--file`/`-f` or `--sphere`/`-s`) which specify what is to be queried.
+
+This way, atoms/residues with a specific name or ID can be targeted or the surrounding atoms/residues of a specific atom.
+
+Examples:
+
+```
+q -tl cu
+q -tl 23:30
+q -rl 1,2
+q -ts 2589 2.5
+```
+
+If the number of residues queried is one or the atoms queried all belong to the same residue and the respective residue is an amino acid, an ASCII representation of it will be shown:
+
+```
+pdbman> q -tl 1
+
+                    |                 HE1
+                  H-N             __  /
+                    |   HB1    ND1--CE1
+                    |   |     /      |
+                 HA-CA--CB--CG       |
+                    |   |     \\     |
+                    |   HB2    CD2--NE2
+                  O=C           |     \
+                    |          HD2    HE2
+
++---------+-----------+------------+--------------+----+--------+
+| Atom ID | Atom name | Residue ID | Residue Name | QM | Active |
++---------+-----------+------------+--------------+----+--------+
+| 1       | N         | 1          | HIE          | 2  | 1      |
++---------+-----------+------------+--------------+----+--------+
+```
+
+#### Write
+
+This command will write the current state of the PDB structure held in memory to stdout or a file. If no further options are given, the whole PDB structure will be written to stdout. The output target can be modified by providing a `--overwrite`/`-w` or `--file`/`-f` flag. These will write the output to the input PDB file or a specified file. Note that in the first case, the input PDB will be overwritten!
+
+If a region flag (`--qm1`/`-q`, `--qm2`/`-o` or `--active`/`-a`) is given, the atom IDs currently making up that region will be printed to stdout or a file, depending on the user-given flag. This is useful to quickly transfer the state of one PDB file to another.
+
+Examples:
+
+```
+w -w
+w -q
+w -af activeatoms.txt
+```
+
+---
 
 Help messages are available for all subcommands like so:
 
@@ -94,15 +236,17 @@ In case you're on MacOS or the provided executables do not work (e.g. because of
 
 Rust will now compile the binary and place it in your cargo root folder (location differs based on operating system). It can now be accessed from the command line without any further steps.
 
-## Usage
+## Example Usage
 
 As illustration what `pdbman` is capable of a typical workflow will be shown.
 
 It is always called with a single PDB file as command line option like so:
 
-![](example/pdbman_init.png)
+```
+pdbman myfile.pdb
 
-As you can see from the changed prompt, a new shell environment has been started. It comes with a few convenience features, like a command history (accessible via the ' up' arrow key or by pressing `Ctrl + n`/`Ctrl + p` for the next or previous history item, respectively) or suggestions generated from previous commands.
+pdbman>
+```
 
 In this shell all of the remaining commands can be entered. Help can be obtained by typing `help`/`--help` whereas `e`/`exit` will exit the shell. If any changes have been made to the file, they will be saved in a separate file.
 
@@ -110,14 +254,43 @@ First, the file of interest (here called `myfile.pdb`) will be analyzed:
 
 `Y`
 
-![](example/pdbman_y_initial.png)
+```
+pdbman> y
++--------+------------+---------------+
+|        | # of Atoms | # of Residues |
++--------+------------+---------------+
+| QM1    | 116        | 9             |
++--------+------------+---------------+
+| QM2    | 1          | 1             |
++--------+------------+---------------+
+| Active | 294        | 21            |
++--------+------------+---------------+
+```
 
 This is typical for files that were preprocessed with Ambertools and needs to be changed.
 Next, we look for potential clashes between atoms. This can happen if, e.g., a water shell has been added around the molecule and results in spurious high contributions from the involved Lennard-Jones-terms.
 
 `Y -c`
 
-![](example/pdbman_clash.png)
+```
+pdbman> y -c
++--------+------------+---------------+
+|        | # of Atoms | # of Residues |
++--------+------------+---------------+
+| QM1    | 0          | 0             |
++--------+------------+---------------+
+| QM2    | 0          | 0             |
++--------+------------+---------------+
+| Active | 0          | 0             |
++--------+------------+---------------+
+
+Clash Analysis
++-----------+-------------+----------------+-----------+-------------+----------------+----------+
+| Atom ID 1 | Atom Name 1 | Residue Name 1 | Atom ID 2 | Atom Name 2 | Residue Name 2 | Distance |
++-----------+-------------+----------------+-----------+-------------+----------------+----------+
+| 14        | HE2         | HIE            | 81        | O           | WAT            | 0.66     |
++-----------+-------------+----------------+-----------+-------------+----------------+----------+
+```
 
 (Different input file shown in figure because `myfile.pdb` has no clashes)
 
@@ -141,7 +314,14 @@ Next, we want to build an active region of residues around a metal ion in the ce
 
 `Q -tl Cu`
 
-![](example/pdbman_query.png)
+```
+pdbman> q -tl cu
++---------+-----------+------------+--------------+----+--------+
+| Atom ID | Atom name | Residue ID | Residue Name | QM | Active |
++---------+-----------+------------+--------------+----+--------+
+| 2589    | CU        | 171        | CU           | 1  | 1      |
++---------+-----------+------------+--------------+----+--------+
+```
 
 This finds all atoms with the name `Cu` in the PDB file. The search is case-insensitive. You can also search for residues with the `-r` flag but be aware that the residue names can differ from the usually more intuitive atom names.
 
@@ -198,7 +378,39 @@ A final look at the region declarations we made:
 
 `Y -rq`
 
-![](example/pdbman_ana_final.png)
+```
+pdbman> y -rq
++--------+------------+---------------+
+|        | # of Atoms | # of Residues |
++--------+------------+---------------+
+| QM1    | 104        | 8             |
++--------+------------+---------------+
+| QM2    | 0          | 0             |
++--------+------------+---------------+
+| Active | 441        | 37            |
++--------+------------+---------------+
+
+QM1 Residues
++------------+--------------+------------+----------------+
+| Residue ID | Residue Name | # of Atoms | # of QM1 Atoms |
++------------+--------------+------------+----------------+
+| 1          | HIE          | 18         | 16             |
++------------+--------------+------------+----------------+
+| 85         | ALA          | 10         | 4              |
++------------+--------------+------------+----------------+
+| 87         | HID          | 17         | 11             |
++------------+--------------+------------+----------------+
+| 160        | PHE          | 20         | 14             |
++------------+--------------+------------+----------------+
+| 171        | CU           | 1          | 1              |
++------------+--------------+------------+----------------+
+| 203        | 4YB          | 27         | 27             |
++------------+--------------+------------+----------------+
+| 204        | 4YB          | 27         | 27             |
++------------+--------------+------------+----------------+
+| 460        | PER          | 4          | 4              |
++------------+--------------+------------+----------------+
+```
 
 Looks good! Now we're good to go for QM/MM jobs!
 
@@ -208,9 +420,11 @@ Looks good! Now we're good to go for QM/MM jobs!
 
 ## Known Issues
 
-If the number of residues is over 9999, automatically created PDB files will usually wrap around and start counting at 1 again. `pdbman` can read these but uses an internal numbering scheme that keeps on counting after 9999. 
+If the number of residues is over 9999 or the number of atoms is over 99999, automatically created PDB files will usually wrap around and start counting at 1 again. `pdbman` can read these but uses an internal numbering scheme that keeps on counting after reaching the limit. 
 
-This does **not** affect the printing of the file but has an effect on the querying and analysis functions as the residues will be displayed with their internal numbering, not with what is present in the input or output files.
+This discrepancy exists because the number of digits for atom and residues IDs is limited by the file format but these are used by `pdbman` to distiguish between unique atoms and residues. 
+
+This does **not** affect the reading or printing of the file but has an effect on the querying and analysis functions as the residues will be displayed with their internal numbering, not with what is present in the input or output files.
 
 ## Contributor
 
