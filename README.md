@@ -51,6 +51,8 @@ This will drop you in a shell where you can then enter commands:
 pdbman>
 ```
 
+This is convenient because the PDB file has only to be loaded once and will be kept in memory as long as you're working with it. Furthermore, a few convenience functions are present, such as a command history of the session, comman suggestions based theron and tab completion for files.
+
 #### Command line
 
 For single queries or scripting purposes pdbman can be called from command line, even with multiple commands. For this, call the program with the PDB file you want to use as first argument and any commands after that. 

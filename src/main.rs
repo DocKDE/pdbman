@@ -41,7 +41,7 @@ use options::{parse_args, Mode};
 use shell::ShellHelper;
 
 const HELP_LONG: &str = "
-pdbman 0.8.0
+pdbman 0.8.1
     
 Benedikt M. Flöser <benedikt.floeser@cec.mpg.de>
     
@@ -52,7 +52,7 @@ USAGE:
     
 ARGS:
     <PDBFILE>    Path to PDB file
-    \
+    
 OPTIONS:
     -f, --file <File>    Read commands from file
     -h, --help           Display help message
@@ -63,7 +63,7 @@ SUBCOMMANDS:
     Remove               Remove atoms or residues from QM1/QM2/Active region
     Query                Query atoms or residues
     Analyse              Analyze PDB file and QM1/QM2/Active region
-    Write                Write changes to file or stdout
+    Write                Write PDB structure information to file or stdout
 
 Calling a subcommand with the '--help/-h' flag will display a help message for it
 ";
@@ -74,7 +74,7 @@ USAGE:
     
 ARGS:
     <PDBFILE>    Path to PDB file
-    \
+    
 OPTIONS:
     -f, --file <File>    Read commands from file
     -h, --help           Display help message
@@ -85,7 +85,7 @@ SUBCOMMANDS:
     Remove               Remove atoms or residues from QM1/QM2/Active region
     Query                Query atoms or residues
     Analyse              Analyze PDB file and QM1/QM2/Active region
-    Write                Write changes to file or stdout
+    Write                Write PDB structure information to file or stdout
 
 Calling a subcommand with the '--help/-h' flag will display a help message for it
 ";
