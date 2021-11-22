@@ -26,9 +26,9 @@ pub fn dispatch(mode: Mode, mut pdb: &mut pdbtbx::PDB, infile: &str) -> Result<(
                     .ok_or_else::<_, _>(|| {
                         // anyhow!("No Atom with serial number {} could be found", origin_id)
                         anyhow!(
-                            "{} {}",
-                            "No Atom with found with serial number:".red(),
-                            origin_id.to_string().red(),
+                            "{}: '{}'",
+                            "\nNO ATOM WITH FOUND WITH SERIAL NUMBER".red(),
+                            origin_id.to_string().green(),
                         )
                     })?;
 
@@ -70,7 +70,7 @@ pub fn dispatch(mode: Mode, mut pdb: &mut pdbtbx::PDB, infile: &str) -> Result<(
                     Source::List(l) => l.to_string(),
                     Source::Infile(f) => {
                         let file =
-                            BufReader::new(File::open(f).context("No such file or directory")?);
+                            BufReader::new(File::open(f).context("\nNO SUCH FILE OR DIRECTORY".red())?);
                         let list = file
                             .lines()
                             .enumerate()
@@ -134,9 +134,9 @@ pub fn dispatch(mode: Mode, mut pdb: &mut pdbtbx::PDB, infile: &str) -> Result<(
                     .ok_or_else::<_, _>(|| {
                         // anyhow!("No Atom with serial number {} could be found", origin_id)
                         anyhow!(
-                            "{} {}",
-                            "No Atom with serial number found with serial number:".red(),
-                            origin_id.to_string().red(),
+                            "{}: '{}'",
+                            "NO ATOM WITH SERIAL NUMBER FOUND WITH SERIAL NUMBER".red(),
+                            origin_id.to_string().green(),
                         )
                     })?;
 
@@ -164,7 +164,7 @@ pub fn dispatch(mode: Mode, mut pdb: &mut pdbtbx::PDB, infile: &str) -> Result<(
                 } else if *region == Some(Region::Active) && *target == None {
                     remove_region(&mut pdb, Some(Region::Active))
                 } else {
-                    bail!("Please provide the approprate options (see --help).".green())
+                    bail!("Please provide the approprate options (see --help).".red())
                 }
             }
         },
@@ -176,7 +176,7 @@ pub fn dispatch(mode: Mode, mut pdb: &mut pdbtbx::PDB, infile: &str) -> Result<(
                     let mut handle = stdout.lock();
                     for num in get_atomlist(pdb, region.unwrap())? {
                         writeln!(handle, "{}", num)
-                            .context("Failed to write list of atoms to stdout".red())?
+                            .context("FAILED TO WRITE LIST OF ATOMS TO STDOUT".red())?
                     }
                 }
             },
@@ -191,7 +191,7 @@ pub fn dispatch(mode: Mode, mut pdb: &mut pdbtbx::PDB, infile: &str) -> Result<(
                     let mut file = BufWriter::new(File::create(f)?);
                     for num in get_atomlist(pdb, region.unwrap())? {
                         writeln!(file, "{}", num)
-                            .context("Failed to write list of atoms to stdout".red())?;
+                            .context("FAILED TO WRITE LIST OF ATOMS TO STDOUT".red())?;
                     }
                 }
             },

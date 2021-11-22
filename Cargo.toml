@@ -8,7 +8,7 @@ license = "GPL-2.0-or-later"
 
 [dependencies]
 prettytable-rs = {version = "0.8", default-features = false}
-clap = "3.0.0-beta.5"
+# clap = "3.0.0-beta.5"
 strum = "0.20.0"
 strum_macros = "0.20.1"
 lazy-regex = "2.2"
@@ -20,9 +20,14 @@ rustyline-derive = "0.5"
 env_logger = "0.9"
 anyhow = "1.0.44"
 colored = "2.0.0"
-# pdbtbx = {version = "^0.7", features = ["rayon", "rstar"]}
-pdbtbx = {git = "https://github.com/nonnominandus/pdbtbx", branch = "master", features = ["rayon", "rstar"]}
+pdbtbx = {version = "0.8", features = ["rayon", "rstar"]}
+# pdbtbx = {git = "https://github.com/nonnominandus/pdbtbx", branch = "master", features = ["rayon", "rstar"]}
 #  pdbtbx = {path = "../pdbtbx", features = ["rayon", "rstar"]}
 
 [dev-dependencies]
 prettytable-rs = {version = "0.8.0", default-features = true}
+
+[dependencies.clap]
+version = "3.0.0-beta.5"
+default-features = false
+features = ["std", "cargo", "color", "suggestions", "unicode"]

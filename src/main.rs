@@ -260,14 +260,15 @@ fn run() -> Result<(), anyhow::Error> {
                     Some(s) => s,
                     None => {
                         bail!(
-                            "{}\n\n{}",
-                            "No input file path for the '--file' option was given!".red(),
+                            "\n{}\n\n{}",
+                            "NO INPUT FILE PATH FOR THE '--file' OPTION WAS GIVEN".red(),
                             HELP_SHORT
                         )
                     }
                 };
-                input = fs::read_to_string(inpfile)
-                    .with_context(|| format!("File '{}' could not be found", inpfile).red())?;
+                input = fs::read_to_string(inpfile).with_context(|| {
+                    format!("\n{}: '{}'", "FILE COULD NOT BE FOUND".red(), inpfile.green())
+                })?;
                 let args = input.trim().split('\n');
                 args
             }
@@ -276,8 +277,9 @@ fn run() -> Result<(), anyhow::Error> {
 
                 ensure!(
                     !args_env.trim().is_empty(),
-                    "{}\n\n{}",
-                    "No actionable arguments were provided!".red(),
+                    "{}\n\n{}\n\n{}",
+                    "NO ACTIONABLE ARGUMENTS WERE PROVIDED".red(),
+                    "If you want to enter interactive mode, provide the '-i' flag.",
                     HELP_SHORT
                 );
 
@@ -291,11 +293,21 @@ fn run() -> Result<(), anyhow::Error> {
         for arg in args.clone() {
             let matches = match parse_args().try_get_matches_from(arg.trim().split_whitespace()) {
                 Ok(m) => m,
-                Err(e) => bail!("\nParsing input '{}' failed\n\n{}", arg.green(), e),
+                Err(e) => bail!(
+                    "\n{}: '{}'\n\n{}",
+                    "FAILURE IN PARSING INPUT".red(),
+                    arg.green(),
+                    e
+                ),
             };
 
             if let Err(e) = Mode::new(&matches) {
-                bail!("\nParsing input '{}' failed\n{}", arg.green(), e)
+                bail!(
+                    "\n{}: '{}'\n\n{}",
+                    "FAILURE IN PARSING INPUT".red(),
+                    arg.green(),
+                    e
+                )
             };
         }
 
@@ -324,7 +336,12 @@ fn run() -> Result<(), anyhow::Error> {
 
             // dispatch(mode, pdb, filename)?;
             if let Err(e) = dispatch(mode, pdb, filename) {
-                bail!("Processing '{}' returned error\n\n{}", arg.green(), e)
+                bail!(
+                    "\n{}: '{}'\n\n{}",
+                    "ERROR DURING PROCESSING OF INPUT".red(),
+                    arg.green(),
+                    e
+                )
             };
         }
     }

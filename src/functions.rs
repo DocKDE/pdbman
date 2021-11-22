@@ -5,7 +5,7 @@ use std::io;
 use std::io::prelude::Write;
 
 use anyhow::{Context, Result};
-use colored::Colorize;
+// use colored::Colorize;
 use itertools::Itertools;
 use lazy_regex::regex;
 use pdbtbx::{Atom, AtomWithHierarchy, PDB};
@@ -112,7 +112,7 @@ pub fn print_pdb_to_stdout(pdb: &PDB) -> Result<(), anyhow::Error> {
             atom_hier.atom.occupancy(),
             atom_hier.atom.b_factor(),
             atom_hier.atom.element()
-        ).context("Failed to print PDB to stdout".red())?
+        ).context("Failed to print PDB to stdout")?
     }
     Ok(())
 }
@@ -178,7 +178,7 @@ pub fn calc_atom_sphere(
 
     ensure!(
         !sphere_atoms.is_empty(),
-        "Calculated sphere doesn't contain any atoms.".red()
+        "Calculated sphere doesn't contain any atoms."
     );
     Ok(sphere_atoms)
 }
@@ -212,7 +212,7 @@ pub fn calc_residue_sphere(
 
     ensure!(
         !sphere_atoms.is_empty(),
-        "Calculated sphere doesn't contain any atoms.".red()
+        "Calculated sphere doesn't contain any atoms."
     );
     Ok(sphere_atoms)
 }
@@ -244,8 +244,8 @@ pub fn find_contacts(pdb: &PDB, level: Distance) -> Result<Table, anyhow::Error>
                 .ok_or_else(|| {
                     anyhow!(
                         "{} {}",
-                        "No radius found for given atom type:".red(),
-                        atom_hier.atom.element().red()
+                        "No radius found for given atom type:",
+                        atom_hier.atom.element()
                     )
                 })?
                 .powf(2.0),
@@ -306,14 +306,14 @@ pub fn find_contacts(pdb: &PDB, level: Distance) -> Result<Table, anyhow::Error>
     if !table.is_empty() {
         if level == Distance::Clashes {
             writeln!(io::stdout(), "\nClash Analysis")
-                .context("Failed to print clash analysis to stdout.".red())?;
+                .context("Failed to print clash analysis to stdout.")?;
         } else if level == Distance::Contacts {
             writeln!(io::stdout(), "\nContact Analysis")
-                .context("Failed to print contact analysis to stdout.".red())?;
+                .context("Failed to print contact analysis to stdout.")?;
         }
         Ok(table)
     } else {
-        bail!("No contacts found!".red())
+        bail!("No contacts found!")
     }
 }
 
@@ -367,17 +367,17 @@ pub fn parse_atomic_list(input: &str, pdb: &PDB) -> Result<AtomList, anyhow::Err
 
             ensure!(
                 missing_atoms.peek().is_none(),
-                "{} {}",
-                "No atom(s) found with serial number(s):".red(),
-                missing_atoms.format(",").to_string().red()
+                "No atom(s) found with serial number(s): {}",
+                missing_atoms.format(",")
             );
         }
         false => {
             let input_vec: Vec<&str> = input.split(',').collect();
 
+            // This might not be necessary
             ensure!(
                 !regex!(r"[:-]").is_match(input),
-                "Ranges are not allowed for atom name inputs.".red()
+                "Ranges are not allowed for atom name inputs."
             );
 
             let mut missing_atoms = input_vec
@@ -391,9 +391,8 @@ pub fn parse_atomic_list(input: &str, pdb: &PDB) -> Result<AtomList, anyhow::Err
 
             ensure!(
                 missing_atoms.peek().is_none(),
-                "{} {}",
-                "No atom(s) found with identifier(s):".red(),
-                missing_atoms.format(",").to_string().red()
+                "No atom(s) found with identifier(s): {}",
+                missing_atoms.format(",")
             );
 
             output_vec = pdb
@@ -444,17 +443,17 @@ pub fn parse_residue_list(input: &str, pdb: &PDB) -> Result<ResidueList, anyhow:
 
             ensure!(
                 missing_residues.peek().is_none(),
-                "{} {}",
-                "No residue(s) found with serial number(s):".red(),
-                missing_residues.format(",").to_string().red()
+                "No residue(s) found with serial number(s): {}",
+                missing_residues.format(",")
             );
         }
         false => {
             let input_vec: Vec<&str> = input.split(',').collect();
 
+            // This might not be necessary
             ensure!(
                 !regex!(r"[:-]").is_match(input),
-                "Ranges are not allowed for residue name inputs.".red()
+                "Ranges are not allowed for residue name inputs."
             );
 
             let mut missing_residues = input_vec
@@ -468,9 +467,8 @@ pub fn parse_residue_list(input: &str, pdb: &PDB) -> Result<ResidueList, anyhow:
 
             ensure!(
                 missing_residues.peek().is_none(),
-                "{} {}",
-                "No residue(s) found with identifier(s):".red(),
-                missing_residues.format(",").to_string().red()
+                "No residue(s) found with identifier(s): {}",
+                missing_residues.format(",")
             );
 
             output_vec = pdb
@@ -641,7 +639,7 @@ pub fn query_atoms(pdb: &PDB, atom_list: AtomList) -> Result<(), anyhow::Error> 
     if let Some(k) = key {
         if let Some(res_ascii) = RESIDUE_ASCII.get(&k.to_uppercase().as_ref()) {
             writeln!(io::stdout(), "{}", res_ascii)
-                .context("Failed to print residue depiction to stdout".red())?
+                .context("Failed to print residue depiction to stdout")?
         }
     }
 
@@ -662,10 +660,7 @@ pub fn get_atomlist(pdb: &PDB, region: Region) -> Result<Vec<String>, anyhow::Er
         .map(|a| a.serial_number().to_string())
         .collect::<Vec<String>>();
 
-    ensure!(
-        !str_vec.is_empty(),
-        "No atoms in the requested region!".red()
-    );
+    ensure!(!str_vec.is_empty(), "No atoms in the requested region!");
     Ok(str_vec)
 }
 
@@ -710,7 +705,7 @@ pub fn query_residues(pdb: &PDB, residue_list: ResidueList) -> Result<(), anyhow
     if let Some(k) = key {
         if let Some(res_ascii) = RESIDUE_ASCII.get(&k.to_uppercase().as_ref()) {
             writeln!(io::stdout(), "{}", res_ascii)
-                .context("Failed to print residue depiction to stdout".red())?
+                .context("Failed to print residue depiction to stdout")?
         }
     }
 
@@ -813,10 +808,10 @@ pub fn analyze(
                 ]);
             }
             writeln!(io::stdout(), "\n{} Residues", region.unwrap().to_owned())
-                .context("Failed to print residues to stdout".red())?;
+                .context("Failed to print residues to stdout")?;
             residue_table.printstd();
         } else {
-            bail!("No Residues found in given region!".red());
+            bail!("No Residues found in given region!");
         }
     } else if target == Some(Target::Atoms) {
         let (atom_list, residue_list) = match region {
@@ -853,10 +848,10 @@ pub fn analyze(
                 }
             }
             writeln!(io::stdout(), "\n{} Atoms", region.unwrap().to_owned())
-                .context("Failed to print atoms to stdout".red())?;
+                .context("Failed to print atoms to stdout")?;
             atom_table.printstd();
         } else {
-            bail!("No Atoms found in given region!".red())
+            bail!("No Atoms found in given region!")
         }
     }
     Ok(())
