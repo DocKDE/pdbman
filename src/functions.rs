@@ -5,7 +5,6 @@ use std::io;
 use std::io::prelude::Write;
 
 use anyhow::{Context, Result};
-// use colored::Colorize;
 use itertools::Itertools;
 use lazy_regex::regex;
 use pdbtbx::{
@@ -163,18 +162,19 @@ pub fn print_pdb_to_stdout(pdb: &PDB) -> Result<(), anyhow::Error> {
 /// of Atoms within the given radius wrapped in a Result. Origin can be included or excluded.
 pub fn calc_atom_sphere(
     pdb: &PDB,
-    origin: impl ContainsAtomConformerResidueChain,
+    origin: &Atom,
+    // origin: impl ContainsAtomConformerResidueChain,
     radius: f64,
     include_self: bool,
 ) -> Result<AtomList, anyhow::Error> {
     let tree = pdb.create_atom_rtree();
     let mut sphere_atoms: AtomList = tree
-        .locate_within_distance(origin.atom().pos(), radius.powf(2.0))
+        .locate_within_distance(origin.pos(), radius.powf(2.0))
         .map(|atom| atom.serial_number())
         .collect();
 
     if !include_self {
-        sphere_atoms.retain(|&x| x != origin.atom().serial_number())
+        sphere_atoms.retain(|&x| x != origin.serial_number())
     }
 
     sphere_atoms.sort_unstable();
@@ -932,24 +932,24 @@ mod tests {
         let atom_list_excl = vec![21, 22, 23, 24, 25, 27, 28, 29, 30, 32, 45, 46];
 
         assert_eq!(
-            calc_atom_sphere(&pdb, origin.clone(), 4.0, true)
+            calc_atom_sphere(&pdb, origin.atom(), 4.0, true)
                 .unwrap()
                 .len(),
             22
         );
         assert_eq!(
-            calc_atom_sphere(&pdb, origin.clone(), 3.0, true).unwrap(),
+            calc_atom_sphere(&pdb, origin.atom(), 3.0, true).unwrap(),
             atom_list_incl
         );
 
         assert_eq!(
-            calc_atom_sphere(&pdb, origin.clone(), 4.0, false)
+            calc_atom_sphere(&pdb, origin.atom(), 4.0, false)
                 .unwrap()
                 .len(),
             21
         );
         assert_eq!(
-            calc_atom_sphere(&pdb, origin.clone(), 3.0, false).unwrap(),
+            calc_atom_sphere(&pdb, origin.atom(), 3.0, false).unwrap(),
             atom_list_excl
         );
     }

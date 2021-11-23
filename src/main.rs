@@ -280,7 +280,7 @@ fn run() -> Result<(), anyhow::Error> {
                 ensure!(
                     !args_env.trim().is_empty(),
                     "{}\n\n{}\n\n{}",
-                    "NO ACTIONABLE ARGUMENTS WERE PROVIDED".red(),
+                    "NO COMMAND ARGUMENTS WERE PROVIDED".red(),
                     "If you want to enter interactive mode, provide the '-i' flag.",
                     HELP_SHORT
                 );
@@ -289,10 +289,12 @@ fn run() -> Result<(), anyhow::Error> {
             }
         };
 
+        // More convenient so the args can be reused without cloning
+        let args_vec: Vec<&str> = args.collect();
         let mut pdb_cache = PDBCacher::new(read_pdb);
 
         // Test for input errors before actually processing anything
-        for arg in args.clone() {
+        for arg in &args_vec {
             let matches = match parse_args().try_get_matches_from(arg.trim().split_whitespace()) {
                 Ok(m) => m,
                 Err(e) => bail!(
@@ -303,7 +305,9 @@ fn run() -> Result<(), anyhow::Error> {
                 ),
             };
 
-            if let Err(e) = Mode::new(&matches) {
+            let mode = match Mode::new(&matches) {
+                Ok(m) => m,
+                Err(e) => 
                 bail!(
                     "\n{}: '{}'\n\n{}",
                     "FAILURE WHILE PARSING COMMAND".red(),
@@ -311,32 +315,12 @@ fn run() -> Result<(), anyhow::Error> {
                     e
                 )
             };
-        }
-
-        // Process inputs, unwrap is fine because everything has been checked previously
-        for arg in args {
-            // let matches = match parse_args().try_get_matches_from(arg.trim().split_whitespace()) {
-            //     Ok(m) => m,
-            //     Err(e) => bail!("\nParsing input '{}' failed\n\n{}", arg.blue(), e),
-            // };
-
-            // let mode = Mode::new(&matches)?;
-            // let mode = match Mode::new(&matches) {
-            //     Ok(m) => m,
-            //     Err(e) => bail!("\nParsing input '{}' failed\n{}", arg.blue(), e),
-            // };
-
-            let matches = parse_args()
-                .try_get_matches_from(arg.trim().split_whitespace())
-                .unwrap();
-            let mode = Mode::new(&matches).unwrap();
 
             let pdb = match pdb_cache.get_pdb().as_mut() {
                 Ok(p) => p,
                 Err(e) => bail!(e.to_string()),
             };
 
-            // dispatch(mode, pdb, filename)?;
             if let Err(e) = dispatch(mode, pdb, filename) {
                 bail!(
                     "\n{}: '{}'\n\n{}",

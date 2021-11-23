@@ -33,7 +33,7 @@ pub fn dispatch(mode: Mode, mut pdb: &mut pdbtbx::PDB, infile: &str) -> Result<(
                     })?;
 
                 let list = match target {
-                    Target::Atoms => calc_atom_sphere(pdb, sphere_origin, *radius, false)?,
+                    Target::Atoms => calc_atom_sphere(pdb, sphere_origin.atom(), *radius, false)?,
                     Target::Residues => calc_residue_sphere(pdb, sphere_origin, *radius, false)?,
                 };
 
@@ -142,7 +142,7 @@ pub fn dispatch(mode: Mode, mut pdb: &mut pdbtbx::PDB, infile: &str) -> Result<(
                     })?;
 
                 let list = match target.unwrap() {
-                    Target::Atoms => calc_atom_sphere(pdb, sphere_origin, *radius, true)?,
+                    Target::Atoms => calc_atom_sphere(pdb, sphere_origin.atom(), *radius, true)?,
                     Target::Residues => calc_residue_sphere(pdb, sphere_origin, *radius, true)?,
                 };
 
