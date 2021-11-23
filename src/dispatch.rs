@@ -4,8 +4,8 @@ use std::io::{self, BufRead, BufReader, BufWriter, Write};
 
 use anyhow::Context;
 use colored::Colorize;
-use pdbtbx::save_pdb;
-use rayon::iter::ParallelIterator;
+use pdbtbx::{save_pdb, ContainsAtomConformer};
+// use rayon::iter::ParallelIterator;
 
 use crate::functions::*;
 use crate::options::*;
@@ -21,8 +21,8 @@ pub fn dispatch(mode: Mode, mut pdb: &mut pdbtbx::PDB, infile: &str) -> Result<(
             },
             Source::Sphere(origin_id, radius) => {
                 let sphere_origin = pdb
-                    .par_atoms_with_hierarchy()
-                    .find_any(|a| a.atom.serial_number() == *origin_id)
+                    .atoms_with_hierarchy()
+                    .find(|a| a.atom().serial_number() == *origin_id)
                     .ok_or_else::<_, _>(|| {
                         // anyhow!("No Atom with serial number {} could be found", origin_id)
                         anyhow!(
@@ -33,8 +33,8 @@ pub fn dispatch(mode: Mode, mut pdb: &mut pdbtbx::PDB, infile: &str) -> Result<(
                     })?;
 
                 let list = match target {
-                    Target::Atoms => calc_atom_sphere(pdb, &sphere_origin, *radius, false)?,
-                    Target::Residues => calc_residue_sphere(pdb, &sphere_origin, *radius, false)?,
+                    Target::Atoms => calc_atom_sphere(pdb, sphere_origin, *radius, false)?,
+                    Target::Residues => calc_residue_sphere(pdb, sphere_origin, *radius, false)?,
                 };
 
                 query_atoms(pdb, list)?;
@@ -69,8 +69,9 @@ pub fn dispatch(mode: Mode, mut pdb: &mut pdbtbx::PDB, infile: &str) -> Result<(
                 let list = match *source.as_ref().unwrap() {
                     Source::List(l) => l.to_string(),
                     Source::Infile(f) => {
-                        let file =
-                            BufReader::new(File::open(f).context("\nNO SUCH FILE OR DIRECTORY".red())?);
+                        let file = BufReader::new(
+                            File::open(f).context("\nNO SUCH FILE OR DIRECTORY".red())?,
+                        );
                         let list = file
                             .lines()
                             .enumerate()
@@ -129,20 +130,20 @@ pub fn dispatch(mode: Mode, mut pdb: &mut pdbtbx::PDB, infile: &str) -> Result<(
             }
             Some(Source::Sphere(origin_id, radius)) => {
                 let sphere_origin = pdb
-                    .par_atoms_with_hierarchy()
-                    .find_any(|a| a.atom.serial_number() == *origin_id)
+                    .atoms_with_hierarchy()
+                    .find(|a| a.atom().serial_number() == *origin_id)
                     .ok_or_else::<_, _>(|| {
                         // anyhow!("No Atom with serial number {} could be found", origin_id)
                         anyhow!(
                             "{}: '{}'",
-                            "NO ATOM WITH SERIAL NUMBER FOUND WITH SERIAL NUMBER".red(),
+                            "NO ATOM FOUND WITH SERIAL NUMBER".red(),
                             origin_id.to_string().green(),
                         )
                     })?;
 
                 let list = match target.unwrap() {
-                    Target::Atoms => calc_atom_sphere(pdb, &sphere_origin, *radius, true)?,
-                    Target::Residues => calc_residue_sphere(pdb, &sphere_origin, *radius, true)?,
+                    Target::Atoms => calc_atom_sphere(pdb, sphere_origin, *radius, true)?,
+                    Target::Residues => calc_residue_sphere(pdb, sphere_origin, *radius, true)?,
                 };
 
                 match region.unwrap() {

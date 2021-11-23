@@ -267,7 +267,11 @@ fn run() -> Result<(), anyhow::Error> {
                     }
                 };
                 input = fs::read_to_string(inpfile).with_context(|| {
-                    format!("\n{}: '{}'", "FILE COULD NOT BE FOUND".red(), inpfile.green())
+                    format!(
+                        "\n{}: '{}'",
+                        "FILE COULD NOT BE FOUND".red(),
+                        inpfile.green()
+                    )
                 })?;
                 let args = input.trim().split('\n');
                 args

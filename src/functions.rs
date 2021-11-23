@@ -8,7 +8,10 @@ use anyhow::{Context, Result};
 // use colored::Colorize;
 use itertools::Itertools;
 use lazy_regex::regex;
-use pdbtbx::{Atom, AtomWithHierarchy, PDB};
+use pdbtbx::{
+    Atom, ContainsAtomConformer, ContainsAtomConformerResidue, ContainsAtomConformerResidueChain,
+    PDB,
+};
 use prettytable::{format, Table};
 use rayon::prelude::ParallelIterator;
 
@@ -101,17 +104,17 @@ pub fn print_pdb_to_stdout(pdb: &PDB) -> Result<(), anyhow::Error> {
         writeln!(
             handle,
             "ATOM  {:>5} {:<4} {:>3} {:1}{:>4}    {:>8.3}{:>8.3}{:>8.3}{:>6.2}{:>6.2}          {:>2}",
-            atom_hier.atom.serial_number(),
-            atom_hier.atom.name(),
-            atom_hier.residue.name().unwrap_or(""),
-            atom_hier.chain.id(),
-            atom_hier.residue.serial_number(),
-            atom_hier.atom.x(),
-            atom_hier.atom.y(),
-            atom_hier.atom.z(),
-            atom_hier.atom.occupancy(),
-            atom_hier.atom.b_factor(),
-            atom_hier.atom.element()
+            atom_hier.atom().serial_number(),
+            atom_hier.atom().name(),
+            atom_hier.residue().name().unwrap_or(""),
+            atom_hier.chain().id(),
+            atom_hier.residue().serial_number(),
+            atom_hier.atom().x(),
+            atom_hier.atom().y(),
+            atom_hier.atom().z(),
+            atom_hier.atom().occupancy(),
+            atom_hier.atom().b_factor(),
+            atom_hier.atom().element()
         ).context("Failed to print PDB to stdout")?
     }
     Ok(())
@@ -160,18 +163,18 @@ pub fn print_pdb_to_stdout(pdb: &PDB) -> Result<(), anyhow::Error> {
 /// of Atoms within the given radius wrapped in a Result. Origin can be included or excluded.
 pub fn calc_atom_sphere(
     pdb: &PDB,
-    origin: &AtomWithHierarchy,
+    origin: impl ContainsAtomConformerResidueChain,
     radius: f64,
     include_self: bool,
 ) -> Result<AtomList, anyhow::Error> {
     let tree = pdb.create_atom_rtree();
     let mut sphere_atoms: AtomList = tree
-        .locate_within_distance(origin.atom.pos_array(), radius.powf(2.0))
+        .locate_within_distance(origin.atom().pos(), radius.powf(2.0))
         .map(|atom| atom.serial_number())
         .collect();
 
     if !include_self {
-        sphere_atoms.retain(|&x| x != origin.atom.serial_number())
+        sphere_atoms.retain(|&x| x != origin.atom().serial_number())
     }
 
     sphere_atoms.sort_unstable();
@@ -188,20 +191,20 @@ pub fn calc_atom_sphere(
 /// Origin residue can be included or excluded.
 pub fn calc_residue_sphere(
     pdb: &PDB,
-    origin: &AtomWithHierarchy,
+    origin: impl ContainsAtomConformerResidueChain,
     radius: f64,
     include_self: bool,
 ) -> Result<AtomList, anyhow::Error> {
-    let tree = pdb.create_atom_with_hierarchy_rtree();
+    let tree = pdb.create_hierarchy_rtree();
 
     let mut sphere_atoms: AtomList = tree
-        .locate_within_distance(origin.atom.pos_array(), radius.powf(2.0))
-        .flat_map(|atom_hier| atom_hier.residue.atoms().map(|atom| atom.serial_number()))
+        .locate_within_distance(origin.atom().pos(), radius.powf(2.0))
+        .flat_map(|atom_hier| atom_hier.residue().atoms().map(|atom| atom.serial_number()))
         .unique()
         .collect();
 
     let origin_res_atoms: AtomList = origin
-        .residue
+        .residue()
         .atoms()
         .map(|atom| atom.serial_number())
         .collect();
@@ -233,69 +236,69 @@ pub fn find_contacts(pdb: &PDB, level: Distance) -> Result<Table, anyhow::Error>
         "Distance"
     ]);
 
-    let tree = pdb.create_atom_with_hierarchy_rtree();
+    let tree = pdb.create_hierarchy_rtree();
 
     for atom_hier in pdb.atoms_with_hierarchy() {
         let radius: f64 = match level {
             Distance::Clashes => 1.0,
             Distance::Contacts => atom_hier
-                .atom
+                .atom()
                 .atomic_radius()
                 .ok_or_else(|| {
                     anyhow!(
                         "{} {}",
                         "No radius found for given atom type:",
-                        atom_hier.atom.element()
+                        atom_hier.atom().element()
                     )
                 })?
                 .powf(2.0),
         };
 
-        let contacts = tree.locate_within_distance(atom_hier.atom.pos_array(), radius);
+        let contacts = tree.locate_within_distance(atom_hier.atom().pos(), radius);
 
         for other_atom_hier in contacts {
             // This eliminates duplicate entries
-            if other_atom_hier.atom < atom_hier.atom
+            if other_atom_hier.atom() < atom_hier.atom()
             // This eliminates atoms from same residue
-                && other_atom_hier.residue != atom_hier.residue
+                && other_atom_hier.residue() != atom_hier.residue()
                 // This eliminates neighboring residues
-                && !(other_atom_hier.atom.name() == "C"
-                    && atom_hier.atom.name() == "N"
-                    && other_atom_hier.residue.serial_number() + 1
-                        == atom_hier.residue.serial_number())
+                && !(other_atom_hier.atom().name() == "C"
+                    && atom_hier.atom().name() == "N"
+                    && other_atom_hier.residue().serial_number() + 1
+                        == atom_hier.residue().serial_number())
             {
-                let distance = other_atom_hier.atom.distance(atom_hier.atom);
+                let distance = other_atom_hier.atom().distance(atom_hier.atom());
 
                 if distance <= 0.75 && distance > 0.5 {
                     table.add_row(row![
                         bByFd =>
-                        other_atom_hier.atom.serial_number(),
-                        other_atom_hier.atom.name(),
-                        other_atom_hier.residue.name().unwrap_or(""),
-                        atom_hier.atom.serial_number(),
-                        atom_hier.atom.name(),
-                        atom_hier.residue.name().unwrap_or(""),
+                        other_atom_hier.atom().serial_number(),
+                        other_atom_hier.atom().name(),
+                        other_atom_hier.residue().name().unwrap_or(""),
+                        atom_hier.atom().serial_number(),
+                        atom_hier.atom().name(),
+                        atom_hier.residue().name().unwrap_or(""),
                         format!("{:.2}", distance)
                     ]);
                 } else if distance <= 0.5 {
                     table.add_row(row![
                         bBrFd =>
-                        other_atom_hier.atom.serial_number(),
-                        other_atom_hier.atom.name(),
-                        other_atom_hier.residue.name().unwrap_or(""),
-                        atom_hier.atom.serial_number(),
-                        atom_hier.atom.name(),
-                        atom_hier.residue.name().unwrap_or(""),
+                        other_atom_hier.atom().serial_number(),
+                        other_atom_hier.atom().name(),
+                        other_atom_hier.residue().name().unwrap_or(""),
+                        atom_hier.atom().serial_number(),
+                        atom_hier.atom().name(),
+                        atom_hier.residue().name().unwrap_or(""),
                         format!("{:.2}", distance)
                     ]);
                 } else {
                     table.add_row(row![
-                        other_atom_hier.atom.serial_number(),
-                        other_atom_hier.atom.name(),
-                        other_atom_hier.residue.name().unwrap_or(""),
-                        atom_hier.atom.serial_number(),
-                        atom_hier.atom.name(),
-                        atom_hier.residue.name().unwrap_or(""),
+                        other_atom_hier.atom().serial_number(),
+                        other_atom_hier.atom().name(),
+                        other_atom_hier.residue().name().unwrap_or(""),
+                        atom_hier.atom().serial_number(),
+                        atom_hier.atom().name(),
+                        atom_hier.residue().name().unwrap_or(""),
                         format!("{:.2}", distance)
                     ]);
                 }
@@ -617,31 +620,31 @@ pub fn query_atoms(pdb: &PDB, atom_list: AtomList) -> Result<(), anyhow::Error> 
     let mut resname_vec = Vec::new();
 
     for atom_hier in pdb.atoms_with_hierarchy() {
-        if atom_list.contains(&atom_hier.atom.serial_number()) {
-            resname_vec.push(atom_hier.residue.name());
+        if atom_list.contains(&atom_hier.atom().serial_number()) {
+            resname_vec.push(atom_hier.residue().name());
 
             table.add_row(row![
-                atom_hier.atom.serial_number(),
-                atom_hier.atom.name(),
-                atom_hier.residue.serial_number().to_string()
-                    + atom_hier.residue.insertion_code().unwrap_or(""),
-                atom_hier.residue.name().unwrap_or(""),
-                atom_hier.atom.occupancy(),
-                atom_hier.atom.b_factor(),
+                atom_hier.atom().serial_number(),
+                atom_hier.atom().name(),
+                atom_hier.residue().serial_number().to_string()
+                    + atom_hier.residue().insertion_code().unwrap_or(""),
+                atom_hier.residue().name().unwrap_or(""),
+                atom_hier.atom().occupancy(),
+                atom_hier.atom().b_factor(),
             ]);
         }
     }
 
-    if !resname_vec.is_empty() && resname_vec.iter().all_equal() {
-        key = resname_vec[0]
-    }
+    // if !resname_vec.is_empty() && resname_vec.iter().all_equal() {
+    //     key = resname_vec[0]
+    // }
 
-    if let Some(k) = key {
-        if let Some(res_ascii) = RESIDUE_ASCII.get(&k.to_uppercase().as_ref()) {
-            writeln!(io::stdout(), "{}", res_ascii)
-                .context("Failed to print residue depiction to stdout")?
-        }
-    }
+    // if let Some(k) = key {
+    //     if let Some(res_ascii) = RESIDUE_ASCII.get(&k.to_uppercase().as_ref()) {
+    //         writeln!(io::stdout(), "{}", res_ascii)
+    //             .context("Failed to print residue depiction to stdout")?
+    //     }
+    // }
 
     table.printstd();
     Ok(())
@@ -678,7 +681,7 @@ pub fn query_residues(pdb: &PDB, residue_list: ResidueList) -> Result<(), anyhow
         "Active"
     ]);
 
-    let mut key: Option<&str> = None;
+    // let mut key: Option<&str> = None;
 
     for atom_hier in pdb.atoms_with_hierarchy() {
         // let res = (
@@ -686,28 +689,28 @@ pub fn query_residues(pdb: &PDB, residue_list: ResidueList) -> Result<(), anyhow
         //     atom_hier.residue.insertion_code().map(ToOwned::to_owned),
         // );
 
-        if residue_list.contains(&atom_hier.residue.serial_number()) {
+        if residue_list.contains(&atom_hier.residue().serial_number()) {
             if residue_list.len() == 1 {
-                key = atom_hier.residue.name();
+                // key = atom_hier.residue().name();
             }
             table.add_row(row![
-                atom_hier.atom.serial_number(),
-                atom_hier.atom.name(),
-                atom_hier.residue.serial_number().to_string()
-                    + atom_hier.residue.insertion_code().unwrap_or(""),
-                atom_hier.residue.name().unwrap_or(""),
-                atom_hier.atom.occupancy(),
-                atom_hier.atom.b_factor(),
+                atom_hier.atom().serial_number(),
+                atom_hier.atom().name(),
+                atom_hier.residue().serial_number().to_string()
+                    + atom_hier.residue().insertion_code().unwrap_or(""),
+                atom_hier.residue().name().unwrap_or(""),
+                atom_hier.atom().occupancy(),
+                atom_hier.atom().b_factor(),
             ]);
         }
     }
 
-    if let Some(k) = key {
-        if let Some(res_ascii) = RESIDUE_ASCII.get(&k.to_uppercase().as_ref()) {
-            writeln!(io::stdout(), "{}", res_ascii)
-                .context("Failed to print residue depiction to stdout")?
-        }
-    }
+    // if let Some(k) = key {
+    //     if let Some(res_ascii) = RESIDUE_ASCII.get(&k.to_uppercase().as_ref()) {
+    //         writeln!(io::stdout(), "{}", res_ascii)
+    //             .context("Failed to print residue depiction to stdout")?
+    //     }
+    // }
 
     table.printstd();
     Ok(())
@@ -921,26 +924,30 @@ mod tests {
         let pdb = test_pdb("tests/test_blank.pdb");
         let origin = pdb
             .atoms_with_hierarchy()
-            .find(|x| x.atom.serial_number() == 26)
+            .find(|x| x.atom().serial_number() == 26)
             .unwrap();
         let atom_list_incl = vec![21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 32, 45, 46];
         let atom_list_excl = vec![21, 22, 23, 24, 25, 27, 28, 29, 30, 32, 45, 46];
 
         assert_eq!(
-            calc_atom_sphere(&pdb, &origin, 4.0, true).unwrap().len(),
+            calc_atom_sphere(&pdb, origin.clone(), 4.0, true)
+                .unwrap()
+                .len(),
             22
         );
         assert_eq!(
-            calc_atom_sphere(&pdb, &origin, 3.0, true).unwrap(),
+            calc_atom_sphere(&pdb, origin.clone(), 3.0, true).unwrap(),
             atom_list_incl
         );
 
         assert_eq!(
-            calc_atom_sphere(&pdb, &origin, 4.0, false).unwrap().len(),
+            calc_atom_sphere(&pdb, origin.clone(), 4.0, false)
+                .unwrap()
+                .len(),
             21
         );
         assert_eq!(
-            calc_atom_sphere(&pdb, &origin, 3.0, false).unwrap(),
+            calc_atom_sphere(&pdb, origin.clone(), 3.0, false).unwrap(),
             atom_list_excl
         );
     }
@@ -950,7 +957,7 @@ mod tests {
         let pdb = test_pdb("tests/test_blank.pdb");
         let origin = pdb
             .atoms_with_hierarchy()
-            .find(|x| x.atom.serial_number() == 26)
+            .find(|x| x.atom().serial_number() == 26)
             .unwrap();
         let atom_list_excl = vec![
             19, 20, 21, 22, 23, 24, 25, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61,
@@ -958,17 +965,19 @@ mod tests {
         ];
 
         assert_eq!(
-            calc_residue_sphere(&pdb, &origin, 4.0, true).unwrap().len(),
+            calc_residue_sphere(&pdb, origin.clone(), 4.0, true)
+                .unwrap()
+                .len(),
             44
         );
         assert_eq!(
-            calc_residue_sphere(&pdb, &origin, 4.0, false)
+            calc_residue_sphere(&pdb, origin.clone(), 4.0, false)
                 .unwrap()
                 .len(),
             23
         );
         assert_eq!(
-            calc_residue_sphere(&pdb, &origin, 4.0, false).unwrap(),
+            calc_residue_sphere(&pdb, origin.clone(), 4.0, false).unwrap(),
             atom_list_excl
         );
     }
