@@ -9,8 +9,8 @@ use anyhow::{Context, Result};
 use itertools::Itertools;
 use lazy_regex::regex;
 use pdbtbx::{
-    Atom, ContainsAtomConformer, ContainsAtomConformerResidue, ContainsAtomConformerResidueChain,
-    PDB,
+    Atom, ContainsAtomConformer, ContainsAtomConformerMut, ContainsAtomConformerResidue,
+    ContainsAtomConformerResidueChain, PDB,
 };
 use prettytable::{format, Table};
 use rayon::prelude::ParallelIterator;
@@ -41,23 +41,23 @@ pub fn edit_residues(
         _ => unreachable!(),
     };
 
-    pdb.par_residues_mut().for_each(|res| {
-        if list.contains(&res.serial_number()) {
-            res.par_atoms_mut().for_each(|atom| match partial {
-                None => edit(atom),
+    pdb.atoms_with_hierarchy_mut().for_each(|mut res| {
+        if list.contains(&res.residue().serial_number()) {
+            match partial {
+                None => edit(res.atom_mut()),
                 Some(Partial::Sidechain) => {
-                    if !atom.is_backbone() {
-                        edit(atom)
+                    if !res.atom().is_backbone() {
+                        edit(res.atom_mut())
                     }
                 }
                 Some(Partial::Backbone) => {
-                    if atom.is_backbone() {
-                        edit(atom)
+                    if res.atom().is_backbone() {
+                        edit(res.atom_mut())
                     }
                 }
-            })
+            }
         }
-    })
+    });
 }
 
 /// This functions edits the q or b value of the PDB file (used by ORCA as input for QM region
@@ -621,7 +621,7 @@ pub fn query_atoms(pdb: &PDB, atom_list: AtomList) -> Result<(), anyhow::Error> 
 
     for atom_hier in pdb.atoms_with_hierarchy() {
         if atom_list.contains(&atom_hier.atom().serial_number()) {
-            resname_vec.push(atom_hier.residue().name());
+            resname_vec.push(atom_hier.residue().name().map(|s| s.to_owned()));
 
             table.add_row(row![
                 atom_hier.atom().serial_number(),
@@ -635,16 +635,16 @@ pub fn query_atoms(pdb: &PDB, atom_list: AtomList) -> Result<(), anyhow::Error> 
         }
     }
 
-    // if !resname_vec.is_empty() && resname_vec.iter().all_equal() {
-    //     key = resname_vec[0]
-    // }
+    if !resname_vec.is_empty() && resname_vec.iter().all_equal() {
+        key = resname_vec[0].as_deref()
+    }
 
-    // if let Some(k) = key {
-    //     if let Some(res_ascii) = RESIDUE_ASCII.get(&k.to_uppercase().as_ref()) {
-    //         writeln!(io::stdout(), "{}", res_ascii)
-    //             .context("Failed to print residue depiction to stdout")?
-    //     }
-    // }
+    if let Some(k) = key {
+        if let Some(res_ascii) = RESIDUE_ASCII.get(&k.to_uppercase().as_ref()) {
+            writeln!(io::stdout(), "{}", res_ascii)
+                .context("Failed to print residue depiction to stdout")?
+        }
+    }
 
     table.printstd();
     Ok(())
@@ -681,7 +681,8 @@ pub fn query_residues(pdb: &PDB, residue_list: ResidueList) -> Result<(), anyhow
         "Active"
     ]);
 
-    // let mut key: Option<&str> = None;
+    // let mut key = None;
+    let mut key = None;
 
     for atom_hier in pdb.atoms_with_hierarchy() {
         // let res = (
@@ -692,6 +693,7 @@ pub fn query_residues(pdb: &PDB, residue_list: ResidueList) -> Result<(), anyhow
         if residue_list.contains(&atom_hier.residue().serial_number()) {
             if residue_list.len() == 1 {
                 // key = atom_hier.residue().name();
+                key = atom_hier.residue().name().map(|s| s.to_owned());
             }
             table.add_row(row![
                 atom_hier.atom().serial_number(),
@@ -705,12 +707,12 @@ pub fn query_residues(pdb: &PDB, residue_list: ResidueList) -> Result<(), anyhow
         }
     }
 
-    // if let Some(k) = key {
-    //     if let Some(res_ascii) = RESIDUE_ASCII.get(&k.to_uppercase().as_ref()) {
-    //         writeln!(io::stdout(), "{}", res_ascii)
-    //             .context("Failed to print residue depiction to stdout")?
-    //     }
-    // }
+    if let Some(k) = key {
+        if let Some(res_ascii) = RESIDUE_ASCII.get(&k.to_uppercase().as_ref()) {
+            writeln!(io::stdout(), "{}", res_ascii)
+                .context("Failed to print residue depiction to stdout")?
+        }
+    }
 
     table.printstd();
     Ok(())
