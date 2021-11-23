@@ -91,19 +91,27 @@ It is also possible to utilize this mode of operation for scripting in which cas
 
 Five different subcommands are available (equivalent aliases given in parentheses):
 
-- `Analyze` (`analyze`, `ana`, `Y`, `y`), analyzes the QM and active region definitions currently in place
-- `Remove` (`remove`, `rem`, `R`, `r`), removes atoms or residues from QM or active region
-- `Add` (`add`, `A`, `a`), adds atoms or residues from QM or active regions
-- `Query` (`query`, `que`, `Q`, `q`), queries the PDB file for information on atoms, residues, atom names etc.
-- `Write` (`write`, `wri`, `W`, `w`), writes information about the current state of the PDB structure in memory to stdout or file
+- `Analyze` analyzes the QM and active region definitions currently in place
+- `Remove` removes atoms or residues from QM or active region
+- `Add` adds atoms or residues from QM or active regions
+- `Query` queries the PDB file for information on atoms, residues, atom names etc.
+- `Write` writes information about the current state of the PDB structure in memory to stdout or file
 
-Each subcommand can be called by any of its aliases like so:
+Each subcommand can be called by any of its unique, case-insensitive abbreviations:
 
-`analyze`
+`ana`
+
+`Que`
 
 `rem`
 
 `A -rql 1,5,18`
+
+Due to the letter 'A' occurring twice in the beginning of subcommands, the `Analyze` command can also be called as:
+
+`Y` 
+
+`y`
 
 &nbsp;
 

@@ -68,13 +68,14 @@ fn list_valid(v: &str) -> Result<(), anyhow::Error> {
 /// Defines all Args, their configuration and all ArgGroups as defined by clap.
 pub fn parse_args() -> App<'static> {
     App::new("")
-        .setting(AppSettings::ArgRequiredElseHelp)
-        .setting(AppSettings::SubcommandRequiredElseHelp)
+        // .setting(AppSettings::ArgRequiredElseHelp)
+        // .setting(AppSettings::SubcommandRequiredElseHelp)
         // .setting(AppSettings::VersionlessSubcommands)
+        .setting(AppSettings::InferSubcommands)
         .setting(AppSettings::NoBinaryName)
         .subcommand(App::new("Query")
             .about("Query mode")
-            .visible_aliases(&["query", "que", "Q", "q"])
+            .visible_aliases(&["query"])
             .arg(
                 Arg::new("Residues")
                     .about("Residue Mode")
@@ -118,7 +119,7 @@ pub fn parse_args() -> App<'static> {
         )
         .subcommand(App::new("Analyze")
             .about("Analysis mode")
-            .visible_aliases(&["analyze", "ana", "Y", "y"])
+            .visible_aliases(&["analyze", "Y", "y"])
             .arg(
                 Arg::new("Residues")
                     .about("Residue Mode")
@@ -167,7 +168,7 @@ pub fn parse_args() -> App<'static> {
         )
         .subcommand(App::new("Add")
             .about("Add mode")
-            .visible_aliases(&["add", "A", "a"])
+            .visible_aliases(&["add"])
             .arg(
                 Arg::new("Residues")
                     .about("Residue Mode")
@@ -256,7 +257,7 @@ pub fn parse_args() -> App<'static> {
         )
         .subcommand(App::new("Remove")
             .about("Remove mode")
-            .visible_aliases(&["remove", "rem", "R", "r"])
+            .visible_aliases(&["remove"])
             .arg(
                 Arg::new("Residues")
                     .about("Residue Mode")
@@ -347,7 +348,7 @@ pub fn parse_args() -> App<'static> {
         )
         .subcommand(App::new("Write")
             .about("Write Mode")
-            .visible_aliases(&["write", "wri", "W", "w"])
+            .visible_aliases(&["write"])
             .arg(
                 Arg::new("QM1")
                     .about("Write QM1 atom list")

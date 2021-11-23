@@ -121,7 +121,6 @@ fn run() -> Result<(), anyhow::Error> {
     let pdbman_match = app_from_crate!()
         .setting(AppSettings::DisableVersionFlag)
         .setting(AppSettings::IgnoreErrors)
-        // .setting(AppSettings::AllowExternalSubcommands)
         .setting(AppSettings::NoAutoHelp)
         .arg(Arg::new("PDBFILE").about("Path to PDB file").required(true))
         .arg(
@@ -152,11 +151,10 @@ fn run() -> Result<(), anyhow::Error> {
         return Ok(());
     }
 
-    // Must be present, otherwise clap would complain, thus `unwrap()` is ok.
-    // let filename = pdbman_match.value_of("PDBFILE").unwrap();
+    // Must be handled explicitly because clap errors are disabled
     let filename = match pdbman_match.value_of("PDBFILE") {
         Some(s) => s,
-        None => bail!("No PDB file path was given!".red()),
+        None => bail!("NO PDB FILE PATH WAS GIVEN!".red()),
     };
 
     let read_pdb = || -> Result<pdbtbx::PDB, anyhow::Error> {
@@ -167,7 +165,7 @@ fn run() -> Result<(), anyhow::Error> {
             }
             Err(errors) => {
                 errors.iter().for_each(|x| println!("{}", x));
-                bail!("Exiting...".red())
+                bail!("EXITING...".red())
             }
         }
     };
@@ -270,7 +268,7 @@ fn run() -> Result<(), anyhow::Error> {
                     format!(
                         "\n{}: '{}'",
                         "FILE COULD NOT BE FOUND".red(),
-                        inpfile.green()
+                        inpfile.blue()
                     )
                 })?;
                 let args = input.trim().split('\n');
@@ -299,8 +297,8 @@ fn run() -> Result<(), anyhow::Error> {
                 Ok(m) => m,
                 Err(e) => bail!(
                     "\n{}: '{}'\n\n{}",
-                    "FAILURE IN PARSING INPUT".red(),
-                    arg.green(),
+                    "FAILURE WHILE PARSING COMMAND".red(),
+                    arg.blue(),
                     e
                 ),
             };
@@ -308,8 +306,8 @@ fn run() -> Result<(), anyhow::Error> {
             if let Err(e) = Mode::new(&matches) {
                 bail!(
                     "\n{}: '{}'\n\n{}",
-                    "FAILURE IN PARSING INPUT".red(),
-                    arg.green(),
+                    "FAILURE WHILE PARSING COMMAND".red(),
+                    arg.blue(),
                     e
                 )
             };
@@ -319,13 +317,13 @@ fn run() -> Result<(), anyhow::Error> {
         for arg in args {
             // let matches = match parse_args().try_get_matches_from(arg.trim().split_whitespace()) {
             //     Ok(m) => m,
-            //     Err(e) => bail!("\nParsing input '{}' failed\n\n{}", arg.green(), e),
+            //     Err(e) => bail!("\nParsing input '{}' failed\n\n{}", arg.blue(), e),
             // };
 
             // let mode = Mode::new(&matches)?;
             // let mode = match Mode::new(&matches) {
             //     Ok(m) => m,
-            //     Err(e) => bail!("\nParsing input '{}' failed\n{}", arg.green(), e),
+            //     Err(e) => bail!("\nParsing input '{}' failed\n{}", arg.blue(), e),
             // };
 
             let matches = parse_args()
@@ -343,7 +341,7 @@ fn run() -> Result<(), anyhow::Error> {
                 bail!(
                     "\n{}: '{}'\n\n{}",
                     "ERROR DURING PROCESSING OF INPUT".red(),
-                    arg.green(),
+                    arg.blue(),
                     e
                 )
             };

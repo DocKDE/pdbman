@@ -28,7 +28,7 @@ pub fn dispatch(mode: Mode, mut pdb: &mut pdbtbx::PDB, infile: &str) -> Result<(
                         anyhow!(
                             "{}: '{}'",
                             "\nNO ATOM WITH FOUND WITH SERIAL NUMBER".red(),
-                            origin_id.to_string().green(),
+                            origin_id.to_string().blue(),
                         )
                     })?;
 
@@ -77,7 +77,7 @@ pub fn dispatch(mode: Mode, mut pdb: &mut pdbtbx::PDB, infile: &str) -> Result<(
                             .enumerate()
                             .map(|(i, l)| -> Result<String, anyhow::Error> {
                                 let s = l
-                                    .context(format!("Couldn't read line {} from file", i).red())?
+                                    .context(format!("{}: {}", "COULDN'T READ LINE FROM FILE".red(), i.to_string().blue()))?
                                     .trim()
                                     .to_owned();
                                 Ok(s)
@@ -137,7 +137,7 @@ pub fn dispatch(mode: Mode, mut pdb: &mut pdbtbx::PDB, infile: &str) -> Result<(
                         anyhow!(
                             "{}: '{}'",
                             "NO ATOM FOUND WITH SERIAL NUMBER".red(),
-                            origin_id.to_string().green(),
+                            origin_id.to_string().blue(),
                         )
                     })?;
 
