@@ -7,17 +7,15 @@ Analyzes and modifies PDB files for QM/MM calculations.
 This program takes a PDB file as input and analyzes or changes it as needed to
 serve as input for Orca QM/MM calculations. 
 
-Note that for the time being two version of this software is provided: a Python and a Rust version. They are roughly equal in terms of features with the Rust version being faster and more actively developed. The Python version will be deprecated at some point.
-
 ### Capabilities
 
-- Query specific atoms and residues by ID or name
+- Query specific atoms or residues by ID or name
 - Find atoms or residues within a user-defined sphere of a given atom
 - Analyze atoms and/or residues present in QM or active region
 - Find clashes and atomic contacts in given PDB file
 - Add or remove atoms or residues to QM or active region by ID or name
 - Add or remove atoms and residues to QM or active region by calculating a sphere of given radius around a given atom
-- Add or remove only the sidechain or backbone of residues by ID or name
+- Add or remove only the sidechain or backbone of residues
 - Write changes to stdout or file
 - Lists of QM or active atoms can be saved to or loaded from files
 
