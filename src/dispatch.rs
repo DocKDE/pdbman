@@ -77,7 +77,11 @@ pub fn dispatch(mode: Mode, mut pdb: &mut pdbtbx::PDB, infile: &str) -> Result<(
                             .enumerate()
                             .map(|(i, l)| -> Result<String, anyhow::Error> {
                                 let s = l
-                                    .context(format!("{}: {}", "COULDN'T READ LINE FROM FILE".red(), i.to_string().blue()))?
+                                    .context(format!(
+                                        "{}: {}",
+                                        "COULDN'T READ LINE FROM FILE".red(),
+                                        i.to_string().blue()
+                                    ))?
                                     .trim()
                                     .to_owned();
                                 Ok(s)

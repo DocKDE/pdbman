@@ -307,13 +307,12 @@ fn run() -> Result<(), anyhow::Error> {
 
             let mode = match Mode::new(&matches) {
                 Ok(m) => m,
-                Err(e) => 
-                bail!(
+                Err(e) => bail!(
                     "\n{}: '{}'\n\n{}",
                     "FAILURE WHILE PARSING COMMAND".red(),
                     arg.blue(),
                     e
-                )
+                ),
             };
 
             let pdb = match pdb_cache.get_pdb().as_mut() {
