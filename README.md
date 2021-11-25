@@ -119,8 +119,10 @@ If the `--residues`/`-r` or `--atoms`/`-t` flag is given in conjunction with a `
 
 Examples:
 
-```
-y -rq
+```Python
+# Analyze QM1 residues
+y -rq 
+# Analyze active atoms
 y -ta
 ```
 
@@ -134,9 +136,12 @@ If no other flags are given, all atoms will be remove from all regions. If only 
 
 Examples:
 
-```
+```Python
+# Remove all atoms from all regions
 r
+# Remove all atoms from QM1 region
 r -q
+# Remove all atoms from QM2 region
 r -o
 ```
 
@@ -152,11 +157,17 @@ If a list from a file is to be used with the `--file`/`-f` flag, a filename hold
 
 Examples:
 
-```
+```Python
+# Remove atoms 16 and 17 from QM1 region
 r -tql 16,17
+# Remove given list of atoms from active region
 r -ral 1-12,49,128
+# Remove list of atoms given in 'atomlist.txt' from QM2 region
 r -tof atomlist.txt
+# Remove all atoms within 10 Å of the atom with ID 3230 from the active region
 r -tas 3230 10
+# Remove all residues that have an atom within 6 Å of the atom with ID 3230 from the QM1 region
+r -rqs 3230 6
 ```
 
 #### Add
@@ -165,7 +176,8 @@ The syntax is exactly the same as for the `Remove` subcommand, except that is do
 
 Examples:
 
-```
+```Python
+# Same syntax as for 'Remove' (see above)
 a -tql 16,17
 a -ral 1-12,49,128
 a -tof atomlist.txt
@@ -180,10 +192,14 @@ This way, atoms/residues with a specific name or ID can be targeted or the surro
 
 Examples:
 
-```
+```Python
+# Find atom(s) with name 'cu' (case-insensitive)
 q -tl cu
+# Show atoms with IDs 23-30
 q -tl 23:30
+# Show residues with IDs 1 and 2
 q -rl 1,2
+# Show all atoms within 2.5 Å of atom with ID 2589
 q -ts 2589 2.5
 ```
 
@@ -217,9 +233,12 @@ If a region flag (`--qm1`/`-q`, `--qm2`/`-o` or `--active`/`-a`) is given, the a
 
 Examples:
 
-```
+```Python
+# Write PDB structure to input file, overwriting it
 w -w
+# Write list of QM1 atoms to stdout
 w -q
+# Write list of active atoms to file 'activeaomts.txt'
 w -af activeatoms.txt
 ```
 
