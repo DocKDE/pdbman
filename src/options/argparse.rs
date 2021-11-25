@@ -168,7 +168,7 @@ pub fn parse_args() -> App<'static> {
         )
         .subcommand(App::new("Add")
             .about("Add mode")
-            .visible_aliases(&["add"])
+            .visible_aliases(&["add", "A", "a"])
             .arg(
                 Arg::new("Residues")
                     .about("Residue Mode")

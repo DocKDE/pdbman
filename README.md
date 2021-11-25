@@ -49,7 +49,7 @@ This will drop you in a shell where you can then enter commands:
 pdbman>
 ```
 
-This is convenient because the PDB file has only to be loaded once and will be kept in memory as long as you're working with it. Furthermore, a few convenience functions are present, such as a command history of the session, comman suggestions based theron and tab completion for files.
+This is convenient because the PDB file has only to be loaded once and will be kept in memory as long as you're working with it. Furthermore, a few convenience functions are present, such as a command history of the session, command suggestions based theron and tab completion for files.
 
 For quitting the shell type `exit`, `e`, `quit` or press `Ctrl-C` or `Ctrl-D`.
 
@@ -87,7 +87,7 @@ It is also possible to utilize this mode of operation for scripting in which cas
 
 ### Commands
 
-Five different subcommands are available (equivalent aliases given in parentheses):
+Five different subcommands are available:
 
 - `Analyze` analyzes the QM and active region definitions currently in place
 - `Remove` removes atoms or residues from QM or active region
@@ -95,21 +95,19 @@ Five different subcommands are available (equivalent aliases given in parenthese
 - `Query` queries the PDB file for information on atoms, residues, atom names etc.
 - `Write` writes information about the current state of the PDB structure in memory to stdout or file
 
-Each subcommand can be called by any of its unique, case-insensitive abbreviations:
+Each subcommand can be called by various aliases (list not exhaustive):
 
-`ana`
+Analyze: `ana`, `Y`, `y`
 
-`Que`
+Query: `Que`, `Q`, `q`
 
-`rem`
+Remove: `rem`, `R`, `r`
 
-`A -rql 1,5,18`
+Add: `Add`, `A`, `a`
 
-Due to the letter 'A' occurring twice in the beginning of subcommands, the `Analyze` command can also be called as:
+Write: `Wri`, `W`, `w`
 
-`Y` 
-
-`y`
+In general subcommand inputs are not case-sensitive and `pdbman` will try to infer the desired subcommand from any given abbreviation (which has to start at the beginning of the word). 
 
 &nbsp;
 
@@ -126,15 +124,15 @@ y -rq
 y -ta
 ```
 
-If the `--clashes`/`-c` or `--contacts`/`-n` flags are given, van-der-Waals clashes or contacts will be listed, respectively, if present. Especially close contacts will be colorized.
+If the `--clashes`/`-c` or `--contacts`/`-n` flag is given, van-der-Waals clashes or contacts will be listed, respectively, if present. Especially close contacts will be colorized.
 
 #### Remove
 
 This mode will remove atoms and/or residues from the specified region.
 
-If no other flags are given, all atoms will be remove from all regions. If only a region flag (``--qm1`/`-q`, `--qm2`/`-o` or `--active`/`-a) is given, all atoms will be removed from the specified region.
+If no other flags are given, all atoms will be remove from all regions. If only a region flag (`--qm1`/`-q`, `--qm2`/`-o` or `--active`/`-a`) is given, all atoms will be removed from the specified region.
 
-Example:
+Examples:
 
 ```
 r
@@ -149,6 +147,8 @@ In the latter case an atom ID and a radius must be given. All atoms within the g
 A `--list`/`-l` flag must be followed by a comma-separated list of items that are to be processed. This can consist of atom/residue IDs or names thereof, but not both.
 
 `pdbman` recognizes ranges of lists separated with a colon (`:`) or dash (`-`).
+
+If a list from a file is to be used with the `--file`/`-f` flag, a filename holding the list must be specified. It follows the same syntax rules as the command line list mentioned previously.
 
 Examples:
 
@@ -239,26 +239,31 @@ Linux and Windows executables are provided (`pdbman` and `pdbman.exe`, respectiv
 
 In case you're on MacOS or the provided executables do not work (e.g. because of outdated versions of underlying libraries), you need to compile fom source:
 
-1. Download `rustup` from [here](https://rustup.rs/) and follow installation instructions
-2. Download the `src` folder, the `cargo.toml` file and put them in a directory as they are.
-3. Open a terminal, navigate to the folder containing `src` and `cargo.toml`
-4. Type `cargo install --path .` (Do not forget the dot)
+1. Download `rustup` from [here](https://rustup.rs/) and follow installation instructions.
+2. Download or clone the repository.
+3. Open a terminal, navigate to the folder containing the `src` folder and the `Cargo.toml` file.
+4. Type `cargo install --path .` (Do not forget the dot).
 
-Rust will now compile the binary and place it in your cargo root folder (location differs based on operating system). It can now be accessed from the command line without any further steps.
+Rust will now compile the binary and place it in your cargo root folder (location differs based on operating system). It can now be accessed from the command line without any further steps. It is also possible to just build the binary without installing it anywhere on your system so you can handle it as you see fit. In this case do:
+
+```
+cargo build --release
+```
+After a successful build a release binary will be placed in the `./target/release` folder (relative to the root folder of the repository).
 
 ## Example Usage
 
-As illustration what `pdbman` is capable of a typical workflow will be shown.
+As illustration what `pdbman` is capable of a typical workflow making use of shell mode will be shown.
 
-It is always called with a single PDB file as command line option like so:
+First the shell needs to be started like so:
 
 ```
-pdbman myfile.pdb
+pdbman myfile.pdb -i
 
 pdbman>
 ```
 
-In this shell all of the remaining commands can be entered. Help can be obtained by typing `help`/`--help` whereas `e`/`exit` will exit the shell. If any changes have been made to the file, they will be saved in a separate file.
+In this shell all of the remaining commands can be entered. Help can be obtained by typing `h`/`help`/`--help` whereas `e`/`exit` will exit the shell. Note that no changes made will be saved unless explicitly requested by the user.
 
 First, the file of interest (here called `myfile.pdb`) will be analyzed:
 
@@ -269,11 +274,11 @@ pdbman> y
 +--------+------------+---------------+
 |        | # of Atoms | # of Residues |
 +--------+------------+---------------+
-| QM1    | 116        | 9             |
+| QM1    | 87449      | 28301         |
 +--------+------------+---------------+
-| QM2    | 1          | 1             |
+| QM2    | 0          | 0             |
 +--------+------------+---------------+
-| Active | 294        | 21            |
+| Active | 0          | 0             |
 +--------+------------+---------------+
 ```
 
@@ -302,7 +307,7 @@ Clash Analysis
 +-----------+-------------+----------------+-----------+-------------+----------------+----------+
 ```
 
-(Different input file shown in figure because `myfile.pdb` has no clashes)
+(Different input file was used here because `myfile.pdb` has no clashes)
 
 This will look for any atoms not belonging to the same residue whose distance is smaller than 1.0 Angströms. If distances are significantly smaller than that they will be highlighted in yellow or red. For more granular control you can also search the local environment of a specific atom like so:
 
@@ -318,9 +323,9 @@ It is also possible to only reset the QM or active region by giving the respecti
 
 `R -q`/`R -a`
 
-The changes made will be saved in a separate file upon exiting the `pdbman` shell so the input file will never be overwritten.
+We will save the changes made here at the end of our editing session.
 
-Next, we want to build an active region of residues around a metal ion in the center of the region of interest to us. In order to find the ID of a suitable atom you can do:
+Next, we want to build an active region of residues around a metal ion in the center of the region of interest to us. In order to find the ID of a suitable atom you can do, e.g.:
 
 `Q -tl Cu`
 
@@ -341,9 +346,20 @@ After we found the atom ID we need, we can build a spherical active space with a
 
 The radius argument can be any floating point number (i.e. decimal points are allowed). If the `-r` flag is given, all residues that contain an atom within the given radius to the given atom will be included. We can look at the results:
 
-`Y`
+```
+pdbman> y
++--------+------------+---------------+
+|        | # of Atoms | # of Residues |
++--------+------------+---------------+
+| QM1    | 0          | 0             |
++--------+------------+---------------+
+| QM2    | 0          | 0             |
++--------+------------+---------------+
+| Active | 441        | 37            |
++--------+------------+---------------+
+```
 
-or with more detail:
+or with more detail (output not shown here):
 
 `Y -ra`
 
@@ -364,29 +380,82 @@ Since we only want the sidechains of some of the amino acids, we can choose to o
 
 `A -rqdl 85,87,160`
 
-Note that in the case of GLY no atoms will be added to the chosen region. If residue insertion codes are present, these need to be included when residue list input is given like so:
-
-`A -rql 85A,87A,9999A-4B`
-
-This is mostly relevant if more than 9999 residues are present.
+Note that in the case of GLY no atoms will be added to the chosen region, if the `--sidechain`/`-d` flag is given. 
 
 If we now want to make some more granular changes to the QM region we can add or remove specific atoms. First we query for their IDs:
 
-`Q -rl 1`
+```
+pdbman> Q -rl 1
+
+                    |                 HE1
+                  H-N             __  /
+                    |   HB1    ND1--CE1
+                    |   |     /      |
+                 HA-CA--CB--CG       |
+                    |   |     \\     |
+                    |   HB2    CD2--NEM
+                  O=C           |     \
+                    |          HD2     CME--HM3
+                                      /  \
+                                    HM1  HM2
+
++---------+-----------+------------+--------------+----+--------+
+| Atom ID | Atom name | Residue ID | Residue Name | QM | Active |
++---------+-----------+------------+--------------+----+--------+
+| 1       | N         | 1          | HIM          | 1  | 0      |
++---------+-----------+------------+--------------+----+--------+
+| 2       | H1        | 1          | HIM          | 1  | 0      |
++---------+-----------+------------+--------------+----+--------+
+| 3       | H2        | 1          | HIM          | 1  | 0      |
++---------+-----------+------------+--------------+----+--------+
+| 4       | CA        | 1          | HIM          | 1  | 0      |
++---------+-----------+------------+--------------+----+--------+
+| 5       | HA        | 1          | HIM          | 1  | 0      |
++---------+-----------+------------+--------------+----+--------+
+| 6       | CB        | 1          | HIM          | 1  | 0      |
++---------+-----------+------------+--------------+----+--------+
+| 7       | HB2       | 1          | HIM          | 1  | 0      |
++---------+-----------+------------+--------------+----+--------+
+| 8       | HB3       | 1          | HIM          | 1  | 0      |
++---------+-----------+------------+--------------+----+--------+
+| 9       | CG        | 1          | HIM          | 1  | 0      |
++---------+-----------+------------+--------------+----+--------+
+| 10      | ND1       | 1          | HIM          | 1  | 0      |
++---------+-----------+------------+--------------+----+--------+
+| 11      | CE1       | 1          | HIM          | 1  | 0      |
++---------+-----------+------------+--------------+----+--------+
+| 12      | HE1       | 1          | HIM          | 1  | 0      |
++---------+-----------+------------+--------------+----+--------+
+| 13      | NEM       | 1          | HIM          | 1  | 0      |
++---------+-----------+------------+--------------+----+--------+
+| 14      | CD2       | 1          | HIM          | 1  | 0      |
++---------+-----------+------------+--------------+----+--------+
+| 15      | HD2       | 1          | HIM          | 1  | 0      |
++---------+-----------+------------+--------------+----+--------+
+| 16      | C         | 1          | HIM          | 1  | 0      |
++---------+-----------+------------+--------------+----+--------+
+| 17      | O         | 1          | HIM          | 1  | 0      |
++---------+-----------+------------+--------------+----+--------+
+| 18      | CME       | 1          | HIM          | 1  | 0      |
++---------+-----------+------------+--------------+----+--------+
+| 19      | HM1       | 1          | HIM          | 1  | 0      |
++---------+-----------+------------+--------------+----+--------+
+| 20      | HM2       | 1          | HIM          | 1  | 0      |
++---------+-----------+------------+--------------+----+--------+
+| 21      | HM3       | 1          | HIM          | 1  | 0      |
++---------+-----------+------------+--------------+----+--------+
+
+```
 
 The we remove the carbon and oxygen atom:
 
-`R -tql 17,18`
+`R -tql 16,17`
 
 The `-l` option supports ranges of atoms or residues which can be given with a dash or colon as separator like so:
 
 `A -tql 1-8,19:27,5`
 
 A final look at the region declarations we made:
-
-`Y`
-
-`Y -rq`
 
 ```
 pdbman> y -rq
@@ -430,7 +499,7 @@ Looks good! Now we're good to go for QM/MM jobs!
 
 ## Known Issues
 
-If the number of residues is over 9999 or the number of atoms is over 99999, automatically created PDB files will usually wrap around and start counting at 1 again. `pdbman` can read these but uses an internal numbering scheme that keeps on counting after reaching the limit. 
+If the number of residues is over 9999 or the number of atoms is over 99999, automatically created PDB files will usually wrap around and start counting at 1 again. `pdbman` can read these but uses an internal numbering scheme that keeps on counting after reaching the wraparound point. 
 
 This discrepancy exists because the number of digits for atom and residues IDs is limited by the file format but these are used by `pdbman` to distiguish between unique atoms and residues. 
 
