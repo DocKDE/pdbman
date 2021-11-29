@@ -351,21 +351,33 @@ pub fn parse_args() -> App<'static> {
             .visible_aliases(&["write"])
             .arg(
                 Arg::new("QM1")
-                    .about("Write QM1 atom list")
+                    .about("Write QM1 region list")
                     .long("qm1")
                     .short('q')
             )
             .arg(
                 Arg::new("QM2")
-                    .about("Write QM2 atom list")
+                    .about("Write QM2 region list")
                     .long("qm2")
                     .short('o')
             )
             .arg(
                 Arg::new("Active")
-                    .about("Write active atom list")
+                    .about("Write active region list")
                     .long("active")
                     .short('a')
+            )
+            .arg(
+                Arg::new("Atoms")
+                .about("Write atom list")
+                .long("atoms")
+                .short('t')
+            )
+            .arg(
+                Arg::new("Residues")
+                .about("Write residue list")
+                .long("residues")
+                .short('r')
             )
             .arg(
                 Arg::new("Outfile")
@@ -379,7 +391,7 @@ pub fn parse_args() -> App<'static> {
                     .about("Overwrite PDB input file")
                     .long("overwrite")
                     .short('w')
-                    .conflicts_with_all(&["QM1", "QM2", "Active"])
+                    .conflicts_with_all(&["QM1", "QM2", "Active", "Atoms", "Residues"])
             )
             .group(
                 ArgGroup::new("output")
@@ -388,6 +400,12 @@ pub fn parse_args() -> App<'static> {
             .group(
                 ArgGroup::new("region")
                     .args(&["QM1", "QM2", "Active"])
+                    .requires("target")
+            )
+            .group(
+                ArgGroup::new("target")
+                    .args(&["Atoms", "Residues"])
+                    .requires("region")
             )
         )
 }

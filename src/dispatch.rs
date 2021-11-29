@@ -173,15 +173,29 @@ pub fn dispatch(mode: Mode, mut pdb: &mut pdbtbx::PDB, infile: &str) -> Result<(
                 }
             }
         },
-        Mode::Write { output, region } => match output {
+        Mode::Write {
+            output,
+            region,
+            target,
+        } => match output {
             None => match region {
                 None => print_pdb_to_stdout(pdb)?,
                 _ => {
                     let stdout = io::stdout();
                     let mut handle = stdout.lock();
-                    for num in get_atomlist(pdb, region.unwrap())? {
-                        writeln!(handle, "{}", num)
-                            .context("FAILED TO WRITE LIST OF ATOMS TO STDOUT".red())?
+                    match target.unwrap() {
+                        Target::Atoms => {
+                            for num in get_atomlist(pdb, region.unwrap())? {
+                                writeln!(handle, "{}", num)
+                                    .context("FAILED TO WRITE LIST OF ATOMS TO STDOUT".red())?
+                            }
+                        }
+                        Target::Residues => {
+                            for num in get_residuelist(pdb, region.unwrap())? {
+                                writeln!(handle, "{}", num)
+                                    .context("FAILED TO WRITE LIST OF RESIDUES TO STDOUT".red())?
+                            }
+                        }
                     }
                 }
             },
@@ -191,20 +205,29 @@ pub fn dispatch(mode: Mode, mut pdb: &mut pdbtbx::PDB, infile: &str) -> Result<(
                         e.into_iter().for_each(|e| println!("{}", e))
                     }
                 }
-                // None => print_pdb_to_file(pdb, f)?,
                 _ => {
                     let mut file = BufWriter::new(File::create(f)?);
-                    for num in get_atomlist(pdb, region.unwrap())? {
-                        writeln!(file, "{}", num)
-                            .context("FAILED TO WRITE LIST OF ATOMS TO STDOUT".red())?;
-                    }
+                    match target.unwrap() {
+                        Target::Atoms => {
+                            for num in get_atomlist(pdb, region.unwrap())? {
+                                writeln!(file, "{}", num)
+                                    .context("FAILED TO WRITE LIST OF ATOMS TO FILE".red())?;
+                            }
+                        }
+                        Target::Residues => {
+                            for num in get_residuelist(pdb, region.unwrap())? {
+                                writeln!(file, "{}", num)
+                                    .context("FAILED TO WRITE LIST OF RESIDUES TO FILE".red())?;
+                            }
+                        }
+                    };
                 }
             },
             Some(Output::Overwrite) => {
                 if let Err(e) = save_pdb(pdb, infile, pdbtbx::StrictnessLevel::Loose) {
                     e.into_iter().for_each(|e| println!("{}", e))
                 }
-            } // Some(Output::Overwrite) => print_pdb_to_file(pdb, infile)?,
+            }
         },
     }
     Ok(())

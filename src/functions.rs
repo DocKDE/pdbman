@@ -8,8 +8,8 @@ use anyhow::{Context, Result};
 use itertools::Itertools;
 use lazy_regex::regex;
 use pdbtbx::{
-    Atom, ContainsAtomConformer, ContainsAtomConformerMut, ContainsAtomConformerResidue,
-    ContainsAtomConformerResidueChain, PDB,
+    Atom, AtomConformerResidueChainModel, ContainsAtomConformer, ContainsAtomConformerMut,
+    ContainsAtomConformerResidue, ContainsAtomConformerResidueChain, PDB,
 };
 use prettytable::{format, Table};
 use rayon::prelude::ParallelIterator;
@@ -716,6 +716,24 @@ pub fn query_residues(pdb: &PDB, residue_list: ResidueList) -> Result<(), anyhow
 
     table.printstd();
     Ok(())
+}
+
+pub fn get_residuelist(pdb: &PDB, region: Region) -> Result<Vec<String>, anyhow::Error> {
+    let filt_closure = match region {
+        Region::QM1 => |a: &AtomConformerResidueChainModel| a.atom().occupancy() == 1.00,
+        Region::QM2 => |a: &AtomConformerResidueChainModel| a.atom().occupancy() == 2.00,
+        Region::Active => |a: &AtomConformerResidueChainModel| a.atom().b_factor() == 1.00,
+    };
+
+    let str_vec = pdb
+        .atoms_with_hierarchy()
+        .filter(|a| filt_closure(a))
+        .map(|a| a.residue().serial_number().to_string())
+        .dedup()
+        .collect::<Vec<String>>();
+
+    ensure!(!str_vec.is_empty(), "No residues in the requested region!");
+    Ok(str_vec)
 }
 
 pub fn analyze(

@@ -32,6 +32,7 @@ pub enum Mode<'a> {
     Write {
         output: Option<Output<'a>>,
         region: Option<Region>,
+        target: Option<Target>,
     },
 }
 
@@ -297,7 +298,16 @@ impl<'a> Mode<'a> {
                     .find(|x| matches.subcommand_matches("Write").unwrap().is_present(x))
                     .map(|s| Region::from_str(s).unwrap());
 
-                Ok(Mode::Write { output, region })
+                let target = Target::VARIANTS
+                    .iter()
+                    .find(|x| matches.subcommand_matches("Write").unwrap().is_present(x))
+                    .map(|s| Target::from_str(s).unwrap());
+
+                Ok(Mode::Write {
+                    output,
+                    region,
+                    target,
+                })
             }
             _ => unreachable!(),
         }
