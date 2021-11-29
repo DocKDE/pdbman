@@ -272,8 +272,9 @@ After a successful build a release binary will be placed in the `./target/releas
 
 ## Example Usage
 
-As illustration what `pdbman` is capable of a typical workflow making use of shell mode will be shown.
+As illustration what `pdbman` is capable of typical workflows will be shown.
 
+### Shell mode
 First the shell needs to be started like so:
 
 ```
@@ -541,6 +542,63 @@ which will save the edited PDB structure to `output.pdb` leaving the input file 
 
 Now we're finally ready for some QM/MM calculations with ORCA!
 
+### Command line mode
+All commands shown in the previous section can also be used directly from command line. Typically this would be desirable if no analysis or querying is necessary and several commands can be chained. One use case would be to transfer the state of one PDB file to another:
+
+First, the atoms in the respective sections of the source PDB file need to be saved to a file each:
+```
+pdbman myfile.pdb w -qf qmatoms.txt / w -af activeatoms.txt
+```
+
+Chaining the commands like this has the advantage that the PDB file is only read and parsed once. Next, the files can be read by `pdbman` to serve as input for another PDB file:
+
+```
+pdbman otherfile.pdb r / a -qtf qmatoms.txt / a -atf activeatoms.txt / w -w
+```
+Make sure to clean the QM and active regions beforehand to remove potential leftovers. Also note that no changes will be written to the file unless specifically requested so a call to the `Write` subcommand is necessary.
+
+Now the state of `myfile.pdb` has been transferred to `otherfile.pdb` successfully. The commands for `pdbman` could also have been read from a file if desired and both modes of operation are useful for scripting and automation workflows.
+
+Finally, for quick queries and analyses `pdbman` may be called from command line directly as above:
+
+```
+pdbman myfile.pdb y
+```
+which will output something like this (just as in shell mode, see above):
+```
++--------+------------+---------------+
+|        | # of Atoms | # of Residues |
++--------+------------+---------------+
+| QM1    | 104        | 8             |
++--------+------------+---------------+
+| QM2    | 0          | 0             |
++--------+------------+---------------+
+| Active | 441        | 37            |
++--------+------------+---------------+
+
+QM1 Residues
++------------+--------------+------------+----------------+
+| Residue ID | Residue Name | # of Atoms | # of QM1 Atoms |
++------------+--------------+------------+----------------+
+| 1          | HIE          | 18         | 16             |
++------------+--------------+------------+----------------+
+| 85         | ALA          | 10         | 4              |
++------------+--------------+------------+----------------+
+| 87         | HID          | 17         | 11             |
++------------+--------------+------------+----------------+
+| 160        | PHE          | 20         | 14             |
++------------+--------------+------------+----------------+
+| 171        | CU           | 1          | 1              |
++------------+--------------+------------+----------------+
+| 203        | 4YB          | 27         | 27             |
++------------+--------------+------------+----------------+
+| 204        | 4YB          | 27         | 27             |
++------------+--------------+------------+----------------+
+| 460        | PER          | 4          | 4              |
++------------+--------------+------------+----------------+
+```
+
+However, if several queries or analyses are to be run in succession, it is recommended to use shell mode to avoid parsing the PDB file with every call of `pdbman`. Especially for larger files this quickly adds up.
 
 ## Requirements
 
