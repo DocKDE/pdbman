@@ -41,7 +41,7 @@ use options::{parse_args, Mode};
 use shell::ShellHelper;
 
 const HELP_LONG: &str = "
-pdbman 0.8.1
+pdbman 0.8.2
     
 Benedikt M. Flöser <benedikt.floeser@cec.mpg.de>
     

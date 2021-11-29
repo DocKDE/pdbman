@@ -183,6 +183,7 @@ pub fn dispatch(mode: Mode, mut pdb: &mut pdbtbx::PDB, infile: &str) -> Result<(
                 _ => {
                     let stdout = io::stdout();
                     let mut handle = stdout.lock();
+                    // target can be unwrapped because required to be Some by clap if region is Some
                     match target.unwrap() {
                         Target::Atoms => {
                             for num in get_atomlist(pdb, region.unwrap())? {
@@ -207,6 +208,7 @@ pub fn dispatch(mode: Mode, mut pdb: &mut pdbtbx::PDB, infile: &str) -> Result<(
                 }
                 _ => {
                     let mut file = BufWriter::new(File::create(f)?);
+                    // target can be unwrapped because required to be Some by clap if region is Some
                     match target.unwrap() {
                         Target::Atoms => {
                             for num in get_atomlist(pdb, region.unwrap())? {
