@@ -1050,13 +1050,7 @@ mod tests {
         }
 
         edit_residues(&mut pdb, res_id_list, "Remove", None, Region::QM2);
-        edit_residues(
-            &mut pdb,
-            res_id_list,
-            "Remove",
-            None,
-            Region::Active,
-        );
+        edit_residues(&mut pdb, res_id_list, "Remove", None, Region::Active);
 
         let res_list = pdb
             .residues()

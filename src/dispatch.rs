@@ -12,12 +12,12 @@ use crate::{functions::*, EditOp, OpTarget};
 
 // Run function that handles the logic of when to call which function given an enum with the
 // command line options. Hands all occurring errors to caller.
-pub fn dispatch (
+pub fn dispatch(
     mode: Mode,
     mut pdb: &mut pdbtbx::PDB,
     infile: &str,
-) -> Result<Option<EditOp>, anyhow::Error> {
-    let mut edit_op: Option<EditOp> = None;
+) -> Result<Option<Vec<EditOp>>, anyhow::Error> {
+    let mut edit_op: Option<Vec<EditOp>> = None;
     match &mode {
         Mode::Query { source, target } => match source {
             Source::List(list) => match target {
@@ -115,17 +115,17 @@ pub fn dispatch (
                             ),
                         }
 
-                        edit_op = match mode.to_string().as_str() {
-                            "Add" => Some(EditOp::ToAdd {
+                        edit_op = Some(vec![match mode.to_string().as_str() {
+                            "Add" => EditOp::ToAdd {
                                 target: OpTarget::Atoms(atomic_list),
                                 region: region.unwrap(),
-                            }),
-                            "Remove" => Some(EditOp::ToRemove {
+                            },
+                            "Remove" => EditOp::ToRemove {
                                 target: OpTarget::Atoms(atomic_list),
                                 region: region.unwrap(),
-                            }),
+                            },
                             _ => unreachable!(),
-                        };
+                        }]);
                     }
                     Target::Residues => {
                         let residue_list = parse_residue_list(&list, pdb)?;
@@ -147,17 +147,17 @@ pub fn dispatch (
                             ),
                         }
 
-                        edit_op = match mode.to_string().as_str() {
-                            "Add" => Some(EditOp::ToAdd {
+                        edit_op = Some(vec![match mode.to_string().as_str() {
+                            "Add" => EditOp::ToAdd {
                                 target: OpTarget::Residues(residue_list),
                                 region: region.unwrap(),
-                            }),
-                            "Remove" => Some(EditOp::ToRemove {
+                            },
+                            "Remove" => EditOp::ToRemove {
                                 target: OpTarget::Residues(residue_list),
                                 region: region.unwrap(),
-                            }), 
+                            },
                             _ => unreachable!(),
-                        };
+                        }]);
                     }
                 }
             }
@@ -188,17 +188,17 @@ pub fn dispatch (
                     }
                 }
 
-                edit_op = match mode.to_string().as_str() {
-                    "Add" => Some(EditOp::ToAdd {
+                edit_op = Some(vec![match mode.to_string().as_str() {
+                    "Add" => EditOp::ToAdd {
                         target: OpTarget::Atoms(list),
                         region: region.unwrap(),
-                    }),
-                    "Remove" => Some(EditOp::ToRemove {
+                    },
+                    "Remove" => EditOp::ToRemove {
                         target: OpTarget::Atoms(list),
                         region: region.unwrap(),
-                    }), 
+                    },
                     _ => unreachable!(),
-                };
+                }]);
             }
             None => {
                 if mode.to_string() == "Remove" && *region == None && *target == None {

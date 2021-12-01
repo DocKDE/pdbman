@@ -123,7 +123,7 @@ where
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum OpTarget {
     Atoms(AtomList),
-    Residues(ResidueList)
+    Residues(ResidueList),
 }
 
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
@@ -245,20 +245,75 @@ fn run() -> Result<(), anyhow::Error> {
                 Err(e) => bail!(e),
             };
 
-            if command == "undo" {
-                match &edit_ops[edit_ops_counter] {
-                    EditOp::ToAdd {target, region} => match target {
-                        OpTarget::Atoms(list) => functions::edit_atoms(&mut pdb, list, "Remove", region.to_owned()),
-                        OpTarget::Residues(list) => functions::edit_residues(&mut pdb, list, "Remove", None, region.to_owned()),
-                    },
-                    EditOp::ToRemove {target, region} => match target {
-                        OpTarget::Atoms(list) => functions::edit_atoms(&mut pdb, list, "Add", region.to_owned()),
-                        OpTarget::Residues(list) => functions::edit_residues(&mut pdb, list, "Add", None, region.to_owned()),
-                    },
-                }
-            } else if command == "redo" {}
-
             rl.add_history_entry(&command);
+
+            if command == "undo" {
+                if edit_ops_counter == 0 {
+                    println!("Nothing to undo");
+                } else {
+                    match &edit_ops[edit_ops_counter - 1] {
+                        EditOp::ToAdd { target, region } => match target {
+                            OpTarget::Atoms(list) => {
+                                functions::edit_atoms(&mut pdb, list, "Remove", region.to_owned())
+                            }
+                            OpTarget::Residues(list) => functions::edit_residues(
+                                &mut pdb,
+                                list,
+                                "Remove",
+                                None,
+                                region.to_owned(),
+                            ),
+                        },
+                        EditOp::ToRemove { target, region } => match target {
+                            OpTarget::Atoms(list) => {
+                                functions::edit_atoms(&mut pdb, list, "Add", region.to_owned())
+                            }
+                            OpTarget::Residues(list) => functions::edit_residues(
+                                &mut pdb,
+                                list,
+                                "Add",
+                                None,
+                                region.to_owned(),
+                            ),
+                        },
+                    }
+                    edit_ops_counter -= 1;
+                }
+                continue;
+            } else if command == "redo" {
+                if edit_ops.len() == edit_ops_counter {
+                    println!("Nothing to redo");
+                } else {
+                    match &edit_ops[edit_ops_counter] {
+                        EditOp::ToAdd { target, region } => match target {
+                            OpTarget::Atoms(list) => {
+                                functions::edit_atoms(&mut pdb, list, "Add", region.to_owned())
+                            }
+                            OpTarget::Residues(list) => functions::edit_residues(
+                                &mut pdb,
+                                list,
+                                "Add",
+                                None,
+                                region.to_owned(),
+                            ),
+                        },
+                        EditOp::ToRemove { target, region } => match target {
+                            OpTarget::Atoms(list) => {
+                                functions::edit_atoms(&mut pdb, list, "Remove", region.to_owned())
+                            }
+                            OpTarget::Residues(list) => functions::edit_residues(
+                                &mut pdb,
+                                list,
+                                "Remove",
+                                None,
+                                region.to_owned(),
+                            ),
+                        },
+                    }
+                    edit_ops_counter += 1;
+                }
+                continue;
+            }
 
             let args = parse_args();
             // Don't return when an error occurs because it would break the loop and disrupt the workflow.
@@ -286,8 +341,8 @@ fn run() -> Result<(), anyhow::Error> {
             // }
             match dispatch(mode, &mut pdb, filename) {
                 Ok(o) => {
-                    if let Some(edit_op) = o {
-                        edit_ops.push(edit_op);
+                    if let Some(mut edit_op) = o {
+                        edit_ops.append(&mut edit_op);
                         edit_ops_counter += 1;
                     }
                 }
