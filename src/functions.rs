@@ -747,9 +747,13 @@ pub fn analyze(
     let mut qm2_atom_list = Vec::new();
     let mut active_residue_list = Vec::new();
     let mut active_atom_list = Vec::new();
+    let mut atom_num = 0;
+    let mut res_num = 0;
 
     for residue in pdb.residues() {
+        res_num += 1;
         for atom in residue.atoms() {
+            atom_num += 1;
             if atom.occupancy() == 1.00 {
                 qm1_residue_list.push(residue);
                 qm1_atom_list.push(atom)
@@ -783,7 +787,8 @@ pub fn analyze(
         ["", "# of Atoms", "# of Residues"],
         ["QM1", qm1_atom_list.len(), qm1_residue_list.len()],
         ["QM2", qm2_atom_list.len(), qm2_residue_list.len()],
-        ["Active", active_atom_list.len(), active_residue_list.len()]
+        ["Active", active_atom_list.len(), active_residue_list.len()],
+        ["Total", atom_num, res_num]
     );
 
     basic_table.printstd();
