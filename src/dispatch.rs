@@ -7,17 +7,22 @@ use colored::Colorize;
 use pdbtbx::{save_pdb, ContainsAtomConformer};
 // use rayon::iter::ParallelIterator;
 
-use crate::{functions::*, EditOp};
 use crate::options::*;
+use crate::{functions::*, EditOp, OpTarget};
 
 // Run function that handles the logic of when to call which function given an enum with the
 // command line options. Hands all occurring errors to caller.
-pub fn dispatch(mode: Mode, mut pdb: &mut pdbtbx::PDB, infile: &str) -> Result<(), anyhow::Error> {
+pub fn dispatch (
+    mode: Mode,
+    mut pdb: &mut pdbtbx::PDB,
+    infile: &str,
+) -> Result<Option<EditOp>, anyhow::Error> {
+    let mut edit_op: Option<EditOp> = None;
     match &mode {
         Mode::Query { source, target } => match source {
             Source::List(list) => match target {
-                Target::Atoms => query_atoms(pdb, parse_atomic_list(list, pdb)?)?,
-                Target::Residues => query_residues(pdb, parse_residue_list(list, pdb)?)?,
+                Target::Atoms => query_atoms(pdb, &parse_atomic_list(list, pdb)?)?,
+                Target::Residues => query_residues(pdb, &parse_residue_list(list, pdb)?)?,
             },
             Source::Sphere(origin_id, radius) => {
                 let sphere_origin = pdb
@@ -37,7 +42,7 @@ pub fn dispatch(mode: Mode, mut pdb: &mut pdbtbx::PDB, infile: &str) -> Result<(
                     Target::Residues => calc_residue_sphere(pdb, sphere_origin, *radius, false)?,
                 };
 
-                query_atoms(pdb, list)?;
+                query_atoms(pdb, &list)?;
             }
             _ => bail!("Please don't do this to me..."),
         },
@@ -98,17 +103,29 @@ pub fn dispatch(mode: Mode, mut pdb: &mut pdbtbx::PDB, infile: &str) -> Result<(
                         match region.unwrap() {
                             Region::QM1 | Region::QM2 => edit_atoms(
                                 &mut pdb,
-                                atomic_list,
+                                &atomic_list,
                                 &mode.to_string(),
                                 region.unwrap(),
                             ),
                             Region::Active => edit_atoms(
                                 &mut pdb,
-                                atomic_list,
+                                &atomic_list,
                                 &mode.to_string(),
                                 region.unwrap(),
                             ),
                         }
+
+                        edit_op = match mode.to_string().as_str() {
+                            "Add" => Some(EditOp::ToAdd {
+                                target: OpTarget::Atoms(atomic_list),
+                                region: region.unwrap(),
+                            }),
+                            "Remove" => Some(EditOp::ToRemove {
+                                target: OpTarget::Atoms(atomic_list),
+                                region: region.unwrap(),
+                            }),
+                            _ => unreachable!(),
+                        };
                     }
                     Target::Residues => {
                         let residue_list = parse_residue_list(&list, pdb)?;
@@ -116,19 +133,31 @@ pub fn dispatch(mode: Mode, mut pdb: &mut pdbtbx::PDB, infile: &str) -> Result<(
                         match region.unwrap() {
                             Region::QM1 | Region::QM2 => edit_residues(
                                 pdb,
-                                residue_list,
+                                &residue_list,
                                 &mode.to_string(),
                                 *partial,
                                 region.unwrap(),
                             ),
                             Region::Active => edit_residues(
                                 pdb,
-                                residue_list,
+                                &residue_list,
                                 &mode.to_string(),
                                 *partial,
                                 region.unwrap(),
                             ),
                         }
+
+                        edit_op = match mode.to_string().as_str() {
+                            "Add" => Some(EditOp::ToAdd {
+                                target: OpTarget::Residues(residue_list),
+                                region: region.unwrap(),
+                            }),
+                            "Remove" => Some(EditOp::ToRemove {
+                                target: OpTarget::Residues(residue_list),
+                                region: region.unwrap(),
+                            }), 
+                            _ => unreachable!(),
+                        };
                     }
                 }
             }
@@ -152,12 +181,24 @@ pub fn dispatch(mode: Mode, mut pdb: &mut pdbtbx::PDB, infile: &str) -> Result<(
 
                 match region.unwrap() {
                     Region::QM1 | Region::QM2 => {
-                        edit_atoms(&mut pdb, list, &mode.to_string(), region.unwrap())
+                        edit_atoms(&mut pdb, &list, &mode.to_string(), region.unwrap())
                     }
                     Region::Active => {
-                        edit_atoms(&mut pdb, list, &mode.to_string(), region.unwrap())
+                        edit_atoms(&mut pdb, &list, &mode.to_string(), region.unwrap())
                     }
                 }
+
+                edit_op = match mode.to_string().as_str() {
+                    "Add" => Some(EditOp::ToAdd {
+                        target: OpTarget::Atoms(list),
+                        region: region.unwrap(),
+                    }),
+                    "Remove" => Some(EditOp::ToRemove {
+                        target: OpTarget::Atoms(list),
+                        region: region.unwrap(),
+                    }), 
+                    _ => unreachable!(),
+                };
             }
             None => {
                 if mode.to_string() == "Remove" && *region == None && *target == None {
@@ -232,5 +273,5 @@ pub fn dispatch(mode: Mode, mut pdb: &mut pdbtbx::PDB, infile: &str) -> Result<(
             }
         },
     }
-    Ok(())
+    Ok(edit_op)
 }

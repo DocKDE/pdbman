@@ -90,6 +90,9 @@ SUBCOMMANDS:
 Calling a subcommand with the '--help/-h' flag will display a help message for it
 ";
 
+type AtomList = Vec<usize>;
+type ResidueList = Vec<isize>;
+
 struct PDBCacher<T>
 where
     T: Fn() -> Result<pdbtbx::PDB, anyhow::Error>,
@@ -117,20 +120,23 @@ where
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
-enum EditOp<'a> {
-    ToAdd {
-        target: options::Target,
-        region: options::Region,
-        list: &'a [usize]
-    },
-    ToRemove {
-        target: options::Target,
-        region: options::Region,
-        list: &'a [usize]
-    },
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
+pub enum OpTarget {
+    Atoms(AtomList),
+    Residues(ResidueList)
 }
 
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
+pub enum EditOp {
+    ToAdd {
+        target: OpTarget,
+        region: options::Region,
+    },
+    ToRemove {
+        target: OpTarget,
+        region: options::Region,
+    },
+}
 
 fn run() -> Result<(), anyhow::Error> {
     let pdbman_match = app_from_crate!()
@@ -213,6 +219,7 @@ fn run() -> Result<(), anyhow::Error> {
         let mut pdb = read_pdb()?;
 
         let mut edit_ops: Vec<EditOp> = Vec::new();
+        let mut edit_ops_counter = 0;
 
         // Be careful not to return any error unnecessarily because they would break the loop
         loop {
@@ -238,6 +245,19 @@ fn run() -> Result<(), anyhow::Error> {
                 Err(e) => bail!(e),
             };
 
+            if command == "undo" {
+                match &edit_ops[edit_ops_counter] {
+                    EditOp::ToAdd {target, region} => match target {
+                        OpTarget::Atoms(list) => functions::edit_atoms(&mut pdb, list, "Remove", region.to_owned()),
+                        OpTarget::Residues(list) => functions::edit_residues(&mut pdb, list, "Remove", None, region.to_owned()),
+                    },
+                    EditOp::ToRemove {target, region} => match target {
+                        OpTarget::Atoms(list) => functions::edit_atoms(&mut pdb, list, "Add", region.to_owned()),
+                        OpTarget::Residues(list) => functions::edit_residues(&mut pdb, list, "Add", None, region.to_owned()),
+                    },
+                }
+            } else if command == "redo" {}
+
             rl.add_history_entry(&command);
 
             let args = parse_args();
@@ -261,9 +281,20 @@ fn run() -> Result<(), anyhow::Error> {
             };
 
             // Print errors instead of returning them
-            if let Err(e) = dispatch(mode, &mut pdb, filename) {
-                println! {"{}", e};
+            // if let Err(e) = dispatch(mode, &mut pdb, filename) {
+            //     println! {"{}", e};
+            // }
+            match dispatch(mode, &mut pdb, filename) {
+                Ok(o) => {
+                    if let Some(edit_op) = o {
+                        edit_ops.push(edit_op);
+                        edit_ops_counter += 1;
+                    }
+                }
+                Err(e) => println!("{}", e),
             }
+            // println!("{:#?}", edit_ops);
+            // println!("{}", edit_ops_counter);
         }
     } else {
         let input;
