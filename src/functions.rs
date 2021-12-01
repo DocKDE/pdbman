@@ -21,7 +21,7 @@ type ResidueList = Vec<isize>;
 /// selection) by Residue.
 pub fn edit_residues(
     pdb: &mut PDB,
-    list: ResidueList,
+    list: &[isize],
     mode: &str,
     partial: Option<Partial>,
     region: Region,
@@ -61,7 +61,7 @@ pub fn edit_residues(
 
 /// This functions edits the q or b value of the PDB file (used by ORCA as input for QM region
 /// selection) by Atom.
-pub fn edit_atoms(pdb: &mut PDB, list: AtomList, mode: &str, region: Region) {
+pub fn edit_atoms(pdb: &mut PDB, list: &[usize], mode: &str, region: Region) {
     let edit = |a: &mut Atom| match mode {
         "Add" => match region {
             // This cannot fail because new values are finite and positive
@@ -605,7 +605,7 @@ pub fn parse_residue_list(input: &str, pdb: &PDB) -> Result<ResidueList, anyhow:
 
 /// Query Molecule for information. Depending on the input this will print a table of
 /// Residues and/or Atoms with available information that were asked for.
-pub fn query_atoms(pdb: &PDB, atom_list: AtomList) -> Result<(), anyhow::Error> {
+pub fn query_atoms(pdb: &PDB, atom_list: &[usize]) -> Result<(), anyhow::Error> {
     let mut table = Table::new();
     table.add_row(row![
         "Atom ID",
@@ -669,7 +669,7 @@ pub fn get_atomlist(pdb: &PDB, region: Region) -> Result<Vec<String>, anyhow::Er
 
 // This cannot fail because if no residues can be queried, the
 // parse_residue_list would have returned an error beforehand
-pub fn query_residues(pdb: &PDB, residue_list: ResidueList) -> Result<(), anyhow::Error> {
+pub fn query_residues(pdb: &PDB, residue_list: &[isize]) -> Result<(), anyhow::Error> {
     let mut table = Table::new();
 
     table.add_row(row![
@@ -1010,9 +1010,9 @@ mod tests {
     #[test]
     fn edit_atoms_test() {
         let mut pdb = test_pdb("tests/test_blank.pdb");
-        let atom_id_list = [1, 5, 9];
-        edit_atoms(&mut pdb, atom_id_list.to_vec(), "Add", Region::QM1);
-        edit_atoms(&mut pdb, atom_id_list.to_vec(), "Add", Region::Active);
+        let atom_id_list = &[1, 5, 9];
+        edit_atoms(&mut pdb, atom_id_list, "Add", Region::QM1);
+        edit_atoms(&mut pdb, atom_id_list, "Add", Region::Active);
 
         let atom_list: Vec<&Atom> = pdb
             .atoms()
@@ -1023,8 +1023,8 @@ mod tests {
             assert_eq!(atom.b_factor(), 1.00);
         }
 
-        edit_atoms(&mut pdb, atom_id_list.to_vec(), "Remove", Region::QM1);
-        edit_atoms(&mut pdb, atom_id_list.to_vec(), "Remove", Region::Active);
+        edit_atoms(&mut pdb, atom_id_list, "Remove", Region::QM1);
+        edit_atoms(&mut pdb, atom_id_list, "Remove", Region::Active);
         let atom_list: Vec<&Atom> = pdb
             .atoms()
             .filter(|x| atom_id_list.contains(&x.serial_number()))
@@ -1040,8 +1040,8 @@ mod tests {
         let mut pdb = test_pdb("tests/test_blank.pdb");
         let res_id_list = vec![2, 4];
 
-        edit_residues(&mut pdb, res_id_list.clone(), "Add", None, Region::QM2);
-        edit_residues(&mut pdb, res_id_list.clone(), "Add", None, Region::Active);
+        edit_residues(&mut pdb, &res_id_list, "Add", None, Region::QM2);
+        edit_residues(&mut pdb, &res_id_list, "Add", None, Region::Active);
 
         let res_list = pdb
             .residues()
@@ -1054,10 +1054,10 @@ mod tests {
             }
         }
 
-        edit_residues(&mut pdb, res_id_list.clone(), "Remove", None, Region::QM2);
+        edit_residues(&mut pdb, &res_id_list, "Remove", None, Region::QM2);
         edit_residues(
             &mut pdb,
-            res_id_list.clone(),
+            &res_id_list,
             "Remove",
             None,
             Region::Active,
@@ -1082,14 +1082,14 @@ mod tests {
 
         edit_residues(
             &mut pdb,
-            res_id_list.clone(),
+            &res_id_list,
             "Add",
             Some(Partial::Sidechain),
             Region::QM2,
         );
         edit_residues(
             &mut pdb,
-            res_id_list.clone(),
+            &res_id_list,
             "Add",
             Some(Partial::Sidechain),
             Region::Active,
@@ -1115,14 +1115,14 @@ mod tests {
         let res_id_list = vec![2, 4];
         edit_residues(
             &mut pdb,
-            res_id_list.clone(),
+            &res_id_list,
             "Add",
             Some(Partial::Backbone),
             Region::QM2,
         );
         edit_residues(
             &mut pdb,
-            res_id_list.clone(),
+            &res_id_list,
             "Add",
             Some(Partial::Backbone),
             Region::Active,

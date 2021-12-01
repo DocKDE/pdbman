@@ -16,8 +16,8 @@ pub fn dispatch(mode: Mode, mut pdb: &mut pdbtbx::PDB, infile: &str) -> Result<(
     match &mode {
         Mode::Query { source, target } => match source {
             Source::List(list) => match target {
-                Target::Atoms => query_atoms(pdb, parse_atomic_list(list, pdb)?)?,
-                Target::Residues => query_residues(pdb, parse_residue_list(list, pdb)?)?,
+                Target::Atoms => query_atoms(pdb, &parse_atomic_list(list, pdb)?)?,
+                Target::Residues => query_residues(pdb, &parse_residue_list(list, pdb)?)?,
             },
             Source::Sphere(origin_id, radius) => {
                 let sphere_origin = pdb
@@ -37,7 +37,7 @@ pub fn dispatch(mode: Mode, mut pdb: &mut pdbtbx::PDB, infile: &str) -> Result<(
                     Target::Residues => calc_residue_sphere(pdb, sphere_origin, *radius, false)?,
                 };
 
-                query_atoms(pdb, list)?;
+                query_atoms(pdb, &list)?;
             }
             _ => bail!("Please don't do this to me..."),
         },
@@ -98,13 +98,13 @@ pub fn dispatch(mode: Mode, mut pdb: &mut pdbtbx::PDB, infile: &str) -> Result<(
                         match region.unwrap() {
                             Region::QM1 | Region::QM2 => edit_atoms(
                                 &mut pdb,
-                                atomic_list,
+                                &atomic_list,
                                 &mode.to_string(),
                                 region.unwrap(),
                             ),
                             Region::Active => edit_atoms(
                                 &mut pdb,
-                                atomic_list,
+                                &atomic_list,
                                 &mode.to_string(),
                                 region.unwrap(),
                             ),
@@ -116,14 +116,14 @@ pub fn dispatch(mode: Mode, mut pdb: &mut pdbtbx::PDB, infile: &str) -> Result<(
                         match region.unwrap() {
                             Region::QM1 | Region::QM2 => edit_residues(
                                 pdb,
-                                residue_list,
+                                &residue_list,
                                 &mode.to_string(),
                                 *partial,
                                 region.unwrap(),
                             ),
                             Region::Active => edit_residues(
                                 pdb,
-                                residue_list,
+                                &residue_list,
                                 &mode.to_string(),
                                 *partial,
                                 region.unwrap(),
@@ -152,10 +152,10 @@ pub fn dispatch(mode: Mode, mut pdb: &mut pdbtbx::PDB, infile: &str) -> Result<(
 
                 match region.unwrap() {
                     Region::QM1 | Region::QM2 => {
-                        edit_atoms(&mut pdb, list, &mode.to_string(), region.unwrap())
+                        edit_atoms(&mut pdb, &list, &mode.to_string(), region.unwrap())
                     }
                     Region::Active => {
-                        edit_atoms(&mut pdb, list, &mode.to_string(), region.unwrap())
+                        edit_atoms(&mut pdb, &list, &mode.to_string(), region.unwrap())
                     }
                 }
             }
