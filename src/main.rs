@@ -200,7 +200,6 @@ fn run() -> Result<(), anyhow::Error> {
         let mut pdb = read_pdb()?;
 
         let mut edit_ops: Vec<Box<dyn Revertable>> = Vec::new();
-        // let mut edit_ops: Vec<Vec<EditOp>> = Vec::new();
         let mut edit_ops_counter = 0;
 
         // Be careful not to return any error unnecessarily because they would break the loop

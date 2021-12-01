@@ -9,7 +9,7 @@ use pdbtbx::{save_pdb, ContainsAtomConformer};
 
 use crate::functions::*;
 use crate::options::*;
-use crate::revertable::{OpTarget, EditOp, Revertable};
+use crate::revertable::{EditOp, OpTarget, Revertable};
 
 // Run function that handles the logic of when to call which function given an enum with the
 // command line options. Hands all occurring errors to caller.
