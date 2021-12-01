@@ -117,6 +117,21 @@ where
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+enum EditOp<'a> {
+    ToAdd {
+        target: options::Target,
+        region: options::Region,
+        list: &'a [usize]
+    },
+    ToRemove {
+        target: options::Target,
+        region: options::Region,
+        list: &'a [usize]
+    },
+}
+
+
 fn run() -> Result<(), anyhow::Error> {
     let pdbman_match = app_from_crate!()
         .setting(AppSettings::DisableVersionFlag)
@@ -196,6 +211,8 @@ fn run() -> Result<(), anyhow::Error> {
         rl.bind_sequence(KeyEvent::alt('p'), Cmd::HistorySearchBackward);
 
         let mut pdb = read_pdb()?;
+
+        let mut edit_ops: Vec<EditOp> = Vec::new();
 
         // Be careful not to return any error unnecessarily because they would break the loop
         loop {

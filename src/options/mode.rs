@@ -36,7 +36,7 @@ pub enum Mode<'a> {
     },
 }
 
-#[derive(Display, PartialEq, Debug, Clone, Copy, EnumString, EnumVariantNames)]
+#[derive(Display, PartialEq, Debug, Clone, Copy, PartialOrd, EnumString, EnumVariantNames)]
 pub enum Region {
     QM1,
     QM2,
@@ -50,7 +50,7 @@ pub enum Source<'a> {
     Sphere(usize, f64),
 }
 
-#[derive(Display, PartialEq, Debug, Clone, Copy, EnumString, EnumVariantNames)]
+#[derive(Display, PartialEq, Debug, Clone, Copy, PartialOrd, EnumString, EnumVariantNames)]
 pub enum Target {
     Atoms,
     Residues,

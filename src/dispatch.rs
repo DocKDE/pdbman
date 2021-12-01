@@ -7,7 +7,7 @@ use colored::Colorize;
 use pdbtbx::{save_pdb, ContainsAtomConformer};
 // use rayon::iter::ParallelIterator;
 
-use crate::functions::*;
+use crate::{functions::*, EditOp};
 use crate::options::*;
 
 // Run function that handles the logic of when to call which function given an enum with the
