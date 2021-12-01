@@ -1,6 +1,6 @@
 [package]
 name = "pdbman"
-version = "0.8.2"
+version = "0.8.3"
 authors = ["Benedikt M. Flöser <benedikt.floeser@cec.mpg.de>"]
 edition = "2021"
 description = "Analyzes and edits PDB files for usage in QM/MM calculations with the ORCA Quantum Chemistry package"

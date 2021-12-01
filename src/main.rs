@@ -16,6 +16,7 @@ mod dispatch;
 mod functions;
 mod options;
 mod residue_ascii;
+mod revertable;
 mod shell;
 
 use std::env;
@@ -38,10 +39,11 @@ use rustyline::{Cmd, ColorMode, CompletionType, Config, EditMode, Editor, KeyEve
 
 use dispatch::dispatch;
 use options::{parse_args, Mode};
+use revertable::Revertable;
 use shell::ShellHelper;
 
 const HELP_LONG: &str = "
-pdbman 0.8.2
+pdbman 0.8.3
     
 Benedikt M. Flöser <benedikt.floeser@cec.mpg.de>
     
@@ -197,6 +199,9 @@ fn run() -> Result<(), anyhow::Error> {
 
         let mut pdb = read_pdb()?;
 
+        let mut edit_ops: Vec<Box<dyn Revertable>> = Vec::new();
+        let mut edit_ops_counter = 0;
+
         // Be careful not to return any error unnecessarily because they would break the loop
         loop {
             let p = "\npdbman> ";
@@ -223,6 +228,24 @@ fn run() -> Result<(), anyhow::Error> {
 
             rl.add_history_entry(&command);
 
+            if command == "undo" {
+                if edit_ops_counter == 0 {
+                    println!("Nothing to undo");
+                } else {
+                    edit_ops[edit_ops_counter - 1].undo(&mut pdb);
+                    edit_ops_counter -= 1;
+                }
+                continue;
+            } else if command == "redo" {
+                if edit_ops.len() == edit_ops_counter {
+                    println!("Nothing to redo");
+                } else {
+                    edit_ops[edit_ops_counter].redo(&mut pdb);
+                    edit_ops_counter += 1;
+                }
+                continue;
+            }
+
             let args = parse_args();
             // Don't return when an error occurs because it would break the loop and disrupt the workflow.
             // Errors returned from here mostly come from parsing the in-shell command line options.
@@ -243,10 +266,17 @@ fn run() -> Result<(), anyhow::Error> {
                 }
             };
 
-            // Print errors instead of returning them
-            if let Err(e) = dispatch(mode, &mut pdb, filename) {
-                println! {"{}", e};
+            match dispatch(mode, &mut pdb, filename) {
+                Ok(optop) => {
+                    if let Some(edit_op) = optop {
+                        edit_ops.push(edit_op);
+                        edit_ops_counter += 1;
+                    }
+                }
+                Err(e) => println!("{}", e),
             }
+            // println!("{:?}", edit_ops);
+            // println!("{}", edit_ops_counter);
         }
     } else {
         let input;

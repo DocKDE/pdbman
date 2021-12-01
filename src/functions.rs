@@ -1038,10 +1038,10 @@ mod tests {
     #[test]
     fn edit_residues_test_all() {
         let mut pdb = test_pdb("tests/test_blank.pdb");
-        let res_id_list = vec![2, 4];
+        let res_id_list = &vec![2, 4];
 
-        edit_residues(&mut pdb, &res_id_list, "Add", None, Region::QM2);
-        edit_residues(&mut pdb, &res_id_list, "Add", None, Region::Active);
+        edit_residues(&mut pdb, res_id_list, "Add", None, Region::QM2);
+        edit_residues(&mut pdb, res_id_list, "Add", None, Region::Active);
 
         let res_list = pdb
             .residues()
@@ -1054,14 +1054,8 @@ mod tests {
             }
         }
 
-        edit_residues(&mut pdb, &res_id_list, "Remove", None, Region::QM2);
-        edit_residues(
-            &mut pdb,
-            &res_id_list,
-            "Remove",
-            None,
-            Region::Active,
-        );
+        edit_residues(&mut pdb, res_id_list, "Remove", None, Region::QM2);
+        edit_residues(&mut pdb, res_id_list, "Remove", None, Region::Active);
 
         let res_list = pdb
             .residues()
@@ -1078,18 +1072,18 @@ mod tests {
     #[test]
     fn edit_residues_test_side() {
         let mut pdb = test_pdb("tests/test_blank.pdb");
-        let res_id_list = vec![2, 4];
+        let res_id_list = &vec![2, 4];
 
         edit_residues(
             &mut pdb,
-            &res_id_list,
+            res_id_list,
             "Add",
             Some(Partial::Sidechain),
             Region::QM2,
         );
         edit_residues(
             &mut pdb,
-            &res_id_list,
+            res_id_list,
             "Add",
             Some(Partial::Sidechain),
             Region::Active,
@@ -1112,17 +1106,17 @@ mod tests {
     #[test]
     fn edit_residues_test_back() {
         let mut pdb = test_pdb("tests/test_blank.pdb");
-        let res_id_list = vec![2, 4];
+        let res_id_list = &vec![2, 4];
         edit_residues(
             &mut pdb,
-            &res_id_list,
+            res_id_list,
             "Add",
             Some(Partial::Backbone),
             Region::QM2,
         );
         edit_residues(
             &mut pdb,
-            &res_id_list,
+            res_id_list,
             "Add",
             Some(Partial::Backbone),
             Region::Active,
