@@ -7,8 +7,9 @@ use colored::Colorize;
 use pdbtbx::{save_pdb, ContainsAtomConformer};
 // use rayon::iter::ParallelIterator;
 
+use crate::functions::*;
 use crate::options::*;
-use crate::{functions::*, EditOp, OpTarget};
+use crate::revertable::{OpTarget, EditOp, Revertable};
 
 // Run function that handles the logic of when to call which function given an enum with the
 // command line options. Hands all occurring errors to caller.
@@ -16,8 +17,9 @@ pub fn dispatch(
     mode: Mode,
     mut pdb: &mut pdbtbx::PDB,
     infile: &str,
-) -> Result<Option<Vec<EditOp>>, anyhow::Error> {
-    let mut edit_op: Option<Vec<EditOp>> = None;
+) -> Result<Option<Box<dyn Revertable>>, anyhow::Error> {
+    // ) -> Result<Option<Vec<EditOp>>, anyhow::Error> {
+    let mut edit_op: Option<Box<dyn Revertable>> = None;
     match &mode {
         Mode::Query { source, target } => match source {
             Source::List(list) => match target {
@@ -115,7 +117,7 @@ pub fn dispatch(
                             ),
                         }
 
-                        edit_op = Some(vec![match mode.to_string().as_str() {
+                        edit_op = Some(Box::new(match mode.to_string().as_str() {
                             "Add" => EditOp::ToAdd {
                                 target: OpTarget::Atoms(atomic_list),
                                 region: region.unwrap(),
@@ -125,7 +127,7 @@ pub fn dispatch(
                                 region: region.unwrap(),
                             },
                             _ => unreachable!(),
-                        }]);
+                        }));
                     }
                     Target::Residues => {
                         let residue_list = parse_residue_list(&list, pdb)?;
@@ -147,7 +149,7 @@ pub fn dispatch(
                             ),
                         }
 
-                        edit_op = Some(vec![match mode.to_string().as_str() {
+                        edit_op = Some(Box::new(match mode.to_string().as_str() {
                             "Add" => EditOp::ToAdd {
                                 target: OpTarget::Residues(residue_list),
                                 region: region.unwrap(),
@@ -157,7 +159,7 @@ pub fn dispatch(
                                 region: region.unwrap(),
                             },
                             _ => unreachable!(),
-                        }]);
+                        }));
                     }
                 }
             }
@@ -188,7 +190,7 @@ pub fn dispatch(
                     }
                 }
 
-                edit_op = Some(vec![match mode.to_string().as_str() {
+                edit_op = Some(Box::new(match mode.to_string().as_str() {
                     "Add" => EditOp::ToAdd {
                         target: OpTarget::Atoms(list),
                         region: region.unwrap(),
@@ -198,7 +200,7 @@ pub fn dispatch(
                         region: region.unwrap(),
                     },
                     _ => unreachable!(),
-                }]);
+                }));
             }
             None => {
                 if mode.to_string() == "Remove" && *region == None && *target == None {
@@ -239,7 +241,7 @@ pub fn dispatch(
                     }
 
                     if !remove_ops.is_empty() {
-                        edit_op = Some(remove_ops);
+                        edit_op = Some(Box::new(remove_ops));
                     }
 
                     remove_region(&mut pdb, None);
@@ -273,7 +275,7 @@ pub fn dispatch(
                     }
 
                     if !remove_ops.is_empty() {
-                        edit_op = Some(remove_ops);
+                        edit_op = Some(Box::new(remove_ops));
                     }
 
                     remove_region(&mut pdb, Some(Region::QM1))
@@ -285,10 +287,10 @@ pub fn dispatch(
                         .collect();
 
                     if !active_atoms.is_empty() {
-                        edit_op = Some(vec![EditOp::ToRemove {
+                        edit_op = Some(Box::new(EditOp::ToRemove {
                             target: OpTarget::Atoms(active_atoms),
                             region: Region::Active,
-                        }])
+                        }))
                     }
 
                     remove_region(&mut pdb, Some(Region::Active))

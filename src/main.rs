@@ -16,6 +16,7 @@ mod dispatch;
 mod functions;
 mod options;
 mod residue_ascii;
+mod revertable;
 mod shell;
 
 use std::env;
@@ -38,6 +39,7 @@ use rustyline::{Cmd, ColorMode, CompletionType, Config, EditMode, Editor, KeyEve
 
 use dispatch::dispatch;
 use options::{parse_args, Mode};
+use revertable::Revertable;
 use shell::ShellHelper;
 
 const HELP_LONG: &str = "
@@ -90,9 +92,6 @@ SUBCOMMANDS:
 Calling a subcommand with the '--help/-h' flag will display a help message for it
 ";
 
-type AtomList = Vec<usize>;
-type ResidueList = Vec<isize>;
-
 struct PDBCacher<T>
 where
     T: Fn() -> Result<pdbtbx::PDB, anyhow::Error>,
@@ -118,24 +117,6 @@ where
         }
         self.value.as_mut().unwrap()
     }
-}
-
-#[derive(Debug, Clone, PartialEq, PartialOrd)]
-pub enum OpTarget {
-    Atoms(AtomList),
-    Residues(ResidueList),
-}
-
-#[derive(Debug, Clone, PartialEq, PartialOrd)]
-pub enum EditOp {
-    ToAdd {
-        target: OpTarget,
-        region: options::Region,
-    },
-    ToRemove {
-        target: OpTarget,
-        region: options::Region,
-    },
 }
 
 fn run() -> Result<(), anyhow::Error> {
@@ -218,7 +199,8 @@ fn run() -> Result<(), anyhow::Error> {
 
         let mut pdb = read_pdb()?;
 
-        let mut edit_ops: Vec<Vec<EditOp>> = Vec::new();
+        let mut edit_ops: Vec<Box<dyn Revertable>> = Vec::new();
+        // let mut edit_ops: Vec<Vec<EditOp>> = Vec::new();
         let mut edit_ops_counter = 0;
 
         // Be careful not to return any error unnecessarily because they would break the loop
@@ -251,37 +233,7 @@ fn run() -> Result<(), anyhow::Error> {
                 if edit_ops_counter == 0 {
                     println!("Nothing to undo");
                 } else {
-                    for edit_op in &edit_ops[edit_ops_counter - 1] {
-                        match edit_op {
-                            EditOp::ToAdd { target, region } => match target {
-                                OpTarget::Atoms(list) => functions::edit_atoms(
-                                    &mut pdb,
-                                    list,
-                                    "Remove",
-                                    region.to_owned(),
-                                ),
-                                OpTarget::Residues(list) => functions::edit_residues(
-                                    &mut pdb,
-                                    list,
-                                    "Remove",
-                                    None,
-                                    region.to_owned(),
-                                ),
-                            },
-                            EditOp::ToRemove { target, region } => match target {
-                                OpTarget::Atoms(list) => {
-                                    functions::edit_atoms(&mut pdb, list, "Add", region.to_owned())
-                                }
-                                OpTarget::Residues(list) => functions::edit_residues(
-                                    &mut pdb,
-                                    list,
-                                    "Add",
-                                    None,
-                                    region.to_owned(),
-                                ),
-                            },
-                        }
-                    }
+                    edit_ops[edit_ops_counter - 1].undo(&mut pdb);
                     edit_ops_counter -= 1;
                 }
                 continue;
@@ -289,37 +241,7 @@ fn run() -> Result<(), anyhow::Error> {
                 if edit_ops.len() == edit_ops_counter {
                     println!("Nothing to redo");
                 } else {
-                    for edit_op in &edit_ops[edit_ops_counter] {
-                        match edit_op {
-                            EditOp::ToAdd { target, region } => match target {
-                                OpTarget::Atoms(list) => {
-                                    functions::edit_atoms(&mut pdb, list, "Add", region.to_owned())
-                                }
-                                OpTarget::Residues(list) => functions::edit_residues(
-                                    &mut pdb,
-                                    list,
-                                    "Add",
-                                    None,
-                                    region.to_owned(),
-                                ),
-                            },
-                            EditOp::ToRemove { target, region } => match target {
-                                OpTarget::Atoms(list) => functions::edit_atoms(
-                                    &mut pdb,
-                                    list,
-                                    "Remove",
-                                    region.to_owned(),
-                                ),
-                                OpTarget::Residues(list) => functions::edit_residues(
-                                    &mut pdb,
-                                    list,
-                                    "Remove",
-                                    None,
-                                    region.to_owned(),
-                                ),
-                            },
-                        }
-                    }
+                    edit_ops[edit_ops_counter].redo(&mut pdb);
                     edit_ops_counter += 1;
                 }
                 continue;
@@ -348,7 +270,7 @@ fn run() -> Result<(), anyhow::Error> {
             match dispatch(mode, &mut pdb, filename) {
                 Ok(optop) => {
                     if let Some(edit_op) = optop {
-                        edit_ops.append(&mut vec![edit_op]);
+                        edit_ops.push(edit_op);
                         edit_ops_counter += 1;
                     }
                 }
