@@ -202,12 +202,95 @@ pub fn dispatch(
             }
             None => {
                 if mode.to_string() == "Remove" && *region == None && *target == None {
-                    remove_region(&mut pdb, None)
+                    let mut qm1_atoms = Vec::new();
+                    let mut qm2_atoms = Vec::new();
+                    let mut active_atoms = Vec::new();
+
+                    for atom in pdb.atoms() {
+                        if atom.occupancy() == 1.00 {
+                            qm1_atoms.push(atom.serial_number())
+                        }
+                        if atom.occupancy() == 2.00 {
+                            qm2_atoms.push(atom.serial_number())
+                        }
+                        if atom.b_factor() == 1.00 {
+                            active_atoms.push(atom.serial_number())
+                        }
+                    }
+
+                    let mut remove_ops = Vec::with_capacity(3);
+                    if !qm1_atoms.is_empty() {
+                        remove_ops.push(EditOp::ToRemove {
+                            target: OpTarget::Atoms(qm1_atoms),
+                            region: Region::QM1,
+                        })
+                    }
+                    if !qm2_atoms.is_empty() {
+                        remove_ops.push(EditOp::ToRemove {
+                            target: OpTarget::Atoms(qm2_atoms),
+                            region: Region::QM2,
+                        })
+                    }
+                    if !active_atoms.is_empty() {
+                        remove_ops.push(EditOp::ToRemove {
+                            target: OpTarget::Atoms(active_atoms),
+                            region: Region::Active,
+                        })
+                    }
+
+                    if !remove_ops.is_empty() {
+                        edit_op = Some(remove_ops);
+                    }
+
+                    remove_region(&mut pdb, None);
                 } else if { *region == Some(Region::QM1) || *region == Some(Region::QM2) }
                     && *target == None
                 {
+                    let mut qm1_atoms = Vec::new();
+                    let mut qm2_atoms = Vec::new();
+
+                    for atom in pdb.atoms() {
+                        if atom.occupancy() == 1.00 {
+                            qm1_atoms.push(atom.serial_number())
+                        }
+                        if atom.occupancy() == 2.00 {
+                            qm2_atoms.push(atom.serial_number())
+                        }
+                    }
+
+                    let mut remove_ops = Vec::with_capacity(2);
+                    if !qm1_atoms.is_empty() {
+                        remove_ops.push(EditOp::ToRemove {
+                            target: OpTarget::Atoms(qm1_atoms),
+                            region: Region::QM1,
+                        })
+                    }
+                    if !qm2_atoms.is_empty() {
+                        remove_ops.push(EditOp::ToRemove {
+                            target: OpTarget::Atoms(qm2_atoms),
+                            region: Region::QM2,
+                        })
+                    }
+
+                    if !remove_ops.is_empty() {
+                        edit_op = Some(remove_ops);
+                    }
+
                     remove_region(&mut pdb, Some(Region::QM1))
                 } else if *region == Some(Region::Active) && *target == None {
+                    let active_atoms: Vec<usize> = pdb
+                        .atoms()
+                        .filter(|a| a.b_factor() == 1.00)
+                        .map(|a| a.serial_number())
+                        .collect();
+
+                    if !active_atoms.is_empty() {
+                        edit_op = Some(vec![EditOp::ToRemove {
+                            target: OpTarget::Atoms(active_atoms),
+                            region: Region::Active,
+                        }])
+                    }
+
                     remove_region(&mut pdb, Some(Region::Active))
                 } else {
                     bail!("Please provide the approprate options (see --help).".red())

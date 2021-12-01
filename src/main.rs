@@ -335,21 +335,15 @@ fn run() -> Result<(), anyhow::Error> {
                 }
             };
 
-            // Print errors instead of returning them
-            // if let Err(e) = dispatch(mode, &mut pdb, filename) {
-            //     println! {"{}", e};
-            // }
             match dispatch(mode, &mut pdb, filename) {
-                Ok(o) => {
-                    if let Some(mut edit_op) = o {
+                Ok(optop) => {
+                    if let Some(mut edit_op) = optop {
                         edit_ops.append(&mut edit_op);
                         edit_ops_counter += 1;
                     }
                 }
                 Err(e) => println!("{}", e),
             }
-            // println!("{:#?}", edit_ops);
-            // println!("{}", edit_ops_counter);
         }
     } else {
         let input;
