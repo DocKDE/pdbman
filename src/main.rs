@@ -43,7 +43,7 @@ use revertable::Revertable;
 use shell::ShellHelper;
 
 const HELP_LONG: &str = "
-pdbman 0.8.3
+pdbman 0.8.4
     
 Benedikt M. Flöser <benedikt.floeser@cec.mpg.de>
     
