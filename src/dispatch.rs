@@ -9,7 +9,7 @@ use pdbtbx::{save_pdb, ContainsAtomConformer, ContainsAtomConformerResidue};
 
 use crate::functions::*;
 use crate::options::*;
-use crate::revertable::{EditOp, OpTarget, Revertable};
+use crate::revertable::{EditOp, Revertable};
 
 // Run function that handles the logic of when to call which function given an enum with the
 // command line options. Hands all occurring errors to caller.
@@ -118,12 +118,12 @@ pub fn dispatch(
 
                         edit_op = Some(Box::new(match mode.to_string().as_str() {
                             "Add" => EditOp::ToAdd {
-                                target: OpTarget::Atoms(atomic_list),
                                 region: region.unwrap(),
+                                atoms: atomic_list,
                             },
                             "Remove" => EditOp::ToRemove {
-                                target: OpTarget::Atoms(atomic_list),
                                 region: region.unwrap(),
+                                atoms: atomic_list,
                             },
                             _ => unreachable!(),
                         }));
@@ -167,12 +167,12 @@ pub fn dispatch(
 
                         edit_op = Some(Box::new(match mode.to_string().as_str() {
                             "Add" => EditOp::ToAdd {
-                                target: OpTarget::Atoms(atom_list),
                                 region: region.unwrap(),
+                                atoms: atom_list,
                             },
                             "Remove" => EditOp::ToRemove {
-                                target: OpTarget::Atoms(atom_list),
                                 region: region.unwrap(),
+                                atoms: atom_list,
                             },
                             _ => unreachable!(),
                         }));
@@ -208,12 +208,12 @@ pub fn dispatch(
 
                 edit_op = Some(Box::new(match mode.to_string().as_str() {
                     "Add" => EditOp::ToAdd {
-                        target: OpTarget::Atoms(list),
                         region: region.unwrap(),
+                        atoms: list,
                     },
                     "Remove" => EditOp::ToRemove {
-                        target: OpTarget::Atoms(list),
                         region: region.unwrap(),
+                        atoms: list,
                     },
                     _ => unreachable!(),
                 }));
@@ -239,20 +239,20 @@ pub fn dispatch(
                     let mut remove_ops = Vec::with_capacity(3);
                     if !qm1_atoms.is_empty() {
                         remove_ops.push(EditOp::ToRemove {
-                            target: OpTarget::Atoms(qm1_atoms),
                             region: Region::QM1,
+                            atoms: qm1_atoms,
                         })
                     }
                     if !qm2_atoms.is_empty() {
                         remove_ops.push(EditOp::ToRemove {
-                            target: OpTarget::Atoms(qm2_atoms),
                             region: Region::QM2,
+                            atoms: qm2_atoms,
                         })
                     }
                     if !active_atoms.is_empty() {
                         remove_ops.push(EditOp::ToRemove {
-                            target: OpTarget::Atoms(active_atoms),
                             region: Region::Active,
+                            atoms: active_atoms,
                         })
                     }
 
@@ -279,14 +279,14 @@ pub fn dispatch(
                     let mut remove_ops = Vec::with_capacity(2);
                     if !qm1_atoms.is_empty() {
                         remove_ops.push(EditOp::ToRemove {
-                            target: OpTarget::Atoms(qm1_atoms),
                             region: Region::QM1,
+                            atoms: qm1_atoms,
                         })
                     }
                     if !qm2_atoms.is_empty() {
                         remove_ops.push(EditOp::ToRemove {
-                            target: OpTarget::Atoms(qm2_atoms),
                             region: Region::QM2,
+                            atoms: qm2_atoms,
                         })
                     }
 
@@ -304,8 +304,8 @@ pub fn dispatch(
 
                     if !active_atoms.is_empty() {
                         edit_op = Some(Box::new(EditOp::ToRemove {
-                            target: OpTarget::Atoms(active_atoms),
                             region: Region::Active,
+                            atoms: active_atoms,
                         }))
                     }
 
