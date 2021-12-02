@@ -39,6 +39,7 @@ impl Revertable for EditOp {
             }
         }
     }
+
     fn redo(&self, pdb: &mut pdbtbx::PDB) {
         match self {
             EditOp::ToAdd { region, atoms } => {
@@ -57,6 +58,7 @@ impl Revertable for Vec<EditOp> {
             i.undo(pdb)
         }
     }
+
     fn redo(&self, pdb: &mut pdbtbx::PDB) {
         for i in self {
             i.redo(pdb)

@@ -1,6 +1,7 @@
 use crate::options::{Distance, Partial, Region, Target};
 use crate::residue_ascii::RESIDUE_ASCII;
 
+use std::collections::HashSet;
 use std::io;
 use std::io::prelude::Write;
 
@@ -12,6 +13,7 @@ use pdbtbx::{
     ContainsAtomConformerResidue, ContainsAtomConformerResidueChain, PDB,
 };
 use prettytable::{format, Table};
+use rayon::iter::FromParallelIterator;
 use rayon::prelude::ParallelIterator;
 
 type AtomList = Vec<usize>;
@@ -346,27 +348,10 @@ pub fn parse_atomic_list(input: &str, pdb: &PDB) -> Result<AtomList, anyhow::Err
                 }
             }
 
-            // output_vec.sort();
-
-            // let missing_atoms: Vec<usize> = pdb
-            //     .atoms()
-            //     .map(|a| a.serial_number())
-            //     .filter(|a| output_vec.contains(&a))
-            //     .sorted()
-            //     // .dedup()
-            //     .collect();
-
-            // if output_vec != missing_atoms {
-            //     output_vec.retain(|i| !missing_atoms.contains(i))
-            // }
-
-            // Maybe this can be done better? Currently the PDB is traversed for every item
-            // in the output_vec
-            let mut missing_atoms = output_vec
-                .iter()
-                .filter(|&x| !pdb.par_atoms().any(|atom| &atom.serial_number() == x))
-                .unique()
-                .peekable();
+            let output_set: HashSet<usize> = HashSet::from_iter(output_vec.iter().copied());
+            let pdb_set: HashSet<usize> =
+                HashSet::from_par_iter(pdb.par_atoms().map(|a| a.serial_number()));
+            let mut missing_atoms = output_set.difference(&pdb_set).peekable();
 
             ensure!(
                 missing_atoms.peek().is_none(),
@@ -383,14 +368,13 @@ pub fn parse_atomic_list(input: &str, pdb: &PDB) -> Result<AtomList, anyhow::Err
                 "Ranges are not allowed for atom name inputs."
             );
 
-            let mut missing_atoms = input_vec
+            let input_set: HashSet<String> = input_vec
                 .iter()
-                .filter(|&x| {
-                    !pdb.par_atoms()
-                        .any(|atom| atom.name().to_lowercase() == x.to_lowercase())
-                })
-                .unique()
-                .peekable();
+                .map(|s| s.to_lowercase())
+                .collect();
+            let pdb_set: HashSet<String> =
+                HashSet::from_par_iter(pdb.par_atoms().map(|a| a.name().to_lowercase()));
+            let mut missing_atoms = input_set.difference(&pdb_set).peekable();
 
             ensure!(
                 missing_atoms.peek().is_none(),
@@ -437,12 +421,10 @@ pub fn parse_residue_list(input: &str, pdb: &PDB) -> Result<ResidueList, anyhow:
                     output_vec.push(i.parse().unwrap())
                 }
             }
-
-            let mut missing_residues = output_vec
-                .iter()
-                .filter(|&x| !pdb.par_residues().any(|res| &res.serial_number() == x))
-                .unique()
-                .peekable();
+            let output_set: HashSet<isize> = HashSet::from_iter(output_vec.iter().copied());
+            let pdb_set: HashSet<isize> =
+                HashSet::from_par_iter(pdb.par_residues().map(|a| a.serial_number()));
+            let mut missing_residues = output_set.difference(&pdb_set).peekable();
 
             ensure!(
                 missing_residues.peek().is_none(),
@@ -459,14 +441,14 @@ pub fn parse_residue_list(input: &str, pdb: &PDB) -> Result<ResidueList, anyhow:
                 "Ranges are not allowed for residue name inputs."
             );
 
-            let mut missing_residues = input_vec
+            let input_set: HashSet<String> = input_vec
                 .iter()
-                .filter(|&x| {
-                    !pdb.par_residues()
-                        .any(|res| res.name().unwrap().to_lowercase() == x.to_lowercase())
-                })
-                .unique()
-                .peekable();
+                .map(|s| s.to_lowercase())
+                .collect();
+            let pdb_set: HashSet<String> = HashSet::from_par_iter(
+                pdb.par_residues().map(|a| a.name().unwrap().to_lowercase()),
+            );
+            let mut missing_residues = input_set.difference(&pdb_set).peekable();
 
             ensure!(
                 missing_residues.peek().is_none(),
@@ -487,120 +469,6 @@ pub fn parse_residue_list(input: &str, pdb: &PDB) -> Result<ResidueList, anyhow:
     }
 
     Ok(output_vec)
-    // let re_num =
-    //     regex!(r"^(?P<id1>\d+)(?P<insert1>[A-Za-z]?)([:-](?P<id2>\d+)(?P<insert2>[A-Za-z]?))?$");
-
-    // let mut output_vec: ResidueList = vec![];
-    // let mut err_vec: Vec<String> = vec![];
-
-    // match input.split(',').all(|x| re_num.is_match(x)) {
-    //     true => {
-    //         let input_vec: Vec<&str> = input.split(',').collect();
-
-    //         for i in input_vec {
-    //             if i.contains(&[':', '-'][..]) {
-    //                 let re_num = regex!(
-    //                     r"^(?P<id1>\d+)(?P<insert1>[A-Za-z]?)[:-](?P<id2>\d+)(?P<insert2>[A-Za-z]?)$"
-    //                 );
-    //                 let caps = re_num.captures(i).unwrap();
-
-    //                 let id1: isize = caps.name("id1").unwrap().as_str().parse()?;
-    //                 let insert1 = match caps.name("insert1").map(|x| x.as_str()) {
-    //                     Some("") => None,
-    //                     Some(x) => Some(x),
-    //                     _ => unreachable!(),
-    //                 };
-
-    //                 let id2: isize = caps.name("id2").unwrap().as_str().parse()?;
-    //                 let insert2 = match caps.name("insert2").map(|x| x.as_str()) {
-    //                     Some("") => None,
-    //                     Some(x) => Some(x),
-    //                     _ => unreachable!(),
-    //                 };
-
-    //                 let mut start = None;
-    //                 let mut end = None;
-    //                 let mut parse_res = false;
-
-    //                 // Determine start and end indices while simultaneously populating output_vec.
-    //                 // This way the PDB is only traversed once.
-    //                 for (index, residue) in pdb.residues().enumerate() {
-    //                     if residue.id() == (id1, insert1) {
-    //                         start = Some(index);
-    //                         parse_res = true;
-    //                     }
-
-    //                     if parse_res {
-    //                         output_vec.push(residue.serial_number())
-    //                     }
-
-    //                     if residue.id() == (id2, insert2) {
-    //                         // Return prematurely if start is None which means that end < start which is invalid.
-    //                         ensure!(start.is_some(), "Invalid range given: {}{}-{}{}. Left entry must preceed right one in PDB file!",
-    //                             id1, insert1.unwrap_or(""), id2, insert2.unwrap_or(""));
-    //                         end = Some(index);
-    //                         parse_res = false;
-    //                     }
-    //                 }
-
-    //                 if start.is_none() {
-    //                     err_vec.push(format!("{}{}", id1, insert1.unwrap_or("")));
-    //                 }
-    //                 if end.is_none() {
-    //                     err_vec.push(format!("{}{}", id2, insert2.unwrap_or("")));
-    //                 }
-    //             } else {
-    //                 let re = regex!(r"^(?P<resid>\d+)(?P<insert>[A-Za-z])?$");
-    //                 let caps = re.captures(i).unwrap();
-    //                 let resid: isize = caps.name("resid").unwrap().as_str().parse()?;
-    //                 let insert = caps.name("insert").map(|x| x.as_str());
-
-    //                 if !pdb.par_residues().any(|x| x.id() == (resid, insert)) {
-    //                     err_vec.push(format!("{}{}", resid, insert.unwrap_or("")));
-    //                 } else {
-    //                     output_vec.push(resid)
-    //                 }
-    //             }
-    //         }
-    //     }
-    //     false => {
-    //         let input_vec: Vec<String> = input.split(',').map(|x| x.to_lowercase()).collect();
-
-    //         for i in &input_vec {
-    //             if !pdb
-    //                 .par_residues()
-    //                 .any(|x| &x.name().unwrap_or("").to_lowercase() == i)
-    //             {
-    //                 err_vec.push(i.to_owned());
-    //             }
-    //         }
-
-    //         output_vec = pdb
-    //             .residues()
-    //             .map(|x| {
-    //                 Ok(input_vec
-    //                     .contains(
-    //                         &x.name()
-    //                             .ok_or_else(|| anyhow!("No Residue Name"))?
-    //                             .to_lowercase(),
-    //                     )
-    //                     .then(|| x.serial_number()))
-    //             })
-    //             .filter_map(Result::transpose)
-    //             .collect::<Result<Vec<isize>, anyhow::Error>>()?;
-    //     }
-    // };
-
-    // err_vec.sort();
-    // err_vec.dedup();
-
-    // ensure!(
-    //     err_vec.is_empty(),
-    //     "No residue(s) found with identifier(s): {}",
-    //     err_vec.join(",")
-    // );
-
-    // Ok(output_vec)
 }
 
 /// Query Molecule for information. Depending on the input this will print a table of
