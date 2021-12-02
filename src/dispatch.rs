@@ -4,7 +4,7 @@ use std::io::{self, BufRead, BufReader, BufWriter, Write};
 
 use anyhow::Context;
 use colored::Colorize;
-use pdbtbx::{save_pdb, ContainsAtomConformer};
+use pdbtbx::{save_pdb, ContainsAtomConformer, ContainsAtomConformerResidue};
 // use rayon::iter::ParallelIterator;
 
 use crate::functions::*;
@@ -31,7 +31,6 @@ pub fn dispatch(
                     .atoms_with_hierarchy()
                     .find(|a| a.atom().serial_number() == *origin_id)
                     .ok_or_else::<_, _>(|| {
-                        // anyhow!("No Atom with serial number {} could be found", origin_id)
                         anyhow!(
                             "{}: '{}'",
                             "\nNO ATOM WITH FOUND WITH SERIAL NUMBER".red(),
@@ -149,13 +148,30 @@ pub fn dispatch(
                             ),
                         }
 
+                        let atom_list: Vec<usize> = match partial {
+                            None => pdb
+                                .atoms_with_hierarchy()
+                                .filter(|a| residue_list.contains(&a.residue().serial_number()))
+                                .map(|a| a.atom().serial_number())
+                                .collect(),
+                            Some(p) => pdb
+                                .atoms_with_hierarchy()
+                                .filter(|a| residue_list.contains(&a.residue().serial_number()))
+                                .filter(|a| match p {
+                                    Partial::Backbone => a.is_backbone(),
+                                    Partial::Sidechain => a.is_sidechain(),
+                                })
+                                .map(|a| a.atom().serial_number())
+                                .collect(),
+                        };
+
                         edit_op = Some(Box::new(match mode.to_string().as_str() {
                             "Add" => EditOp::ToAdd {
-                                target: OpTarget::Residues(residue_list),
+                                target: OpTarget::Atoms(atom_list),
                                 region: region.unwrap(),
                             },
                             "Remove" => EditOp::ToRemove {
-                                target: OpTarget::Residues(residue_list),
+                                target: OpTarget::Atoms(atom_list),
                                 region: region.unwrap(),
                             },
                             _ => unreachable!(),
