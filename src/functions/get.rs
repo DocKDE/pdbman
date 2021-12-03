@@ -72,39 +72,41 @@ pub fn calc_residue_sphere(
     Ok(sphere_atoms)
 }
 
-pub fn get_atomlist(pdb: &PDB, region: Region) -> Result<Vec<String>, anyhow::Error> {
+// Get list of atom IDs for printing to stdout or file
+pub fn get_atomlist(pdb: &PDB, region: Region) -> Result<Vec<usize>, anyhow::Error> {
     let filt_closure = match region {
         Region::QM1 => |a: &Atom| a.occupancy() == 1.00,
         Region::QM2 => |a: &Atom| a.occupancy() == 2.00,
         Region::Active => |a: &Atom| a.b_factor() == 1.00,
     };
 
-    let str_vec = pdb
+    let num_vec = pdb
         .par_atoms()
         .filter(|&a| filt_closure(a))
-        .map(|a| a.serial_number().to_string())
-        .collect::<Vec<String>>();
+        .map(|a| a.serial_number())
+        .collect::<Vec<usize>>();
 
-    ensure!(!str_vec.is_empty(), "No atoms in the requested region!");
-    Ok(str_vec)
+    ensure!(!num_vec.is_empty(), "No atoms in the requested region!");
+    Ok(num_vec)
 }
 
-pub fn get_residuelist(pdb: &PDB, region: Region) -> Result<Vec<String>, anyhow::Error> {
+// Get list of residue IDs for printing to stdout or file
+pub fn get_residuelist(pdb: &PDB, region: Region) -> Result<Vec<isize>, anyhow::Error> {
     let filt_closure = match region {
         Region::QM1 => |a: &AtomConformerResidueChainModel| a.atom().occupancy() == 1.00,
         Region::QM2 => |a: &AtomConformerResidueChainModel| a.atom().occupancy() == 2.00,
         Region::Active => |a: &AtomConformerResidueChainModel| a.atom().b_factor() == 1.00,
     };
 
-    let str_vec = pdb
+    let num_vec = pdb
         .atoms_with_hierarchy()
         .filter(filt_closure)
-        .map(|a| a.residue().serial_number().to_string())
+        .map(|a| a.residue().serial_number())
         .dedup()
-        .collect::<Vec<String>>();
+        .collect::<Vec<isize>>();
 
-    ensure!(!str_vec.is_empty(), "No residues in the requested region!");
-    Ok(str_vec)
+    ensure!(!num_vec.is_empty(), "No residues in the requested region!");
+    Ok(num_vec)
 }
 
 #[cfg(test)]
@@ -187,9 +189,9 @@ mod tests {
         let qm2_atoms = get_atomlist(&pdb, Region::QM2).unwrap();
         let active_atoms = get_atomlist(&pdb, Region::Active).unwrap();
 
-        assert_eq!(qm1_atoms, vec!["1", "2", "4", "5", "6"]);
-        assert_eq!(qm2_atoms, vec!["8", "9", "11", "12"]);
-        assert_eq!(active_atoms, vec!["1", "2", "3", "5", "6", "8", "9"]);
+        assert_eq!(qm1_atoms, vec![1, 2, 4, 5, 6]);
+        assert_eq!(qm2_atoms, vec![8, 9, 11, 12]);
+        assert_eq!(active_atoms, vec![1, 2, 3, 5, 6, 8, 9]);
     }
 
     #[test]
@@ -199,8 +201,8 @@ mod tests {
         let qm2_residues = get_residuelist(&pdb, Region::QM2).unwrap();
         let active_residues = get_residuelist(&pdb, Region::Active).unwrap();
 
-        assert_eq!(qm1_residues, vec!["1", "7"]);
-        assert_eq!(qm2_residues, vec!["3", "4"]);
-        assert_eq!(active_residues, vec!["2", "3"]);
+        assert_eq!(qm1_residues, vec![1, 7]);
+        assert_eq!(qm2_residues, vec![3, 4]);
+        assert_eq!(active_residues, vec![2, 3]);
     }
 }
