@@ -173,7 +173,7 @@ mod tests {
             parse_atomic_list(num_list, &pdb).unwrap(),
             vec!(1, 2, 3, 4, 5, 7, 9, 10, 11)
         );
-        assert_eq!(parse_atomic_list(str_list, &pdb).unwrap(), vec!(39, 40));
+        assert_eq!(parse_atomic_list(str_list, &pdb).unwrap(), vec![39, 40]);
     }
 
     #[test]

@@ -3,21 +3,13 @@ use crate::options;
 
 type AtomList = Vec<usize>;
 
-// #[derive(Debug, Clone, PartialEq, PartialOrd)]
-// pub enum OpTarget {
-//     Atoms(AtomList),
-//     Residues(ResidueList),
-// }
-
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum EditOp {
     ToAdd {
-        // target: OpTarget,
         region: options::Region,
         atoms: AtomList,
     },
     ToRemove {
-        // target: OpTarget,
         region: options::Region,
         atoms: AtomList,
     },

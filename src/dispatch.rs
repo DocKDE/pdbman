@@ -5,10 +5,9 @@ use std::io::{self, BufRead, BufReader, BufWriter, Write};
 use anyhow::Context;
 use colored::Colorize;
 use pdbtbx::{save_pdb, ContainsAtomConformer, ContainsAtomConformerResidue};
-// use rayon::iter::ParallelIterator;
 
 use crate::functions::*;
-use crate::options::*;
+use crate::options::{Mode, Output, Partial, Region, Source, Target};
 use crate::revertable::{EditOp, Revertable};
 
 // Run function that handles the logic of when to call which function given an enum with the

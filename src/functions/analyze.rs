@@ -256,10 +256,11 @@ pub fn analyze(
     Ok(())
 }
 
+#[cfg(test)]
 mod tests {
-    use pdbtbx::StrictnessLevel;
-
     use super::*;
+    use pdbtbx::StrictnessLevel;
+    use std::fs::{remove_file, File};
 
     fn test_pdb(path: &str) -> PDB {
         let (pdb, _) = pdbtbx::open_pdb(path, StrictnessLevel::Strict).unwrap();
@@ -277,8 +278,8 @@ mod tests {
         // it as csv, re-reading it and checking against previously created csv tables.
         // This is alsy necessary because the color coding used in the binary is not saved
         // to csv.
-        let clashes_out = std::fs::File::create("tests/test_clashes.csv_tmp").unwrap();
-        let contacts_out = std::fs::File::create("tests/test_contacts.csv_tmp").unwrap();
+        let clashes_out = File::create("tests/test_clashes.csv_tmp").unwrap();
+        let contacts_out = File::create("tests/test_contacts.csv_tmp").unwrap();
 
         clashes.to_csv(clashes_out).unwrap();
         contacts.to_csv(contacts_out).unwrap();
@@ -295,7 +296,7 @@ mod tests {
             Table::from_csv_file("tests/test_contacts.csv").unwrap()
         );
 
-        std::fs::remove_file("tests/test_clashes.csv_tmp").unwrap();
-        std::fs::remove_file("tests/test_contacts.csv_tmp").unwrap();
+        remove_file("tests/test_clashes.csv_tmp").unwrap();
+        remove_file("tests/test_contacts.csv_tmp").unwrap();
     }
 }
