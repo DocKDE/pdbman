@@ -107,7 +107,6 @@ pub fn get_residuelist(pdb: &PDB, region: Region) -> Result<Vec<String>, anyhow:
     Ok(str_vec)
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -191,5 +190,17 @@ mod tests {
         assert_eq!(qm1_atoms, vec!["1", "2", "4", "5", "6"]);
         assert_eq!(qm2_atoms, vec!["8", "9", "11", "12"]);
         assert_eq!(active_atoms, vec!["1", "2", "3", "5", "6", "8", "9"]);
+    }
+
+    #[test]
+    fn get_residuelist_test() {
+        let pdb = test_pdb("tests/test_get_residuelist.pdb");
+        let qm1_residues = get_residuelist(&pdb, Region::QM1).unwrap();
+        let qm2_residues = get_residuelist(&pdb, Region::QM2).unwrap();
+        let active_residues = get_residuelist(&pdb, Region::Active).unwrap();
+
+        assert_eq!(qm1_residues, vec!["1", "7"]);
+        assert_eq!(qm2_residues, vec!["3", "4"]);
+        assert_eq!(active_residues, vec!["2", "3"]);
     }
 }

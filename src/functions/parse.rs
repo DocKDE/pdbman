@@ -153,7 +153,6 @@ pub fn parse_residue_list(input: &str, pdb: &PDB) -> Result<ResidueList, anyhow:
     Ok(output_vec)
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
