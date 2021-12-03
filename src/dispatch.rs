@@ -102,18 +102,12 @@ pub fn dispatch(
                         let atomic_list = parse_atomic_list(&list, pdb)?;
 
                         match region.unwrap() {
-                            Region::QM1 | Region::QM2 => edit_atoms(
-                                pdb,
-                                &atomic_list,
-                                &mode.to_string(),
-                                region.unwrap(),
-                            ),
-                            Region::Active => edit_atoms(
-                                pdb,
-                                &atomic_list,
-                                &mode.to_string(),
-                                region.unwrap(),
-                            ),
+                            Region::QM1 | Region::QM2 => {
+                                edit_atoms(pdb, &atomic_list, &mode.to_string(), region.unwrap())
+                            }
+                            Region::Active => {
+                                edit_atoms(pdb, &atomic_list, &mode.to_string(), region.unwrap())
+                            }
                         }
 
                         edit_op = Some(Box::new(match mode.to_string().as_str() {
@@ -201,9 +195,7 @@ pub fn dispatch(
                     Region::QM1 | Region::QM2 => {
                         edit_atoms(pdb, &list, &mode.to_string(), region.unwrap())
                     }
-                    Region::Active => {
-                        edit_atoms(pdb, &list, &mode.to_string(), region.unwrap())
-                    }
+                    Region::Active => edit_atoms(pdb, &list, &mode.to_string(), region.unwrap()),
                 }
 
                 edit_op = Some(Box::new(match mode.to_string().as_str() {
