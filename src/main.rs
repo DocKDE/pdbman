@@ -320,30 +320,37 @@ fn run() -> Result<(), anyhow::Error> {
         };
 
         // More convenient so the args can be reused without cloning
-        let args_vec: Vec<&str> = args.collect();
+        let args_vec: Vec<&str> = args.map(|a| a.trim()).collect();
         let mut pdb_cache = PDBCacher::new(read_pdb);
 
         // Test for input errors before actually processing anything
-        for arg in &args_vec {
-            let matches = match parse_args().try_get_matches_from(arg.trim().split_whitespace()) {
+        for (i, arg) in args_vec.iter().enumerate() {
+            let matches = match parse_args().try_get_matches_from(arg.split_whitespace()) {
                 Ok(m) => m,
                 Err(e) => bail!(
-                    "\n{}: '{}'\n\n{}",
-                    "FAILURE WHILE PARSING COMMAND".red(),
+                    "\n{}{}: '{}'\n\n{}",
+                    "FAILURE WHILE PARSING COMMAND #".red(),
+                    (i + 1).to_string().red(),
                     arg.blue(),
                     e
                 ),
             };
 
-            let mode = match Mode::new(&matches) {
-                Ok(m) => m,
-                Err(e) => bail!(
-                    "\n{}: '{}'\n\n{}",
-                    "FAILURE WHILE PARSING COMMAND".red(),
+            if let Err(e) = Mode::new(&matches) {
+                bail!(
+                    "\n{}{}: '{}'\n\n{}",
+                    "FAILURE WHILE PARSING COMMAND #".red(),
+                    (i + 1).to_string().red(),
                     arg.blue(),
                     e
-                ),
+                )
             };
+        }
+
+        // Do the processing now that all inputs have been checked
+        for arg in args_vec {
+            let matches = parse_args().get_matches_from(arg.split_whitespace());
+            let mode = Mode::new(&matches).unwrap();
 
             let pdb = match pdb_cache.get_pdb().as_mut() {
                 Ok(p) => p,

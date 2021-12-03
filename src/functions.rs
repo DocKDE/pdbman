@@ -368,10 +368,7 @@ pub fn parse_atomic_list(input: &str, pdb: &PDB) -> Result<AtomList, anyhow::Err
                 "Ranges are not allowed for atom name inputs."
             );
 
-            let input_set: HashSet<String> = input_vec
-                .iter()
-                .map(|s| s.to_lowercase())
-                .collect();
+            let input_set: HashSet<String> = input_vec.iter().map(|s| s.to_lowercase()).collect();
             let pdb_set: HashSet<String> =
                 HashSet::from_par_iter(pdb.par_atoms().map(|a| a.name().to_lowercase()));
             let mut missing_atoms = input_set.difference(&pdb_set).peekable();
@@ -441,10 +438,7 @@ pub fn parse_residue_list(input: &str, pdb: &PDB) -> Result<ResidueList, anyhow:
                 "Ranges are not allowed for residue name inputs."
             );
 
-            let input_set: HashSet<String> = input_vec
-                .iter()
-                .map(|s| s.to_lowercase())
-                .collect();
+            let input_set: HashSet<String> = input_vec.iter().map(|s| s.to_lowercase()).collect();
             let pdb_set: HashSet<String> = HashSet::from_par_iter(
                 pdb.par_residues().map(|a| a.name().unwrap().to_lowercase()),
             );
@@ -595,7 +589,7 @@ pub fn get_residuelist(pdb: &PDB, region: Region) -> Result<Vec<String>, anyhow:
 
     let str_vec = pdb
         .atoms_with_hierarchy()
-        .filter(|a| filt_closure(a))
+        .filter(filt_closure)
         .map(|a| a.residue().serial_number().to_string())
         .dedup()
         .collect::<Vec<String>>();

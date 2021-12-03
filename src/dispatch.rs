@@ -15,7 +15,7 @@ use crate::revertable::{EditOp, Revertable};
 // command line options. Hands all occurring errors to caller.
 pub fn dispatch(
     mode: Mode,
-    mut pdb: &mut pdbtbx::PDB,
+    pdb: &mut pdbtbx::PDB,
     infile: &str,
 ) -> Result<Option<Box<dyn Revertable>>, anyhow::Error> {
     // ) -> Result<Option<Vec<EditOp>>, anyhow::Error> {
@@ -103,13 +103,13 @@ pub fn dispatch(
 
                         match region.unwrap() {
                             Region::QM1 | Region::QM2 => edit_atoms(
-                                &mut pdb,
+                                pdb,
                                 &atomic_list,
                                 &mode.to_string(),
                                 region.unwrap(),
                             ),
                             Region::Active => edit_atoms(
-                                &mut pdb,
+                                pdb,
                                 &atomic_list,
                                 &mode.to_string(),
                                 region.unwrap(),
@@ -199,10 +199,10 @@ pub fn dispatch(
 
                 match region.unwrap() {
                     Region::QM1 | Region::QM2 => {
-                        edit_atoms(&mut pdb, &list, &mode.to_string(), region.unwrap())
+                        edit_atoms(pdb, &list, &mode.to_string(), region.unwrap())
                     }
                     Region::Active => {
-                        edit_atoms(&mut pdb, &list, &mode.to_string(), region.unwrap())
+                        edit_atoms(pdb, &list, &mode.to_string(), region.unwrap())
                     }
                 }
 
@@ -260,7 +260,7 @@ pub fn dispatch(
                         edit_op = Some(Box::new(remove_ops));
                     }
 
-                    remove_region(&mut pdb, None);
+                    remove_region(pdb, None);
                 } else if { *region == Some(Region::QM1) || *region == Some(Region::QM2) }
                     && *target == None
                 {
@@ -294,7 +294,7 @@ pub fn dispatch(
                         edit_op = Some(Box::new(remove_ops));
                     }
 
-                    remove_region(&mut pdb, Some(Region::QM1))
+                    remove_region(pdb, Some(Region::QM1))
                 } else if *region == Some(Region::Active) && *target == None {
                     let active_atoms: Vec<usize> = pdb
                         .atoms()
@@ -309,7 +309,7 @@ pub fn dispatch(
                         }))
                     }
 
-                    remove_region(&mut pdb, Some(Region::Active))
+                    remove_region(pdb, Some(Region::Active))
                 } else {
                     bail!("Please provide the approprate options (see --help).".red())
                 }

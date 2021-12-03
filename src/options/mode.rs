@@ -6,7 +6,7 @@ use itertools::Itertools;
 use strum::VariantNames;
 use strum_macros::{Display, EnumString, EnumVariantNames};
 
-#[derive(Display, PartialEq, Debug, EnumVariantNames)]
+#[derive(Display, PartialEq, Debug, Clone, EnumVariantNames)]
 pub enum Mode<'a> {
     Query {
         source: Source<'a>,
