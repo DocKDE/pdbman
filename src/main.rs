@@ -21,6 +21,7 @@ mod shell;
 
 use std::env;
 use std::fs;
+use std::path::Path;
 use std::process;
 
 use anyhow::Context;
@@ -38,7 +39,7 @@ use rustyline::validate::MatchingBracketValidator;
 use rustyline::{Cmd, ColorMode, CompletionType, Config, EditMode, Editor, KeyEvent};
 
 use dispatch::dispatch;
-use options::{parse_args, Mode};
+use options::{clap_args, Mode};
 use revertable::Revertable;
 use shell::ShellHelper;
 
@@ -48,27 +49,28 @@ pdbman 0.8.4
 Benedikt M. Flöser <benedikt.floeser@cec.mpg.de>
     
 Analyzes and edits PDB files for usage in QM/MM calculations with the ORCA Quantum Chemistry package
-    
-USAGE:
-    pdbman <PDBFILE> <[OPTIONS]|[SUBCOMMAND]>
-    
-ARGS:
-    <PDBFILE>    Path to PDB file
-    
-OPTIONS:
-    -f, --file <File>    Read commands from file
-    -h, --help           Display help message
-    -i, --interactive    Enter interactive mode
-
-SUBCOMMANDS:
-    Add                  Add atoms or residues to QM1/QM2/Active region
-    Remove               Remove atoms or residues from QM1/QM2/Active region
-    Query                Query atoms or residues
-    Analyse              Analyze PDB file and QM1/QM2/Active region
-    Write                Write PDB structure information to file or stdout
-
-Calling a subcommand with the '--help/-h' flag will display a help message for it
 ";
+    
+// USAGE:
+//     pdbman <PDBFILE> <[OPTIONS]|[SUBCOMMAND]>
+    
+// ARGS:
+//     <PDBFILE>    Path to PDB file
+    
+// OPTIONS:
+//     -f, --file <File>    Read commands from file
+//     -h, --help           Display help message
+//     -i, --interactive    Enter interactive mode
+
+// SUBCOMMANDS:
+//     Add                  Add atoms or residues to QM1/QM2/Active region
+//     Remove               Remove atoms or residues from QM1/QM2/Active region
+//     Query                Query atoms or residues
+//     Analyse              Analyze PDB file and QM1/QM2/Active region
+//     Write                Write PDB structure information to file or stdout
+
+// Calling a subcommand with the '--help/-h' flag will display a help message for it
+// ";
 
 const HELP_SHORT: &str = "
 USAGE:
@@ -149,7 +151,16 @@ fn run() -> Result<(), anyhow::Error> {
         .get_matches();
 
     if pdbman_match.is_present("Help") {
-        println!("{}", HELP_LONG);
+        let args = clap_args();
+        let skip_val = match pdbman_match.value_of("PDBFILE") {
+            None => 1,
+            Some(a) => match Path::new(a).exists() {
+                true => 2,
+                false => 1,
+            }
+        };
+
+        args.get_matches_from(std::env::args().skip(skip_val));
         return Ok(());
     }
 
@@ -246,7 +257,7 @@ fn run() -> Result<(), anyhow::Error> {
                 continue;
             }
 
-            let args = parse_args();
+            let args = clap_args();
             // Don't return when an error occurs because it would break the loop and disrupt the workflow.
             // Errors returned from here mostly come from parsing the in-shell command line options.
             let matches = match args.try_get_matches_from(command.split_whitespace()) {
@@ -325,7 +336,7 @@ fn run() -> Result<(), anyhow::Error> {
 
         // Test for input errors before actually processing anything
         for (i, arg) in args_vec.iter().enumerate() {
-            let matches = match parse_args().try_get_matches_from(arg.split_whitespace()) {
+            let matches = match clap_args().try_get_matches_from(arg.split_whitespace()) {
                 Ok(m) => m,
                 Err(e) => bail!(
                     "\n{}{}: '{}'\n\n{}",
@@ -349,7 +360,7 @@ fn run() -> Result<(), anyhow::Error> {
 
         // Do the processing now that all inputs have been checked
         for arg in args_vec {
-            let matches = parse_args().get_matches_from(arg.split_whitespace());
+            let matches = clap_args().get_matches_from(arg.split_whitespace());
             let mode = Mode::new(&matches).unwrap();
 
             let pdb = match pdb_cache.get_pdb().as_mut() {

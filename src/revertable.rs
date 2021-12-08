@@ -24,10 +24,10 @@ impl Revertable for EditOp {
     fn undo(&self, pdb: &mut pdbtbx::PDB) {
         match self {
             EditOp::ToAdd { region, atoms } => {
-                functions::edit_atoms(pdb, atoms, "Remove", region.to_owned())
+                functions::edit_atoms(pdb, atoms, "Remove", *region)
             }
             EditOp::ToRemove { region, atoms } => {
-                functions::edit_atoms(pdb, atoms, "Add", region.to_owned())
+                functions::edit_atoms(pdb, atoms, "Add", *region)
             }
         }
     }
@@ -35,10 +35,10 @@ impl Revertable for EditOp {
     fn redo(&self, pdb: &mut pdbtbx::PDB) {
         match self {
             EditOp::ToAdd { region, atoms } => {
-                functions::edit_atoms(pdb, atoms, "Add", region.to_owned())
+                functions::edit_atoms(pdb, atoms, "Add", *region)
             }
             EditOp::ToRemove { region, atoms } => {
-                functions::edit_atoms(pdb, atoms, "Remove", region.to_owned())
+                functions::edit_atoms(pdb, atoms, "Remove", *region)
             }
         }
     }

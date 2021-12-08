@@ -17,8 +17,8 @@ pub fn dispatch(
     pdb: &mut pdbtbx::PDB,
     infile: &str,
 ) -> Result<Option<Box<dyn Revertable>>, anyhow::Error> {
-    // ) -> Result<Option<Vec<EditOp>>, anyhow::Error> {
     let mut edit_op: Option<Box<dyn Revertable>> = None;
+
     match &mode {
         Mode::Query { source, target } => match source {
             Source::List(list) => match target {

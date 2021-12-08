@@ -3,6 +3,8 @@ use clap::{App, AppSettings, Arg, ArgGroup};
 use itertools::Itertools;
 use lazy_regex::{regex, regex_is_match};
 
+use crate::HELP_LONG;
+
 fn sphere_valid(v: &str) -> Result<(), anyhow::Error> {
     let err_chars = v
         .chars()
@@ -66,13 +68,15 @@ fn list_valid(v: &str) -> Result<(), anyhow::Error> {
 }
 
 /// Defines all Args, their configuration and all ArgGroups as defined by clap.
-pub fn parse_args() -> App<'static> {
+pub fn clap_args() -> App<'static> {
     App::new("")
         // .setting(AppSettings::ArgRequiredElseHelp)
-        // .setting(AppSettings::SubcommandRequiredElseHelp)
+        .setting(AppSettings::SubcommandRequiredElseHelp)
         // .setting(AppSettings::VersionlessSubcommands)
         .setting(AppSettings::InferSubcommands)
         .setting(AppSettings::NoBinaryName)
+        // .about("Hodor")
+        .long_about(HELP_LONG)
         .subcommand(App::new("Query")
             .about("Query mode")
             .visible_aliases(&["query"])
@@ -381,7 +385,7 @@ pub fn parse_args() -> App<'static> {
             )
             .arg(
                 Arg::new("Outfile")
-                    .about("File path for writing PDB")
+                    .about("File path for writing output")
                     .long("file")
                     .short('f')
                     .takes_value(true),
