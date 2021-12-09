@@ -29,7 +29,6 @@ use anyhow::Context;
 use anyhow::Result;
 use clap::{AppSettings, Arg};
 use colored::*;
-use itertools::Itertools;
 use pdbtbx::StrictnessLevel;
 use rustyline::completion::FilenameCompleter;
 use rustyline::config::OutputStreamType;
@@ -101,7 +100,7 @@ fn run() -> Result<(), anyhow::Error> {
         )
         .get_matches();
 
-    let given_args: Vec<String> = std::env::args().collect();
+    let given_args: Vec<String> = env::args().collect();
 
     // Print help if pdbman is called with no arguments
     if given_args.len() == 1 {
@@ -109,7 +108,9 @@ fn run() -> Result<(), anyhow::Error> {
         return Ok(());
     }
 
-    // Handle printing of help with and without input file given and potential subcommand help required
+    // Handle printing of help with and without input file given and potential subcommand help required.
+    // The workaround with searching for the presence of "--help" is due to the presence of the "IgnoreErrors" 
+    // setting in clap which will prevent the flag from being detected if unknown options were given.
     if given_args.contains(&"-h".to_owned()) || given_args.contains(&"--help".to_owned()) {
         match given_args.len() {
             2 => {
@@ -142,6 +143,7 @@ fn run() -> Result<(), anyhow::Error> {
         None => bail!("NO PDB FILE PATH WAS GIVEN!".red()),
     };
 
+    // Define now so it can either be called or cached depending on use mode
     let read_pdb = || -> Result<pdbtbx::PDB, anyhow::Error> {
         match pdbtbx::open_pdb(filename, StrictnessLevel::Strict) {
             Ok((pdb_read, errors)) => {
@@ -188,7 +190,7 @@ fn run() -> Result<(), anyhow::Error> {
         // Be careful not to return any error unnecessarily because they would break the loop
         loop {
             let p = "\npdbman> ";
-            rl.helper_mut().expect("No helper").colored_prompt = format!("\x1b[1;32m{}\x1b[0m", p);
+            rl.helper_mut().unwrap().colored_prompt = format!("\x1b[1;32m{}\x1b[0m", p);
 
             // Get command from read line and deal with special commands
             let command = match rl.readline(p) {
@@ -287,6 +289,7 @@ fn run() -> Result<(), anyhow::Error> {
                         )
                     }
                 };
+
                 input = fs::read_to_string(inpfile).with_context(|| {
                     format!(
                         "\n{}: '{}'",
@@ -294,11 +297,11 @@ fn run() -> Result<(), anyhow::Error> {
                         inpfile.blue()
                     )
                 })?;
-                let args = input.trim().split('\n');
-                args
+
+                input.trim().split('\n')
             }
             false => {
-                args_env = env::args().skip(2).join(" ");
+                args_env = given_args[2..].join(" ");
 
                 ensure!(
                     !args_env.trim().is_empty(),
@@ -322,7 +325,6 @@ fn run() -> Result<(), anyhow::Error> {
                 Ok(m) => m,
                 Err(e) => bail!(
                     "\n{}{}: '{}'\n\n{}",
-                    // TODO: Why is a failure coming from here when a help message should be printed
                     "FAILURE WHILE PARSING COMMAND #".red(),
                     (i + 1).to_string().red(),
                     arg.blue(),
@@ -344,11 +346,6 @@ fn run() -> Result<(), anyhow::Error> {
         // Do the processing now that all inputs have been checked
         for arg in args_vec {
             let matches = clap_args().get_matches_from(arg.split_whitespace());
-
-            if matches.subcommand_name() == Some("help") {
-                println!("True")
-            }
-
             let mode = Mode::new(&matches).unwrap();
 
             let pdb = match pdb_cache.get_pdb().as_mut() {
