@@ -3,7 +3,7 @@ use clap::{App, AppSettings, Arg, ArgGroup};
 use itertools::Itertools;
 use lazy_regex::{regex, regex_is_match};
 
-use crate::HELP_LONG;
+// use crate::HELP_LONG;
 
 fn sphere_valid(v: &str) -> Result<(), anyhow::Error> {
     let err_chars = v
@@ -71,14 +71,13 @@ fn list_valid(v: &str) -> Result<(), anyhow::Error> {
 pub fn clap_args() -> App<'static> {
     App::new("")
         // .setting(AppSettings::ArgRequiredElseHelp)
-        .setting(AppSettings::SubcommandRequiredElseHelp)
+        // .setting(AppSettings::SubcommandRequiredElseHelp)
         // .setting(AppSettings::VersionlessSubcommands)
         .setting(AppSettings::InferSubcommands)
         .setting(AppSettings::NoBinaryName)
-        // .about("Hodor")
-        .long_about(HELP_LONG)
+        // .setting(AppSettings::NoAutoHelp)
         .subcommand(App::new("Query")
-            .about("Query mode")
+            .about("Query for atoms and residues")
             .visible_aliases(&["query"])
             .arg(
                 Arg::new("Residues")
@@ -122,7 +121,7 @@ pub fn clap_args() -> App<'static> {
             .group(ArgGroup::new("source").args(&["Infile", "List", "Sphere"]).required(true))
         )
         .subcommand(App::new("Analyze")
-            .about("Analysis mode")
+            .about("Analysis QM and active regions")
             .visible_aliases(&["analyze", "Y", "y"])
             .arg(
                 Arg::new("Residues")
@@ -171,7 +170,7 @@ pub fn clap_args() -> App<'static> {
             .group(ArgGroup::new("distances").args(&["Clashes", "Contacts"]))
         )
         .subcommand(App::new("Add")
-            .about("Add mode")
+            .about("Add atoms or residues to QM or active regions")
             .visible_aliases(&["add", "A", "a"])
             .arg(
                 Arg::new("Residues")
@@ -260,7 +259,7 @@ pub fn clap_args() -> App<'static> {
                     .required(true))
         )
         .subcommand(App::new("Remove")
-            .about("Remove mode")
+            .about("Remove atoms or residues to QM or active regions")
             .visible_aliases(&["remove"])
             .arg(
                 Arg::new("Residues")
@@ -351,7 +350,7 @@ pub fn clap_args() -> App<'static> {
                     .requires_all(&["target", "region"]))
         )
         .subcommand(App::new("Write")
-            .about("Write Mode")
+            .about("Write PDB information")
             .visible_aliases(&["write"])
             .arg(
                 Arg::new("QM1")

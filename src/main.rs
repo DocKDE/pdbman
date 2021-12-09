@@ -14,6 +14,7 @@ extern crate anyhow;
 
 mod dispatch;
 mod functions;
+mod help;
 mod options;
 mod residue_ascii;
 mod revertable;
@@ -39,60 +40,10 @@ use rustyline::validate::MatchingBracketValidator;
 use rustyline::{Cmd, ColorMode, CompletionType, Config, EditMode, Editor, KeyEvent};
 
 use dispatch::dispatch;
+use help::{HELP_INTER, HELP_LONG, HELP_SHORT};
 use options::{clap_args, Mode};
 use revertable::Revertable;
 use shell::ShellHelper;
-
-const HELP_LONG: &str = "
-pdbman 0.8.4
-    
-Benedikt M. Flöser <benedikt.floeser@cec.mpg.de>
-    
-Analyzes and edits PDB files for usage in QM/MM calculations with the ORCA Quantum Chemistry package
-";
-    
-// USAGE:
-//     pdbman <PDBFILE> <[OPTIONS]|[SUBCOMMAND]>
-    
-// ARGS:
-//     <PDBFILE>    Path to PDB file
-    
-// OPTIONS:
-//     -f, --file <File>    Read commands from file
-//     -h, --help           Display help message
-//     -i, --interactive    Enter interactive mode
-
-// SUBCOMMANDS:
-//     Add                  Add atoms or residues to QM1/QM2/Active region
-//     Remove               Remove atoms or residues from QM1/QM2/Active region
-//     Query                Query atoms or residues
-//     Analyse              Analyze PDB file and QM1/QM2/Active region
-//     Write                Write PDB structure information to file or stdout
-
-// Calling a subcommand with the '--help/-h' flag will display a help message for it
-// ";
-
-const HELP_SHORT: &str = "
-USAGE:
-    pdbman <PDBFILE> <[OPTIONS]|[SUBCOMMAND]>
-    
-ARGS:
-    <PDBFILE>    Path to PDB file
-    
-OPTIONS:
-    -f, --file <File>    Read commands from file
-    -h, --help           Display help message
-    -i, --interactive    Enter interactive mode
-
-SUBCOMMANDS:
-    Add                  Add atoms or residues to QM1/QM2/Active region
-    Remove               Remove atoms or residues from QM1/QM2/Active region
-    Query                Query atoms or residues
-    Analyse              Analyze PDB file and QM1/QM2/Active region
-    Write                Write PDB structure information to file or stdout
-
-Calling a subcommand with the '--help/-h' flag will display a help message for it
-";
 
 struct PDBCacher<T>
 where
@@ -150,17 +101,38 @@ fn run() -> Result<(), anyhow::Error> {
         )
         .get_matches();
 
-    if pdbman_match.is_present("Help") {
-        let args = clap_args();
-        let skip_val = match pdbman_match.value_of("PDBFILE") {
-            None => 1,
-            Some(a) => match Path::new(a).exists() {
-                true => 2,
-                false => 1,
-            }
-        };
+    let given_args: Vec<String> = std::env::args().collect();
 
-        args.get_matches_from(std::env::args().skip(skip_val));
+    // Print help if pdbman is called with no arguments
+    if given_args.len() == 1 {
+        println!("{}", HELP_LONG);
+        return Ok(());
+    }
+
+    // Handle printing of help with and without input file given and potential subcommand help required
+    if given_args.contains(&"-h".to_owned()) || given_args.contains(&"--help".to_owned()) {
+        match given_args.len() {
+            2 => {
+                println!("{}", HELP_LONG);
+            }
+            3 => {
+                if Path::new(pdbman_match.value_of("PDBFILE").unwrap()).exists() {
+                    println!("{}", HELP_LONG);
+                } else if let Err(e) = clap_args().try_get_matches_from(given_args.iter().skip(1)) {
+                    println!("{}", e)
+                }
+            }
+            _ => {
+                let skip_val = match Path::new(pdbman_match.value_of("PDBFILE").unwrap()).exists() {
+                    true => 2,
+                    false => 1,
+                };
+
+                if let Err(e) = clap_args().try_get_matches_from(given_args.iter().skip(skip_val)) {
+                    println!("{}", e);
+                }
+            }
+        }
         return Ok(());
     }
 
@@ -218,11 +190,42 @@ fn run() -> Result<(), anyhow::Error> {
             let p = "\npdbman> ";
             rl.helper_mut().expect("No helper").colored_prompt = format!("\x1b[1;32m{}\x1b[0m", p);
 
+            // Get command from read line and deal with special commands
             let command = match rl.readline(p) {
                 Ok(c) => match c.as_str() {
                     "exit" => break,
                     "e" => break,
                     "quit" => break,
+                    "undo" => {
+                        if edit_ops_counter == 0 {
+                            println!("Nothing to undo");
+                        } else {
+                            edit_ops[edit_ops_counter - 1].undo(&mut pdb);
+                            edit_ops_counter -= 1;
+                        }
+                        continue;
+                    }
+                    "redo" => {
+                        if edit_ops.len() == edit_ops_counter {
+                            println!("Nothing to redo");
+                        } else {
+                            edit_ops[edit_ops_counter].redo(&mut pdb);
+                            edit_ops_counter += 1;
+                        }
+                        continue;
+                    }
+                    "-h" => {
+                        println!("{}", HELP_INTER);
+                        continue;
+                    }
+                    "--help" => {
+                        println!("{}", HELP_INTER);
+                        continue;
+                    }
+                    "help" => {
+                        println!("{}", HELP_INTER);
+                        continue;
+                    }
                     "" => continue,
                     _ => c,
                 },
@@ -239,28 +242,9 @@ fn run() -> Result<(), anyhow::Error> {
 
             rl.add_history_entry(&command);
 
-            if command == "undo" {
-                if edit_ops_counter == 0 {
-                    println!("Nothing to undo");
-                } else {
-                    edit_ops[edit_ops_counter - 1].undo(&mut pdb);
-                    edit_ops_counter -= 1;
-                }
-                continue;
-            } else if command == "redo" {
-                if edit_ops.len() == edit_ops_counter {
-                    println!("Nothing to redo");
-                } else {
-                    edit_ops[edit_ops_counter].redo(&mut pdb);
-                    edit_ops_counter += 1;
-                }
-                continue;
-            }
-
-            let args = clap_args();
             // Don't return when an error occurs because it would break the loop and disrupt the workflow.
             // Errors returned from here mostly come from parsing the in-shell command line options.
-            let matches = match args.try_get_matches_from(command.split_whitespace()) {
+            let matches = match clap_args().try_get_matches_from(command.split_whitespace()) {
                 Ok(m) => m,
                 Err(e) => {
                     println!("{}", e);
@@ -286,8 +270,6 @@ fn run() -> Result<(), anyhow::Error> {
                 }
                 Err(e) => println!("{}", e),
             }
-            // println!("{:?}", edit_ops);
-            // println!("{}", edit_ops_counter);
         }
     } else {
         let input;
@@ -340,6 +322,7 @@ fn run() -> Result<(), anyhow::Error> {
                 Ok(m) => m,
                 Err(e) => bail!(
                     "\n{}{}: '{}'\n\n{}",
+                    // TODO: Why is a failure coming from here when a help message should be printed
                     "FAILURE WHILE PARSING COMMAND #".red(),
                     (i + 1).to_string().red(),
                     arg.blue(),
@@ -361,6 +344,11 @@ fn run() -> Result<(), anyhow::Error> {
         // Do the processing now that all inputs have been checked
         for arg in args_vec {
             let matches = clap_args().get_matches_from(arg.split_whitespace());
+
+            if matches.subcommand_name() == Some("help") {
+                println!("True")
+            }
+
             let mode = Mode::new(&matches).unwrap();
 
             let pdb = match pdb_cache.get_pdb().as_mut() {

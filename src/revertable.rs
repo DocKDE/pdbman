@@ -23,20 +23,14 @@ pub trait Revertable {
 impl Revertable for EditOp {
     fn undo(&self, pdb: &mut pdbtbx::PDB) {
         match self {
-            EditOp::ToAdd { region, atoms } => {
-                functions::edit_atoms(pdb, atoms, "Remove", *region)
-            }
-            EditOp::ToRemove { region, atoms } => {
-                functions::edit_atoms(pdb, atoms, "Add", *region)
-            }
+            EditOp::ToAdd { region, atoms } => functions::edit_atoms(pdb, atoms, "Remove", *region),
+            EditOp::ToRemove { region, atoms } => functions::edit_atoms(pdb, atoms, "Add", *region),
         }
     }
 
     fn redo(&self, pdb: &mut pdbtbx::PDB) {
         match self {
-            EditOp::ToAdd { region, atoms } => {
-                functions::edit_atoms(pdb, atoms, "Add", *region)
-            }
+            EditOp::ToAdd { region, atoms } => functions::edit_atoms(pdb, atoms, "Add", *region),
             EditOp::ToRemove { region, atoms } => {
                 functions::edit_atoms(pdb, atoms, "Remove", *region)
             }
