@@ -229,7 +229,7 @@ pub fn dispatch(
                     })
                     .map(|a| a.serial_number())
                     .collect();
-                
+
                 let actual_op_list: Vec<usize> = match mode.to_string().as_str() {
                     "Add" => atom_set.difference(&set_of_existing).copied().collect(),
                     "Remove" => atom_set.intersection(&set_of_existing).copied().collect(),
