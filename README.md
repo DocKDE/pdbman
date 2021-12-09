@@ -16,10 +16,10 @@ serve as input for Orca QM/MM calculations.
 - Add or remove atoms or residues to QM or active region by ID or name
 - Add or remove atoms and residues to QM or active region by calculating a sphere of given radius around a given atom
 - Add or remove only the sidechain or backbone of residues
-- Write changes to stdout or file
+- Write PDB structure, atom or residue ID lists to stdout or file
 - Lists of QM or active atoms can be saved to or loaded from files
 
-The several options are provided via command line flags (the ordering of the flags does not matter). Additional information can be obtained from `help`
+The several options are provided via command line flags (the ordering of the flags does not matter). Additional information can be obtained by giving the `--help`/'`-h` option anywhere in the program.
 
 ---
 
@@ -49,7 +49,25 @@ This will drop you in a shell where you can then enter commands:
 pdbman>
 ```
 
-This is convenient because the PDB file has only to be loaded once and will be kept in memory as long as you're working with it. Furthermore, a few convenience functions are present, such as a command history of the session, command suggestions based theron and tab completion for files.
+This is convenient because the PDB file has only to be loaded once and will be kept in memory as long as you're working with it. Furthermore, a few convenience functions are present:
+
+- Command history
+  
+  - Access last command with "up" arrow key
+  
+  - Reverse-search in command history with `Ctrl-R`
+  
+  - Cycle through command history with `Ctrl-p` and `Ctrl-n` (previous and next item, respectively)
+
+- Undo/redo functionality
+  
+  - Type `undo` or `redo` to perform the respective actions
+  
+  - Only relevant for commands that induce changes in the PDB structure
+
+- Command suggestions based on history
+  
+  - To accept a suggested command press the "right" arrow key
 
 For quitting the shell type `exit`, `e`, `quit` or press `Ctrl-C` or `Ctrl-D`.
 
@@ -225,11 +243,17 @@ pdbman> q -tl 1
 +---------+-----------+------------+--------------+----+--------+
 ```
 
+
+
 #### Write
 
-This command will write the current state of the PDB structure held in memory to stdout or a file. If no further options are given, the whole PDB structure will be written to stdout. The output target can be modified by providing a `--overwrite`/`-w` or `--file`/`-f` flag. These will write the output to the input PDB file or a specified file. Note that in the first case, the input PDB will be overwritten!
+This command will write information about the current state of the PDB structure held in memory to stdout or a file. This can either be the PDB structure itself or a list of the atom or residue IDs in a given region.
 
-If a region flag (`--qm1`/`-q`, `--qm2`/`-o` or `--active`/`-a`) is given, the atom IDs currently making up that region will be printed to stdout or a file, depending on the user-given flag. This is useful to quickly transfer the state of one PDB file to another.
+ If no further options are given, the whole PDB structure will be written to stdout. The output target can be modified by providing a `--overwrite`/`-w` or `--file`/`-f` flag. These will write the output to the input PDB file or a specified file. Note that in the first case, the input PDB will be overwritten!
+
+If a region flag (`--qm1`/`-q`, `--qm2`/`-o` or `--active`/`-a`) is given, the atom or residue IDs currently making up that region will be printed to stdout or a file, depending on the user-given flags. Accordingly, either an `--atoms`/`-t` or `--residues`/`-r` flag must be given. 
+
+This is useful to quickly transfer the state of one PDB file to another. Note that if the `--residues` flag is given, all residue IDs containing at least one atom in the given region will be printed so for this use case, using a list of atoms is the safe option.
 
 Examples:
 
@@ -237,16 +261,24 @@ Examples:
 # Write PDB structure to input file, overwriting it
 w -w
 # Write list of QM1 atoms to stdout
-w -q
-# Write list of active atoms to file 'activeaomts.txt'
-w -af activeatoms.txt
+w -qt
+# Write list of active residues to file 'activeatoms.txt'
+w -arf activeatoms.txt
 ```
 
 ---
 
 Help messages are available for all subcommands like so:
 
-`pdbman Add --help`
+`pdbman [Subcommand] --help`
+
+Or from within the shell:
+
+```
+pdbman> [Subcommand] --help
+```
+
+
 
 ## Installation
 
@@ -263,18 +295,22 @@ In case you're on MacOS or the provided executables do not work (e.g. because of
 3. Open a terminal, navigate to the folder containing the `src` folder and the `Cargo.toml` file.
 4. Type `cargo install --path .` (Do not forget the dot).
 
-Rust will now compile the binary and place it in your cargo root folder (location differs based on operating system). It can now be accessed from the command line without any further steps. It is also possible to just build the binary without installing it anywhere on your system so you can handle it as you see fit. In this case do:
+Rust will now compile the binary and place it in your cargo root folder (location differs based on operating system). It can now be accessed from the command line without any further steps. 
+
+It is also possible to just build the binary without installing it anywhere on your system so you can handle it as you see fit. In this case do:
 
 ```
 cargo build --release
 ```
+
 After a successful build a release binary will be placed in the `./target/release` folder (relative to the root folder of the repository).
 
 ## Example Usage
 
-As illustration what `pdbman` is capable of typical workflows will be shown.
+As illustration of what `pdbman` is capable of typical workflows will be shown.
 
 ### Shell mode
+
 First the shell needs to be started like so:
 
 ```
@@ -350,11 +386,7 @@ We will save the changes made here at the end of our editing session.
 Next, we want to build an active region of residues around a metal ion in the center of the region of interest to us. In order to find the ID of a suitable atom you can do, e.g.:
 
 ```
-pdbman> Q -tl Cu
-```
-
-```
-pdbman> q -tl cu
+pdbman> Q -tl cu
 +---------+-----------+------------+--------------+----+--------+
 | Atom ID | Atom name | Residue ID | Residue Name | QM | Active |
 +---------+-----------+------------+--------------+----+--------+
@@ -392,7 +424,7 @@ pdbman> Y -ra
 ```
 
 In general it is a good idea to keep checking your progress in case of unanticipated behaviour.
-Next, we build a QM region. We have to decide on residues to include here which is usually done via inspection of the active site with some graphical program. Once you decide what to include you can use pdbman to apply it to your PDB file in a few commands.
+Next, we build a QM region. We have to decide on residues to include here which is usually done via inspection of the active site with some graphical program. Once you decide what to include you can use `pdbman` to apply it to your PDB file in a few commands.
 
 In this case, we have a mononuclear Cu center, surrounded by several amino acids, a hydrogen peroxide and a polysaccharide. We determined by hand the IDs of the residues to include but in case we forget a number, we can use `pdbman` to query for it like so:
 
@@ -535,19 +567,23 @@ pdbman> w -w
 ```
 
 This will overwrite the input file, alternatively we can do:
+
 ```
 pdbman> w -f output.pdb
 ```
+
 which will save the edited PDB structure to `output.pdb` leaving the input file untouched.
 
 Now we're finally ready for some QM/MM calculations with ORCA!
 
 ### Command line mode
+
 All commands shown in the previous section can also be used directly from command line. Typically this would be desirable if no analysis or querying is necessary and several commands can be chained. One use case would be to transfer the state of one PDB file to another:
 
 First, the atoms in the respective sections of the source PDB file need to be saved to a file each:
+
 ```
-pdbman myfile.pdb w -qf qmatoms.txt / w -af activeatoms.txt
+pdbman myfile.pdb w -qtf qmatoms.txt / w -atf activeatoms.txt
 ```
 
 Chaining the commands like this has the advantage that the PDB file is only read and parsed once. Next, the files can be read by `pdbman` to serve as input for another PDB file:
@@ -555,6 +591,7 @@ Chaining the commands like this has the advantage that the PDB file is only read
 ```
 pdbman otherfile.pdb r / a -qtf qmatoms.txt / a -atf activeatoms.txt / w -w
 ```
+
 Make sure to clean the QM and active regions beforehand to remove potential leftovers. Also note that no changes will be written to the file unless specifically requested so a call to the `Write` subcommand is necessary.
 
 Now the state of `myfile.pdb` has been transferred to `otherfile.pdb` successfully. The commands for `pdbman` could also have been read from a file if desired and both modes of operation are useful for scripting and automation workflows.
@@ -564,7 +601,9 @@ Finally, for quick queries and analyses `pdbman` may be called from command line
 ```
 pdbman myfile.pdb y
 ```
+
 which will output something like this (just as in shell mode, see above):
+
 ```
 +--------+------------+---------------+
 |        | # of Atoms | # of Residues |
