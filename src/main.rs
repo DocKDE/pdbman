@@ -109,7 +109,7 @@ fn run() -> Result<(), anyhow::Error> {
     }
 
     // Handle printing of help with and without input file given and potential subcommand help required.
-    // The workaround with searching for the presence of "--help" is due to the presence of the "IgnoreErrors" 
+    // The workaround with searching for the presence of "--help" is due to the presence of the "IgnoreErrors"
     // setting in clap which will prevent the flag from being detected if unknown options were given.
     if given_args.contains(&"-h".to_owned()) || given_args.contains(&"--help".to_owned()) {
         match given_args.len() {

@@ -1,10 +1,11 @@
-// use std::error::Error;
+use std::collections::HashSet;
 use std::fs::File;
 use std::io::{self, BufRead, BufReader, BufWriter, Write};
 
 use anyhow::Context;
 use colored::Colorize;
 use pdbtbx::{save_pdb, ContainsAtomConformer, ContainsAtomConformerResidue};
+use rayon::iter::ParallelIterator;
 
 use crate::functions::*;
 use crate::options::{Mode, Output, Partial, Region, Source, Target};
@@ -98,28 +99,45 @@ pub fn dispatch(
                 };
                 match target.unwrap() {
                     Target::Atoms => {
-                        let atomic_list = parse_atomic_list(&list, pdb)?;
+                        // let atomic_list = parse_atomic_list(&list, pdb)?;
 
-                        match region.unwrap() {
-                            Region::QM1 | Region::QM2 => {
-                                edit_atoms(pdb, &atomic_list, &mode.to_string(), region.unwrap())
-                            }
-                            Region::Active => {
-                                edit_atoms(pdb, &atomic_list, &mode.to_string(), region.unwrap())
-                            }
-                        }
+                        let atomic_set: HashSet<usize> =
+                            HashSet::from_iter(parse_atomic_list(&list, pdb)?.iter().copied());
+                        let set_of_existing: HashSet<usize> = pdb
+                            .par_atoms()
+                            .filter(|a| match region.unwrap() {
+                                Region::QM1 => a.occupancy() == 1.00,
+                                Region::QM2 => a.occupancy() == 2.00,
+                                Region::Active => a.occupancy() == 1.00,
+                            })
+                            .map(|a| a.serial_number())
+                            .collect();
+                        let actual_op_list: Vec<usize> = match mode.to_string().as_str() {
+                            "Add" => atomic_set.difference(&set_of_existing).copied().collect(),
+                            "Remove" => atomic_set.intersection(&set_of_existing).copied().collect(),
+                            _ => unreachable!(),
+                        };
 
                         edit_op = Some(Box::new(match mode.to_string().as_str() {
                             "Add" => EditOp::ToAdd {
                                 region: region.unwrap(),
-                                atoms: atomic_list,
+                                atoms: actual_op_list.clone(),
                             },
                             "Remove" => EditOp::ToRemove {
                                 region: region.unwrap(),
-                                atoms: atomic_list,
+                                atoms: actual_op_list.clone(),
                             },
                             _ => unreachable!(),
                         }));
+
+                        match region.unwrap() {
+                            Region::QM1 | Region::QM2 => {
+                                edit_atoms(pdb, &actual_op_list, &mode.to_string(), region.unwrap())
+                            }
+                            Region::Active => {
+                                edit_atoms(pdb, &actual_op_list, &mode.to_string(), region.unwrap())
+                            }
+                        }
                     }
                     Target::Residues => {
                         let residue_list = parse_residue_list(&list, pdb)?;
