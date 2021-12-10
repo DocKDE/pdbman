@@ -185,7 +185,8 @@ fn run() -> Result<(), anyhow::Error> {
         let mut pdb = read_pdb()?;
 
         let mut edit_ops: Vec<Box<dyn Revertable>> = Vec::new();
-        let mut edit_ops_counter = 0;
+        let mut edit_ops_index = 0;
+        let mut undone = false;
 
         // Be careful not to return any error unnecessarily because they would break the loop
         loop {
@@ -199,21 +200,26 @@ fn run() -> Result<(), anyhow::Error> {
                     "e" => break,
                     "quit" => break,
                     "undo" => {
-                        if edit_ops_counter == 0 {
+                        if edit_ops_index == 0 {
                             println!("Nothing to undo");
                         } else {
-                            edit_ops[edit_ops_counter - 1].undo(&mut pdb);
-                            edit_ops_counter -= 1;
+                            edit_ops[edit_ops_index - 1].undo(&mut pdb);
+                            edit_ops_index -= 1;
+                            undone = true;
                         }
                         continue;
                     }
                     "redo" => {
-                        if edit_ops.len() == edit_ops_counter {
+                        if edit_ops.len() == edit_ops_index {
                             println!("Nothing to redo");
                         } else {
-                            edit_ops[edit_ops_counter].redo(&mut pdb);
-                            edit_ops_counter += 1;
+                            edit_ops[edit_ops_index].redo(&mut pdb);
+                            edit_ops_index += 1;
                         }
+                        continue;
+                    }
+                    "clear" => {
+                        edit_ops.clear();
                         continue;
                     }
                     "-h" => {
@@ -266,12 +272,20 @@ fn run() -> Result<(), anyhow::Error> {
             match dispatch(mode, &mut pdb, filename) {
                 Ok(optop) => {
                     if let Some(edit_op) = optop {
+                        if undone {
+                            edit_ops.clear();
+                            edit_ops_index = 0;
+                            undone = false
+                        }
                         edit_ops.push(edit_op);
-                        edit_ops_counter += 1;
+                        edit_ops_index += 1;
                     }
                 }
                 Err(e) => println!("{}", e),
             }
+            // println!("Index: {}", edit_ops_index);
+            // println!("Length: {}", edit_ops.len());
+            // println!("{:#?}", edit_ops)
         }
     } else {
         let input;

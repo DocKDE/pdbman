@@ -1,9 +1,11 @@
+use strum_macros::Display;
+
 use crate::functions;
 use crate::options;
 
 type AtomList = Vec<usize>;
 
-#[derive(Debug, Clone, PartialEq, PartialOrd)]
+#[derive(Debug, Display, Clone, PartialEq, PartialOrd)]
 pub enum EditOp {
     ToAdd {
         region: options::Region,
@@ -15,7 +17,7 @@ pub enum EditOp {
     },
 }
 
-pub trait Revertable {
+pub trait Revertable: std::fmt::Debug {
     fn undo(&self, pdb: &mut pdbtbx::PDB);
     fn redo(&self, pdb: &mut pdbtbx::PDB);
 }
@@ -51,3 +53,9 @@ impl Revertable for Vec<EditOp> {
         }
     }
 }
+
+// impl core::fmt::Debug for dyn Revertable {
+//     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+//         write!(f, "{:?}", self)
+//     }
+// }

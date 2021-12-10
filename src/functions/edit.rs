@@ -83,7 +83,7 @@ pub fn remove_region(pdb: &mut PDB, region: Option<Region>) {
             .for_each(|a| a.set_b_factor(0.00).unwrap()),
         None => pdb.par_atoms_mut().for_each(|a| {
             a.set_occupancy(0.00).unwrap();
-            a.set_occupancy(0.00).unwrap()
+            a.set_b_factor(0.00).unwrap()
         }),
     }
 }
