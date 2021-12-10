@@ -73,47 +73,32 @@ pub fn dispatch(
             match source {
                 // If source is Some(_), clap requires target and region arguments as well, hence
                 // calling unwrap on them is fine.
-                Some(Source::List(l)) => input_list.extend(match target.unwrap() {
-                    Target::Atoms => parse_atomic_list(l, pdb)?,
-                    Target::Residues => {
-                        let residue_list = parse_residue_list(l, pdb)?;
-                        match partial {
-                            None => pdb
-                                .atoms_with_hierarchy()
-                                .filter(|a| residue_list.contains(&a.residue().serial_number()))
-                                .map(|a| a.atom().serial_number())
-                                .collect(),
-                            Some(p) => pdb
-                                .atoms_with_hierarchy()
-                                .filter(|a| residue_list.contains(&a.residue().serial_number()))
-                                .filter(|a| match p {
-                                    Partial::Backbone => a.is_backbone(),
-                                    Partial::Sidechain => a.is_sidechain(),
+                Some(Source::List(_)) | Some(Source::Infile(_)) => {
+                    let list = match *source.as_ref().unwrap() {
+                        Source::List(l) => l.to_string(),
+                        Source::Infile(f) => {
+                            let file = BufReader::new(
+                                File::open(f).context("\nNO SUCH FILE OR DIRECTORY".red())?,
+                            );
+                            file.lines()
+                                .enumerate()
+                                .map(|(i, l)| -> Result<String, anyhow::Error> {
+                                    let s = l
+                                        .context(format!(
+                                            "{}: {}",
+                                            "COULDN'T READ LINE FROM FILE".red(),
+                                            i.to_string().blue()
+                                        ))?
+                                        .trim()
+                                        .to_owned();
+                                    Ok(s)
                                 })
-                                .map(|a| a.atom().serial_number())
-                                .collect(),
+                                .collect::<Result<Vec<String>, anyhow::Error>>()?
+                                .join(",")
                         }
-                    }
-                }),
-                Some(Source::Infile(f)) => {
-                    let file =
-                        BufReader::new(File::open(f).context("\nNO SUCH FILE OR DIRECTORY".red())?);
-                    let list = file
-                        .lines()
-                        .enumerate()
-                        .map(|(i, l)| -> Result<String, anyhow::Error> {
-                            let s = l
-                                .context(format!(
-                                    "{}: {}",
-                                    "COULDN'T READ LINE FROM FILE".red(),
-                                    i.to_string().blue()
-                                ))?
-                                .trim()
-                                .to_owned();
-                            Ok(s)
-                        })
-                        .collect::<Result<Vec<String>, anyhow::Error>>()?
-                        .join(",");
+                        _ => unreachable!(),
+                    };
+
                     input_list.extend(match target.unwrap() {
                         Target::Atoms => parse_atomic_list(&list, pdb)?,
                         Target::Residues => {
@@ -126,17 +111,62 @@ pub fn dispatch(
                                     .collect(),
                                 Some(p) => pdb
                                     .atoms_with_hierarchy()
-                                    .filter(|a| residue_list.contains(&a.residue().serial_number()))
                                     .filter(|a| match p {
                                         Partial::Backbone => a.is_backbone(),
                                         Partial::Sidechain => a.is_sidechain(),
-                                    })
+                                    } && residue_list.contains(&a.residue().serial_number()))
+                                    // .filter(|a| match p {
+                                    //     Partial::Backbone => a.is_backbone(),
+                                    //     Partial::Sidechain => a.is_sidechain(),
+                                    // })
                                     .map(|a| a.atom().serial_number())
                                     .collect(),
                             }
                         }
                     })
                 }
+                // Some(Source::Infile(f)) => {
+                //     let file =
+                //         BufReader::new(File::open(f).context("\nNO SUCH FILE OR DIRECTORY".red())?);
+                //     let list = file
+                //         .lines()
+                //         .enumerate()
+                //         .map(|(i, l)| -> Result<String, anyhow::Error> {
+                //             let s = l
+                //                 .context(format!(
+                //                     "{}: {}",
+                //                     "COULDN'T READ LINE FROM FILE".red(),
+                //                     i.to_string().blue()
+                //                 ))?
+                //                 .trim()
+                //                 .to_owned();
+                //             Ok(s)
+                //         })
+                //         .collect::<Result<Vec<String>, anyhow::Error>>()?
+                //         .join(",");
+                //     input_list.extend(match target.unwrap() {
+                //         Target::Atoms => parse_atomic_list(&list, pdb)?,
+                //         Target::Residues => {
+                //             let residue_list = parse_residue_list(&list, pdb)?;
+                //             match partial {
+                //                 None => pdb
+                //                     .atoms_with_hierarchy()
+                //                     .filter(|a| residue_list.contains(&a.residue().serial_number()))
+                //                     .map(|a| a.atom().serial_number())
+                //                     .collect(),
+                //                 Some(p) => pdb
+                //                     .atoms_with_hierarchy()
+                //                     .filter(|a| residue_list.contains(&a.residue().serial_number()))
+                //                     .filter(|a| match p {
+                //                         Partial::Backbone => a.is_backbone(),
+                //                         Partial::Sidechain => a.is_sidechain(),
+                //                     })
+                //                     .map(|a| a.atom().serial_number())
+                //                     .collect(),
+                //             }
+                //         }
+                //     })
+                // }
                 Some(Source::Sphere(origin_id, radius)) => {
                     let sphere_origin = pdb
                         .atoms_with_hierarchy()
@@ -385,55 +415,25 @@ pub fn dispatch(
                         }
 
                         remove_region(pdb, None);
-                    } else if { *region == Some(Region::QM1) || *region == Some(Region::QM2) }
-                        && *target == None
-                    {
-                        let mut qm1_atoms = Vec::new();
-                        let mut qm2_atoms = Vec::new();
-
-                        for atom in pdb.atoms() {
-                            if atom.occupancy() == 1.00 {
-                                qm1_atoms.push(atom.serial_number())
-                            }
-                            if atom.occupancy() == 2.00 {
-                                qm2_atoms.push(atom.serial_number())
-                            }
-                        }
-
-                        let mut remove_ops = Vec::with_capacity(2);
-                        if !qm1_atoms.is_empty() {
-                            remove_ops.push(EditOp::ToRemove {
-                                region: Region::QM1,
-                                atoms: qm1_atoms,
-                            })
-                        }
-                        if !qm2_atoms.is_empty() {
-                            remove_ops.push(EditOp::ToRemove {
-                                region: Region::QM2,
-                                atoms: qm2_atoms,
-                            })
-                        }
-
-                        if !remove_ops.is_empty() {
-                            edit_op = Some(Box::new(remove_ops));
-                        }
-
-                        remove_region(pdb, Some(Region::QM1))
-                    } else if *region == Some(Region::Active) && *target == None {
-                        let active_atoms: Vec<usize> = pdb
+                    } else if region.is_some() && *target == None {
+                        let region_atoms: Vec<usize> = pdb
                             .atoms()
-                            .filter(|a| a.b_factor() == 1.00)
+                            .filter(|a| match region.unwrap() {
+                                Region::QM1 => a.occupancy() == 1.00,
+                                Region::QM2 => a.occupancy() == 2.00,
+                                Region::Active => a.b_factor() == 1.00,
+                            })
                             .map(|a| a.serial_number())
                             .collect();
 
-                        if !active_atoms.is_empty() {
+                        if !region_atoms.is_empty() {
                             edit_op = Some(Box::new(EditOp::ToRemove {
-                                region: Region::Active,
-                                atoms: active_atoms,
+                                region: region.unwrap(),
+                                atoms: region_atoms,
                             }))
                         }
 
-                        remove_region(pdb, Some(Region::Active))
+                        remove_region(pdb, Some(region.unwrap()))
                     } else {
                         bail!("Please provide the approprate options (see --help).".red())
                     }

@@ -1,9 +1,3 @@
-// use crate::options::{Partial, Region};
-
-// use pdbtbx::{
-//     Atom, ContainsAtomConformer, ContainsAtomConformerMut, ContainsAtomConformerResidue, PDB,
-// };
-
 use crate::options::Region;
 
 use pdbtbx::{Atom, PDB};
@@ -68,23 +62,30 @@ pub fn edit_atoms(pdb: &mut PDB, list: &[usize], mode: &str, region: Region) {
         _ => unreachable!(),
     };
 
-    pdb.par_atoms_mut().for_each(|a| {
-        if list.contains(&a.serial_number()) {
-            edit(a)
-        }
-    })
+    pdb.par_atoms_mut()
+        .filter(|a| list.contains(&a.serial_number()))
+        .for_each(|a| edit(a));
 }
 
 /// Removes a whole region from PDB file.
 pub fn remove_region(pdb: &mut PDB, region: Option<Region>) {
-    pdb.par_atoms_mut().for_each(|atom| match region {
-        Some(Region::QM1) | Some(Region::QM2) => atom.set_occupancy(0.00).unwrap(),
-        Some(Region::Active) => atom.set_b_factor(0.00).unwrap(),
-        None => {
-            atom.set_b_factor(0.00).unwrap();
-            atom.set_occupancy(0.00).unwrap()
-        }
-    })
+    match region {
+        Some(Region::QM1) => pdb
+            .par_atoms_mut()
+            .filter(|a| a.occupancy() == 1.00)
+            .for_each(|a| a.set_occupancy(0.00).unwrap()),
+        Some(Region::QM2) => pdb
+            .par_atoms_mut()
+            .filter(|a| a.occupancy() == 2.00)
+            .for_each(|a| a.set_occupancy(0.00).unwrap()),
+        Some(Region::Active) => pdb
+            .par_atoms_mut()
+            .for_each(|a| a.set_b_factor(0.00).unwrap()),
+        None => pdb.par_atoms_mut().for_each(|a| {
+            a.set_occupancy(0.00).unwrap();
+            a.set_occupancy(0.00).unwrap()
+        }),
+    }
 }
 
 #[cfg(test)]
