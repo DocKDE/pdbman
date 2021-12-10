@@ -218,10 +218,10 @@ fn run() -> Result<(), anyhow::Error> {
                         }
                         continue;
                     }
-                    "clear" => {
-                        edit_ops.clear();
-                        continue;
-                    }
+                    // "clear" => {
+                    //     edit_ops.clear();
+                    //     continue;
+                    // }
                     "-h" => {
                         println!("{}", HELP_INTER);
                         continue;
@@ -273,8 +273,8 @@ fn run() -> Result<(), anyhow::Error> {
                 Ok(optop) => {
                     if let Some(edit_op) = optop {
                         if undone {
-                            edit_ops.clear();
-                            edit_ops_index = 0;
+                            edit_ops.truncate(edit_ops_index);
+                            // edit_ops_index = 0;
                             undone = false
                         }
                         edit_ops.push(edit_op);
@@ -283,9 +283,9 @@ fn run() -> Result<(), anyhow::Error> {
                 }
                 Err(e) => println!("{}", e),
             }
-            // println!("Index: {}", edit_ops_index);
-            // println!("Length: {}", edit_ops.len());
-            // println!("{:#?}", edit_ops)
+            println!("Index: {}", edit_ops_index);
+            println!("Length: {}", edit_ops.len());
+            println!("{:#?}", edit_ops)
         }
     } else {
         let input;

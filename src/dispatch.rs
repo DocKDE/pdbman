@@ -457,24 +457,26 @@ pub fn dispatch(
                     _ => unreachable!(),
                 };
 
-                edit_op = Some(Box::new(match mode.to_string().as_str() {
-                    "Add" => EditOp::ToAdd {
-                        region: region.unwrap(),
-                        atoms: actual_op_list.iter().copied().collect(),
-                    },
-                    "Remove" => EditOp::ToRemove {
-                        region: region.unwrap(),
-                        atoms: actual_op_list.iter().copied().collect(),
-                    },
-                    _ => unreachable!(),
-                }));
+                if !actual_op_list.is_empty() {
+                    edit_op = Some(Box::new(match mode.to_string().as_str() {
+                        "Add" => EditOp::ToAdd {
+                            region: region.unwrap(),
+                            atoms: actual_op_list.iter().copied().collect(),
+                        },
+                        "Remove" => EditOp::ToRemove {
+                            region: region.unwrap(),
+                            atoms: actual_op_list.iter().copied().collect(),
+                        },
+                        _ => unreachable!(),
+                    }));
 
-                match region.unwrap() {
-                    Region::QM1 | Region::QM2 => {
-                        edit_atoms(pdb, &actual_op_list, &mode.to_string(), region.unwrap())
-                    }
-                    Region::Active => {
-                        edit_atoms(pdb, &actual_op_list, &mode.to_string(), region.unwrap())
+                    match region.unwrap() {
+                        Region::QM1 | Region::QM2 => {
+                            edit_atoms(pdb, &actual_op_list, &mode.to_string(), region.unwrap())
+                        }
+                        Region::Active => {
+                            edit_atoms(pdb, &actual_op_list, &mode.to_string(), region.unwrap())
+                        }
                     }
                 }
             }
