@@ -218,10 +218,6 @@ fn run() -> Result<(), anyhow::Error> {
                         }
                         continue;
                     }
-                    // "clear" => {
-                    //     edit_ops.clear();
-                    //     continue;
-                    // }
                     "-h" => {
                         println!("{}", HELP_INTER);
                         continue;
@@ -272,9 +268,9 @@ fn run() -> Result<(), anyhow::Error> {
             match dispatch(mode, &mut pdb, filename) {
                 Ok(optop) => {
                     if let Some(edit_op) = optop {
+                        // ensures the undo/redo tree remains via cutting stale branches
                         if undone {
                             edit_ops.truncate(edit_ops_index);
-                            // edit_ops_index = 0;
                             undone = false
                         }
                         edit_ops.push(edit_op);

@@ -115,58 +115,12 @@ pub fn dispatch(
                                         Partial::Backbone => a.is_backbone(),
                                         Partial::Sidechain => a.is_sidechain(),
                                     } && residue_list.contains(&a.residue().serial_number()))
-                                    // .filter(|a| match p {
-                                    //     Partial::Backbone => a.is_backbone(),
-                                    //     Partial::Sidechain => a.is_sidechain(),
-                                    // })
                                     .map(|a| a.atom().serial_number())
                                     .collect(),
                             }
                         }
                     })
                 }
-                // Some(Source::Infile(f)) => {
-                //     let file =
-                //         BufReader::new(File::open(f).context("\nNO SUCH FILE OR DIRECTORY".red())?);
-                //     let list = file
-                //         .lines()
-                //         .enumerate()
-                //         .map(|(i, l)| -> Result<String, anyhow::Error> {
-                //             let s = l
-                //                 .context(format!(
-                //                     "{}: {}",
-                //                     "COULDN'T READ LINE FROM FILE".red(),
-                //                     i.to_string().blue()
-                //                 ))?
-                //                 .trim()
-                //                 .to_owned();
-                //             Ok(s)
-                //         })
-                //         .collect::<Result<Vec<String>, anyhow::Error>>()?
-                //         .join(",");
-                //     input_list.extend(match target.unwrap() {
-                //         Target::Atoms => parse_atomic_list(&list, pdb)?,
-                //         Target::Residues => {
-                //             let residue_list = parse_residue_list(&list, pdb)?;
-                //             match partial {
-                //                 None => pdb
-                //                     .atoms_with_hierarchy()
-                //                     .filter(|a| residue_list.contains(&a.residue().serial_number()))
-                //                     .map(|a| a.atom().serial_number())
-                //                     .collect(),
-                //                 Some(p) => pdb
-                //                     .atoms_with_hierarchy()
-                //                     .filter(|a| residue_list.contains(&a.residue().serial_number()))
-                //                     .filter(|a| match p {
-                //                         Partial::Backbone => a.is_backbone(),
-                //                         Partial::Sidechain => a.is_sidechain(),
-                //                     })
-                //                     .map(|a| a.atom().serial_number())
-                //                     .collect(),
-                //             }
-                //         }
-                //     })
-                // }
                 Some(Source::Sphere(origin_id, radius)) => {
                     let sphere_origin = pdb
                         .atoms_with_hierarchy()
@@ -186,192 +140,6 @@ pub fn dispatch(
                         Target::Residues => calc_residue_sphere(pdb, sphere_origin, *radius, true)?,
                     });
                 }
-                // Some(Source::List(_)) | Some(Source::Infile(_)) => {
-                //     let list = match *source.as_ref().unwrap() {
-                //         Source::List(l) => l.to_string(),
-                //         Source::Infile(f) => {
-                //             let file = BufReader::new(
-                //                 File::open(f).context("\nNO SUCH FILE OR DIRECTORY".red())?,
-                //             );
-                //             let list = file
-                //                 .lines()
-                //                 .enumerate()
-                //                 .map(|(i, l)| -> Result<String, anyhow::Error> {
-                //                     let s = l
-                //                         .context(format!(
-                //                             "{}: {}",
-                //                             "COULDN'T READ LINE FROM FILE".red(),
-                //                             i.to_string().blue()
-                //                         ))?
-                //                         .trim()
-                //                         .to_owned();
-                //                     Ok(s)
-                //                 })
-                //                 .collect::<Result<Vec<String>, anyhow::Error>>()?;
-                //             list.join(",")
-                //         }
-                //         _ => unreachable!(),
-                //     };
-                //     match target.unwrap() {
-                //         Target::Atoms => {
-                //             // let atomic_list = parse_atomic_list(&list, pdb)?;
-
-                //             // Determine whether already existing are overwritten with the add/remove command
-                //             // and factor those out. Necessary to be able to undo the action.
-                //             let atom_set: HashSet<usize> =
-                //                 HashSet::from_iter(parse_atomic_list(&list, pdb)?.iter().copied());
-                //             let set_of_existing: HashSet<usize> = pdb
-                //                 .par_atoms()
-                //                 .filter(|a| match region.unwrap() {
-                //                     Region::QM1 => a.occupancy() == 1.00,
-                //                     Region::QM2 => a.occupancy() == 2.00,
-                //                     Region::Active => a.b_factor() == 1.00,
-                //                 })
-                //                 .map(|a| a.serial_number())
-                //                 .collect();
-                //             let actual_op_list: Vec<usize> = match mode.to_string().as_str() {
-                //                 "Add" => atom_set.difference(&set_of_existing).copied().collect(),
-                //                 "Remove" => atom_set.intersection(&set_of_existing).copied().collect(),
-                //                 _ => unreachable!(),
-                //             };
-
-                //             edit_op = Some(Box::new(match mode.to_string().as_str() {
-                //                 "Add" => EditOp::ToAdd {
-                //                     region: region.unwrap(),
-                //                     atoms: actual_op_list.iter().copied().collect(),
-                //                 },
-                //                 "Remove" => EditOp::ToRemove {
-                //                     region: region.unwrap(),
-                //                     atoms: actual_op_list.iter().copied().collect(),
-                //                 },
-                //                 _ => unreachable!(),
-                //             }));
-
-                //             match region.unwrap() {
-                //                 Region::QM1 | Region::QM2 => {
-                //                     edit_atoms(pdb, &actual_op_list, &mode.to_string(), region.unwrap())
-                //                 }
-                //                 Region::Active => {
-                //                     edit_atoms(pdb, &actual_op_list, &mode.to_string(), region.unwrap())
-                //                 }
-                //             }
-                //         }
-                //         Target::Residues => {
-                //             let residue_list = parse_residue_list(&list, pdb)?;
-
-                //             let atom_list: Vec<usize> = match partial {
-                //                 None => pdb
-                //                     .atoms_with_hierarchy()
-                //                     .filter(|a| residue_list.contains(&a.residue().serial_number()))
-                //                     .map(|a| a.atom().serial_number())
-                //                     .collect(),
-                //                 Some(p) => pdb
-                //                     .atoms_with_hierarchy()
-                //                     .filter(|a| residue_list.contains(&a.residue().serial_number()))
-                //                     .filter(|a| match p {
-                //                         Partial::Backbone => a.is_backbone(),
-                //                         Partial::Sidechain => a.is_sidechain(),
-                //                     })
-                //                     .map(|a| a.atom().serial_number())
-                //                     .collect(),
-                //             };
-
-                //             let atom_set: HashSet<usize> =
-                //                 HashSet::from_iter(atom_list.iter().copied());
-                //             let set_of_existing: HashSet<usize> = pdb
-                //                 .par_atoms()
-                //                 .filter(|a| match region.unwrap() {
-                //                     Region::QM1 => a.occupancy() == 1.00,
-                //                     Region::QM2 => a.occupancy() == 2.00,
-                //                     Region::Active => a.b_factor() == 1.00,
-                //                 })
-                //                 .map(|a| a.serial_number())
-                //                 .collect();
-                //             let actual_op_list: Vec<usize> = match mode.to_string().as_str() {
-                //                 "Add" => atom_set.difference(&set_of_existing).copied().collect(),
-                //                 "Remove" => atom_set.intersection(&set_of_existing).copied().collect(),
-                //                 _ => unreachable!(),
-                //             };
-
-                //             edit_op = Some(Box::new(match mode.to_string().as_str() {
-                //                 "Add" => EditOp::ToAdd {
-                //                     region: region.unwrap(),
-                //                     atoms: actual_op_list.clone(),
-                //                 },
-                //                 "Remove" => EditOp::ToRemove {
-                //                     region: region.unwrap(),
-                //                     atoms: actual_op_list.clone(),
-                //                 },
-                //                 _ => unreachable!(),
-                //             }));
-
-                //             match region.unwrap() {
-                //                 Region::QM1 | Region::QM2 => {
-                //                     edit_atoms(pdb, &actual_op_list, &mode.to_string(), region.unwrap())
-                //                 }
-                //                 Region::Active => {
-                //                     edit_atoms(pdb, &actual_op_list, &mode.to_string(), region.unwrap())
-                //                 }
-                //             }
-                //         }
-                //     }
-                // }
-                // Some(Source::Sphere(origin_id, radius)) => {
-                //     let sphere_origin = pdb
-                //         .atoms_with_hierarchy()
-                //         .find(|a| a.atom().serial_number() == *origin_id)
-                //         .ok_or_else::<_, _>(|| {
-                //             // anyhow!("No Atom with serial number {} could be found", origin_id)
-                //             anyhow!(
-                //                 "{}: '{}'",
-                //                 "NO ATOM FOUND WITH SERIAL NUMBER".red(),
-                //                 origin_id.to_string().blue(),
-                //             )
-                //         })?;
-
-                //     let list = match target.unwrap() {
-                //         Target::Atoms => calc_atom_sphere(pdb, sphere_origin.atom(), *radius, true)?,
-                //         Target::Residues => calc_residue_sphere(pdb, sphere_origin, *radius, true)?,
-                //     };
-
-                //     let atom_set: HashSet<usize> = HashSet::from_iter(list.iter().copied());
-                //     let set_of_existing: HashSet<usize> = pdb
-                //         .par_atoms()
-                //         .filter(|a| match region.unwrap() {
-                //             Region::QM1 => a.occupancy() == 1.00,
-                //             Region::QM2 => a.occupancy() == 2.00,
-                //             Region::Active => a.b_factor() == 1.00,
-                //         })
-                //         .map(|a| a.serial_number())
-                //         .collect();
-
-                //     let actual_op_list: Vec<usize> = match mode.to_string().as_str() {
-                //         "Add" => atom_set.difference(&set_of_existing).copied().collect(),
-                //         "Remove" => atom_set.intersection(&set_of_existing).copied().collect(),
-                //         _ => unreachable!(),
-                //     };
-
-                //     edit_op = Some(Box::new(match mode.to_string().as_str() {
-                //         "Add" => EditOp::ToAdd {
-                //             region: region.unwrap(),
-                //             atoms: actual_op_list.iter().copied().collect(),
-                //         },
-                //         "Remove" => EditOp::ToRemove {
-                //             region: region.unwrap(),
-                //             atoms: actual_op_list.iter().copied().collect(),
-                //         },
-                //         _ => unreachable!(),
-                //     }));
-
-                //     match region.unwrap() {
-                //         Region::QM1 | Region::QM2 => {
-                //             edit_atoms(pdb, &actual_op_list, &mode.to_string(), region.unwrap())
-                //         }
-                //         Region::Active => {
-                //             edit_atoms(pdb, &actual_op_list, &mode.to_string(), region.unwrap())
-                //         }
-                //     }
-                // }
                 None => {
                     if mode.to_string() == "Remove" && *region == None && *target == None {
                         let mut qm1_atoms = Vec::new();
@@ -439,6 +207,7 @@ pub fn dispatch(
                     }
                 }
             }
+            // TODO: add logic for being able to undo/redo QM1/QM2 overwriting actions
             if source.is_some() {
                 let atom_set: HashSet<usize> = HashSet::from_iter(input_list.iter().copied());
                 let set_of_existing: HashSet<usize> = pdb
