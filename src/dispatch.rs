@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+// use std::collections::HashSet;
 use std::fs::File;
 use std::io::{self, BufRead, BufReader, BufWriter, Write};
 
@@ -6,6 +6,7 @@ use anyhow::Context;
 use colored::Colorize;
 use pdbtbx::{save_pdb, ContainsAtomConformer, ContainsAtomConformerResidue};
 use rayon::iter::ParallelIterator;
+// use rayon::iter::ParallelIterator;
 
 use crate::functions::*;
 use crate::options::{Mode, Output, Partial, Region, Source, Target};
@@ -209,45 +210,65 @@ pub fn dispatch(
             }
             // TODO: add logic for being able to undo/redo QM1/QM2 overwriting actions
             if source.is_some() {
-                let atom_set: HashSet<usize> = HashSet::from_iter(input_list.iter().copied());
-                let set_of_existing: HashSet<usize> = pdb
-                    .par_atoms()
-                    .filter(|a| match region.unwrap() {
-                        Region::QM1 => a.occupancy() == 1.00,
-                        Region::QM2 => a.occupancy() == 2.00,
-                        Region::Active => a.b_factor() == 1.00,
-                    })
-                    .map(|a| a.serial_number())
-                    .collect();
+                // let atom_set: HashSet<usize> = HashSet::from_iter(input_list.iter().copied());
+                // let set_of_existing: HashSet<usize> = pdb
+                //     .par_atoms()
+                //     .filter(|a| match region.unwrap() {
+                //         Region::QM1 => a.occupancy() == 1.00,
+                //         Region::QM2 => a.occupancy() == 2.00,
+                //         Region::Active => a.b_factor() == 1.00,
+                //     })
+                //     .map(|a| a.serial_number())
+                //     .collect();
 
-                let actual_op_list: Vec<usize> = match mode.to_string().as_str() {
-                    "Add" => atom_set.difference(&set_of_existing).copied().collect(),
-                    "Remove" => atom_set.intersection(&set_of_existing).copied().collect(),
-                    _ => unreachable!(),
-                };
-
-                if !actual_op_list.is_empty() {
-                    edit_op = Some(Box::new(match mode.to_string().as_str() {
-                        "Add" => EditOp::ToAdd {
-                            region: region.unwrap(),
-                            atoms: actual_op_list.iter().copied().collect(),
+                // let actual_op_list: Vec<usize> = match mode.to_string().as_str() {
+                //     "Add" => atom_set.difference(&set_of_existing).copied().collect(),
+                //     "Remove" => atom_set.intersection(&set_of_existing).copied().collect(),
+                //     _ => unreachable!(),
+                // };
+                if region.unwrap() == Region::QM1 && mode.to_string().as_str() == "Add" {
+                    let qm2_existing: Vec<usize> = pdb
+                        .par_atoms()
+                        .filter(|a| a.occupancy() == 2.00)
+                        .map(|a| a.serial_number())
+                        .collect();
+                    let actual_qm2 = edit_atoms(pdb, &qm2_existing, "Remove", Region::QM2)?;
+                    let actual_qm1 = edit_atoms(pdb, &input_list, "Add", Region::QM1)?;
+                    edit_op = Some(Box::new(vec![
+                        EditOp::ToRemove {
+                            region: Region::QM2,
+                            atoms: actual_qm2,
                         },
-                        "Remove" => EditOp::ToRemove {
-                            region: region.unwrap(),
-                            atoms: actual_op_list.iter().copied().collect(),
+                        EditOp::ToAdd {
+                            region: Region::QM1,
+                            atoms: actual_qm1,
                         },
-                        _ => unreachable!(),
-                    }));
-
-                    match region.unwrap() {
-                        Region::QM1 | Region::QM2 => {
-                            edit_atoms(pdb, &actual_op_list, &mode.to_string(), region.unwrap())
-                        }
-                        Region::Active => {
-                            edit_atoms(pdb, &actual_op_list, &mode.to_string(), region.unwrap())
-                        }
-                    }
+                    ]));
                 }
+
+                // edit_op = Some(Box::new(match mode.to_string().as_str() {
+                //     "Add" => EditOp::ToAdd {
+                //         region: region.unwrap(),
+                //         // atoms: input_list.iter().copied().collect(),
+                //         atoms: edit_atoms(pdb, &input_list, &mode.to_string(), region.unwrap())?,
+                //     },
+                //     "Remove" => EditOp::ToRemove {
+                //         region: region.unwrap(),
+                //         // atoms: input_list.iter().copied().collect(),
+                //         atoms: edit_atoms(pdb, &input_list, &mode.to_string(), region.unwrap())?,
+                //     },
+                //     _ => unreachable!(),
+                // }));
+
+                // match region.unwrap() {
+                //     r @ Region::QM1 | r @ Region::QM2 => {
+                //         edit_atoms(pdb, &input_list, &mode.to_string(), r);
+                //     }
+                //     Region::Active => {
+                //         edit_atoms(pdb, &input_list, &mode.to_string(), r);
+                //     }
+                // }
+                // }
             }
         }
         Mode::Write {

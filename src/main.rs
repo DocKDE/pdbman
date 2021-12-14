@@ -279,9 +279,9 @@ fn run() -> Result<(), anyhow::Error> {
                 }
                 Err(e) => println!("{}", e),
             }
-            // println!("Index: {}", edit_ops_index);
-            // println!("Length: {}", edit_ops.len());
-            // println!("{:#?}", edit_ops)
+            println!("Index: {}", edit_ops_index);
+            println!("Length: {}", edit_ops.len());
+            println!("{:#?}", edit_ops)
         }
     } else {
         let input;

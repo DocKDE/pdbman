@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use crate::options::Region;
 
 use pdbtbx::{Atom, PDB};
@@ -47,7 +49,29 @@ use rayon::prelude::ParallelIterator;
 
 /// This functions edits the q or b value of the PDB file (used by ORCA as input for QM region
 /// selection) by Atom.
-pub fn edit_atoms(pdb: &mut PDB, list: &[usize], mode: &str, region: Region) {
+pub fn edit_atoms(
+    pdb: &mut PDB,
+    list: &[usize],
+    mode: &str,
+    region: Region,
+) -> Result<Vec<usize>, anyhow::Error> {
+    let input_set: HashSet<usize> = HashSet::from_iter(list.iter().copied());
+    let set_of_existing: HashSet<usize> = pdb
+        .par_atoms()
+        .filter(|a| match region {
+            Region::QM1 => a.occupancy() == 1.00,
+            Region::QM2 => a.occupancy() == 2.00,
+            Region::Active => a.b_factor() == 1.00,
+        })
+        .map(|a| a.serial_number())
+        .collect();
+
+    let actual_op_list: Vec<usize> = match mode {
+        "Add" => input_set.difference(&set_of_existing).copied().collect(),
+        "Remove" => input_set.intersection(&set_of_existing).copied().collect(),
+        _ => unreachable!(),
+    };
+
     let edit = |a: &mut Atom| match mode {
         "Add" => match region {
             // This cannot fail because new values are finite and positive
@@ -62,9 +86,13 @@ pub fn edit_atoms(pdb: &mut PDB, list: &[usize], mode: &str, region: Region) {
         _ => unreachable!(),
     };
 
+    ensure!(!actual_op_list.is_empty(), "This would do nothing");
+
     pdb.par_atoms_mut()
-        .filter(|a| list.contains(&a.serial_number()))
+        .filter(|a| actual_op_list.contains(&a.serial_number()))
         .for_each(|a| edit(a));
+
+    Ok(actual_op_list)
 }
 
 /// Removes a whole region from PDB file.
@@ -102,8 +130,8 @@ mod tests {
     fn edit_atoms_test() {
         let mut pdb = test_pdb("tests/test_blank.pdb");
         let atom_id_list = &[1, 5, 9];
-        edit_atoms(&mut pdb, atom_id_list, "Add", Region::QM1);
-        edit_atoms(&mut pdb, atom_id_list, "Add", Region::Active);
+        edit_atoms(&mut pdb, atom_id_list, "Add", Region::QM1).unwrap();
+        edit_atoms(&mut pdb, atom_id_list, "Add", Region::Active).unwrap();
 
         let atom_list: Vec<&Atom> = pdb
             .atoms()
@@ -114,8 +142,8 @@ mod tests {
             assert_eq!(atom.b_factor(), 1.00);
         }
 
-        edit_atoms(&mut pdb, atom_id_list, "Remove", Region::QM1);
-        edit_atoms(&mut pdb, atom_id_list, "Remove", Region::Active);
+        edit_atoms(&mut pdb, atom_id_list, "Remove", Region::QM1).unwrap();
+        edit_atoms(&mut pdb, atom_id_list, "Remove", Region::Active).unwrap();
         let atom_list: Vec<&Atom> = pdb
             .atoms()
             .filter(|x| atom_id_list.contains(&x.serial_number()))

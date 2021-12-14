@@ -25,16 +25,22 @@ pub trait Revertable: std::fmt::Debug {
 impl Revertable for EditOp {
     fn undo(&self, pdb: &mut pdbtbx::PDB) {
         match self {
-            EditOp::ToAdd { region, atoms } => functions::edit_atoms(pdb, atoms, "Remove", *region),
-            EditOp::ToRemove { region, atoms } => functions::edit_atoms(pdb, atoms, "Add", *region),
+            EditOp::ToAdd { region, atoms } => {
+                functions::edit_atoms(pdb, atoms, "Remove", *region).unwrap();
+            }
+            EditOp::ToRemove { region, atoms } => {
+                functions::edit_atoms(pdb, atoms, "Add", *region).unwrap();
+            }
         }
     }
 
     fn redo(&self, pdb: &mut pdbtbx::PDB) {
         match self {
-            EditOp::ToAdd { region, atoms } => functions::edit_atoms(pdb, atoms, "Add", *region),
+            EditOp::ToAdd { region, atoms } => {
+                functions::edit_atoms(pdb, atoms, "Add", *region).unwrap();
+            }
             EditOp::ToRemove { region, atoms } => {
-                functions::edit_atoms(pdb, atoms, "Remove", *region)
+                functions::edit_atoms(pdb, atoms, "Remove", *region).unwrap();
             }
         }
     }
@@ -42,7 +48,7 @@ impl Revertable for EditOp {
 
 impl Revertable for Vec<EditOp> {
     fn undo(&self, pdb: &mut pdbtbx::PDB) {
-        for i in self {
+        for i in self.iter().rev() {
             i.undo(pdb)
         }
     }
