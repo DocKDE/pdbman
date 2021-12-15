@@ -51,7 +51,6 @@ pub fn query_atoms(pdb: &PDB, atom_list: &[usize]) -> Result<Table, anyhow::Erro
         }
     }
 
-    // table.printstd();
     Ok(table)
 }
 
@@ -102,6 +101,67 @@ pub fn query_residues(pdb: &PDB, residue_list: &[isize]) -> Result<Table, anyhow
         }
     }
 
-    // table.printstd();
     Ok(table)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pdbtbx::{PDB, StrictnessLevel};
+
+    fn test_pdb(path: &str) -> PDB {
+        let (pdb, _) = pdbtbx::open_pdb(path, StrictnessLevel::Strict).unwrap();
+        pdb
+    }
+
+    #[test]
+    fn query_atoms_test() {
+        let pdb = test_pdb("tests/test_blank.pdb");
+        let table = query_atoms(&pdb, &[1,5,19]).unwrap();
+
+        let mut test_table = Table::new();
+        test_table.add_row(row![
+            "Atom ID",
+            "Atom name",
+            "Residue ID",
+            "Residue Name",
+            "QM",
+            "Active"
+        ]);
+
+        test_table.add_row(row![1, "N", 1, "HIE", 0.00, 0.00]);
+        test_table.add_row(row![5, "HA", 1, "HIE", 0.00, 0.00]);
+        test_table.add_row(row![19, "N", 2, "GLY", 0.00, 0.00]);
+
+        assert_eq!(table, test_table)
+    }
+
+    #[test]
+    fn query_residue_test() {
+        let pdb = test_pdb("tests/test_blank.pdb");
+        let table = query_residues(&pdb, &[2, 7]).unwrap();
+
+        let mut test_table = Table::new();
+        test_table.add_row(row![
+            "Atom ID",
+            "Atom name",
+            "Residue ID",
+            "Residue Name",
+            "QM",
+            "Active"
+        ]);
+
+        test_table.add_row(row![19, "N", 2, "GLY", 0.00, 0.00]);
+        test_table.add_row(row![20, "H", 2, "GLY", 0.00, 0.00]);
+        test_table.add_row(row![21, "CA", 2, "GLY", 0.00, 0.00]);
+        test_table.add_row(row![22, "HA2", 2, "GLY", 0.00, 0.00]);
+        test_table.add_row(row![23, "HA3", 2, "GLY", 0.00, 0.00]);
+        test_table.add_row(row![24, "C", 2, "GLY", 0.00, 0.00]);
+        test_table.add_row(row![25, "O", 2, "GLY", 0.00, 0.00]);
+        test_table.add_row(row![81, "O", 7, "WAT", 0.00, 0.00]);
+        test_table.add_row(row![82, "H1", 7, "WAT", 0.00, 0.00]);
+        test_table.add_row(row![83, "H2", 7, "WAT", 0.00, 0.00]);
+
+        assert_eq!(table, test_table)
+    }
 }

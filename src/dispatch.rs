@@ -59,6 +59,7 @@ pub fn dispatch(
             basic_table.printstd();
 
             if let Some(t) = detailed_table {
+                // target must be present if detailed_table is Some
                 let target_str = target.unwrap().to_string();
                 writeln!(io::stdout(), "\n{} {}", region.unwrap(), target_str).with_context(|| {
                     format!(" Failed to print {} to stdout", target_str.to_lowercase())
