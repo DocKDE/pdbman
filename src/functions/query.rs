@@ -107,7 +107,7 @@ pub fn query_residues(pdb: &PDB, residue_list: &[isize]) -> Result<Table, anyhow
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pdbtbx::{PDB, StrictnessLevel};
+    use pdbtbx::{StrictnessLevel, PDB};
 
     fn test_pdb(path: &str) -> PDB {
         let (pdb, _) = pdbtbx::open_pdb(path, StrictnessLevel::Strict).unwrap();
@@ -117,7 +117,7 @@ mod tests {
     #[test]
     fn query_atoms_test() {
         let pdb = test_pdb("tests/test_blank.pdb");
-        let table = query_atoms(&pdb, &[1,5,19]).unwrap();
+        let table = query_atoms(&pdb, &[1, 5, 19]).unwrap();
 
         let mut test_table = Table::new();
         test_table.add_row(row![

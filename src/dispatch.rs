@@ -7,7 +7,7 @@ use colored::Colorize;
 use pdbtbx::{save_pdb, ContainsAtomConformer, ContainsAtomConformerResidue};
 
 use crate::functions::*;
-use crate::options::{Mode, Output, Partial, Region, Source, Target, Distance};
+use crate::options::{Distance, Mode, Output, Partial, Region, Source, Target};
 use crate::revertable::{EditOp, Revertable};
 
 // Run function that handles the logic of when to call which function given an enum with the
@@ -61,11 +61,11 @@ pub fn dispatch(
             if let Some(t) = detailed_table {
                 // target must be present if detailed_table is Some
                 let target_str = target.unwrap().to_string();
-                writeln!(io::stdout(), "\n{} {}", region.unwrap(), target_str).with_context(|| {
-                    format!(" Failed to print {} to stdout", target_str.to_lowercase())
-                })?;
+                writeln!(io::stdout(), "\n{} {}", region.unwrap(), target_str).with_context(
+                    || format!(" Failed to print {} to stdout", target_str.to_lowercase()),
+                )?;
                 t.printstd();
-            }; 
+            };
 
             if let Some(d) = *distance {
                 let table = find_contacts(pdb, d)?;
@@ -73,11 +73,11 @@ pub fn dispatch(
                     Distance::Clashes => {
                         writeln!(io::stdout(), "\nClash Analysis")
                             .context("Failed to print clash analysis to stdout.")?;
-                    },
+                    }
                     Distance::Contacts => {
                         writeln!(io::stdout(), "\nContact Analysis")
                             .context("Failed to print contact analysis to stdout.")?;
-                    },
+                    }
                 }
                 table.printstd();
             }

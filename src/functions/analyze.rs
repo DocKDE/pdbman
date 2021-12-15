@@ -254,6 +254,57 @@ mod tests {
     }
 
     #[test]
+    fn analyze_atoms_test() {
+        let pdb = test_pdb("tests/test_overwrite.pdb");
+        let (basic, qm1_atoms) = analyze(&pdb, Some(Region::QM1), Some(Target::Atoms)).unwrap();
+        let basic_table = table!(
+            ["", "# of Atoms", "# of Residues"],
+            ["QM1", 1, 1],
+            ["QM2", 1, 1],
+            ["Active", 1, 1],
+            ["Total", 83, 7]
+        );
+        assert_eq!(basic, basic_table);
+
+        let mut atom_table = Table::new();
+        atom_table.add_row(row![
+            "Atom ID",
+            "Atom name",
+            "Residue ID",
+            "Residue Name",
+            "QM",
+            "Active"
+        ]);
+        atom_table.add_row(row!(1, "N", 1, "HIE", 1.00, 0.00));
+        assert_eq!(qm1_atoms.unwrap(), atom_table);
+    }
+
+    #[test]
+    fn analyze_residues_test() {
+        let pdb = test_pdb("tests/test_overwrite.pdb");
+        let (basic, qm2_residues) = analyze(&pdb, Some(Region::QM2), Some(Target::Residues)).unwrap();
+        let basic_table = table!(
+            ["", "# of Atoms", "# of Residues"],
+            ["QM1", 1, 1],
+            ["QM2", 1, 1],
+            ["Active", 1, 1],
+            ["Total", 83, 7]
+        );
+        assert_eq!(basic, basic_table);
+
+        let mut residue_table = Table::new();
+        residue_table.add_row(row![
+            "Residue ID",
+            "Residue Name",
+            "# of Atoms",
+            "# of QM2 Atoms",
+        ]);
+
+        residue_table.add_row(row!(1, "HIE", 18, 1));
+        assert_eq!(qm2_residues.unwrap(), residue_table);
+    }
+
+    #[test]
     fn contacts_test() {
         let pdb = test_pdb("tests/test_clash.pdb");
         let clashes = find_contacts(&pdb, Distance::Clashes).unwrap();
