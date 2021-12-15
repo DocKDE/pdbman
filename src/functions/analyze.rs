@@ -281,13 +281,13 @@ mod tests {
 
     #[test]
     fn analyze_residues_test() {
-        let pdb = test_pdb("tests/test_overwrite.pdb");
+        let pdb = test_pdb("tests/test_get_residuelist.pdb");
         let (basic, qm2_residues) = analyze(&pdb, Some(Region::QM2), Some(Target::Residues)).unwrap();
         let basic_table = table!(
             ["", "# of Atoms", "# of Residues"],
-            ["QM1", 1, 1],
-            ["QM2", 1, 1],
-            ["Active", 1, 1],
+            ["QM1", 20, 2],
+            ["QM2", 2, 2],
+            ["Active", 14, 2],
             ["Total", 83, 7]
         );
         assert_eq!(basic, basic_table);
@@ -300,7 +300,8 @@ mod tests {
             "# of QM2 Atoms",
         ]);
 
-        residue_table.add_row(row!(1, "HIE", 18, 1));
+        residue_table.add_row(row!(3, "TYR", 21, 1));
+        residue_table.add_row(row!(4, "VAL", 16, 1));
         assert_eq!(qm2_residues.unwrap(), residue_table);
     }
 
