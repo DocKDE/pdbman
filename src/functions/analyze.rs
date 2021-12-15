@@ -1,9 +1,9 @@
 use crate::options::{Distance, Region, Target};
 
-use std::io;
-use std::io::prelude::Write;
+// use std::io;
+// use std::io::prelude::Write;
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use pdbtbx::{ContainsAtomConformer, ContainsAtomConformerResidue, PDB};
 use prettytable::{format, Table};
 
@@ -93,25 +93,15 @@ pub fn find_contacts(pdb: &PDB, level: Distance) -> Result<Table, anyhow::Error>
         }
     }
 
-    if !table.is_empty() {
-        if level == Distance::Clashes {
-            writeln!(io::stdout(), "\nClash Analysis")
-                .context("Failed to print clash analysis to stdout.")?;
-        } else if level == Distance::Contacts {
-            writeln!(io::stdout(), "\nContact Analysis")
-                .context("Failed to print contact analysis to stdout.")?;
-        }
-        Ok(table)
-    } else {
-        bail!("No contacts found!")
-    }
+    ensure!(!table.is_empty(), "No contacts found!");
+    Ok(table)
 }
 
 pub fn analyze(
     pdb: &PDB,
     region: Option<Region>,
     target: Option<Target>,
-) -> Result<(), anyhow::Error> {
+) -> Result<(Table, Option<Table>), anyhow::Error> {
     let mut qm1_residue_list = Vec::new();
     let mut qm1_atom_list = Vec::new();
     let mut qm2_residue_list = Vec::new();
@@ -162,7 +152,7 @@ pub fn analyze(
         ["Total", atom_num, res_num]
     );
 
-    basic_table.printstd();
+    let mut detailed_table = None;
 
     if target == Some(Target::Residues) {
         let residue_list = match region {
@@ -206,9 +196,7 @@ pub fn analyze(
                     resid_atoms,
                 ]);
             }
-            writeln!(io::stdout(), "\n{} Residues", region.unwrap().to_owned())
-                .context("Failed to print residues to stdout")?;
-            residue_table.printstd();
+            detailed_table = Some(residue_table)
         } else {
             bail!("No Residues found in given region!");
         }
@@ -246,14 +234,12 @@ pub fn analyze(
                     }
                 }
             }
-            writeln!(io::stdout(), "\n{} Atoms", region.unwrap().to_owned())
-                .context("Failed to print atoms to stdout")?;
-            atom_table.printstd();
+            detailed_table = Some(atom_table)
         } else {
             bail!("No Atoms found in given region!")
         }
     }
-    Ok(())
+    Ok((basic_table, detailed_table))
 }
 
 #[cfg(test)]

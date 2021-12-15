@@ -10,7 +10,7 @@ use prettytable::Table;
 
 /// Query Molecule for information. Depending on the input this will print a table of
 /// Residues and/or Atoms with available information that were asked for.
-pub fn query_atoms(pdb: &PDB, atom_list: &[usize]) -> Result<(), anyhow::Error> {
+pub fn query_atoms(pdb: &PDB, atom_list: &[usize]) -> Result<Table, anyhow::Error> {
     let mut table = Table::new();
     table.add_row(row![
         "Atom ID",
@@ -51,13 +51,13 @@ pub fn query_atoms(pdb: &PDB, atom_list: &[usize]) -> Result<(), anyhow::Error> 
         }
     }
 
-    table.printstd();
-    Ok(())
+    // table.printstd();
+    Ok(table)
 }
 
 // This cannot fail because if no residues can be queried, the
 // parse_residue_list would have returned an error beforehand
-pub fn query_residues(pdb: &PDB, residue_list: &[isize]) -> Result<(), anyhow::Error> {
+pub fn query_residues(pdb: &PDB, residue_list: &[isize]) -> Result<Table, anyhow::Error> {
     let mut table = Table::new();
 
     table.add_row(row![
@@ -102,6 +102,6 @@ pub fn query_residues(pdb: &PDB, residue_list: &[isize]) -> Result<(), anyhow::E
         }
     }
 
-    table.printstd();
-    Ok(())
+    // table.printstd();
+    Ok(table)
 }

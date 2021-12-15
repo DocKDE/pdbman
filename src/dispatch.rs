@@ -7,7 +7,7 @@ use colored::Colorize;
 use pdbtbx::{save_pdb, ContainsAtomConformer, ContainsAtomConformerResidue};
 
 use crate::functions::*;
-use crate::options::{Mode, Output, Partial, Region, Source, Target};
+use crate::options::{Mode, Output, Partial, Region, Source, Target, Distance};
 use crate::revertable::{EditOp, Revertable};
 
 // Run function that handles the logic of when to call which function given an enum with the
@@ -22,8 +22,12 @@ pub fn dispatch(
     match &mode {
         Mode::Query { source, target } => match source {
             Source::List(list) => match target {
-                Target::Atoms => query_atoms(pdb, &parse_atomic_list(list, pdb)?)?,
-                Target::Residues => query_residues(pdb, &parse_residue_list(list, pdb)?)?,
+                Target::Atoms => {
+                    query_atoms(pdb, &parse_atomic_list(list, pdb)?)?.printstd();
+                }
+                Target::Residues => {
+                    query_residues(pdb, &parse_residue_list(list, pdb)?)?.printstd();
+                }
             },
             Source::Sphere(origin_id, radius) => {
                 let sphere_origin = pdb
@@ -42,7 +46,7 @@ pub fn dispatch(
                     Target::Residues => calc_residue_sphere(pdb, sphere_origin, *radius, false)?,
                 };
 
-                query_atoms(pdb, &list)?;
+                query_atoms(pdb, &list)?.printstd();
             }
             _ => bail!("Please don't do this to me..."),
         },
@@ -51,9 +55,30 @@ pub fn dispatch(
             target,
             distance,
         } => {
-            analyze(pdb, *region, *target)?;
+            let (basic_table, detailed_table) = analyze(pdb, *region, *target)?;
+            basic_table.printstd();
+
+            if let Some(t) = detailed_table {
+                let target_str = target.unwrap().to_string();
+                writeln!(io::stdout(), "\n{} {}", region.unwrap(), target_str).with_context(|| {
+                    format!(" Failed to print {} to stdout", target_str.to_lowercase())
+                })?;
+                t.printstd();
+            }; 
+
             if let Some(d) = *distance {
-                find_contacts(pdb, d)?.printstd();
+                let table = find_contacts(pdb, d)?;
+                match d {
+                    Distance::Clashes => {
+                        writeln!(io::stdout(), "\nClash Analysis")
+                            .context("Failed to print clash analysis to stdout.")?;
+                    },
+                    Distance::Contacts => {
+                        writeln!(io::stdout(), "\nContact Analysis")
+                            .context("Failed to print contact analysis to stdout.")?;
+                    },
+                }
+                table.printstd();
             }
         }
         Mode::Add {
