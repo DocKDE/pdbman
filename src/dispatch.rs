@@ -15,7 +15,7 @@ use crate::revertable::{EditOp, Revertable};
 pub fn dispatch(
     mode: Mode,
     pdb: &mut pdbtbx::PDB,
-    infile: &str,
+    pdb_path: &str,
 ) -> Result<Option<Box<dyn Revertable>>, anyhow::Error> {
     let mut edit_op: Option<Box<dyn Revertable>> = None;
 
@@ -101,7 +101,8 @@ pub fn dispatch(
                     input_list.extend(match target.unwrap() {
                         Target::Atoms => parse_atomic_list(&list, pdb)?,
                         Target::Residues => {
-                            let residue_list: HashSet<isize> = HashSet::from_iter(parse_residue_list(&list, pdb)?);
+                            let residue_list: HashSet<isize> =
+                                HashSet::from_iter(parse_residue_list(&list, pdb)?);
                             match partial {
                                 None => pdb
                                     .atoms_with_hierarchy()
@@ -307,11 +308,212 @@ pub fn dispatch(
                 }
             },
             Some(Output::Overwrite) => {
-                if let Err(e) = save_pdb(pdb, infile, pdbtbx::StrictnessLevel::Loose) {
+                if let Err(e) = save_pdb(pdb, pdb_path, pdbtbx::StrictnessLevel::Loose) {
                     e.into_iter().for_each(|e| println!("{}", e))
                 }
             }
         },
     }
     Ok(edit_op)
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::options::clap_args;
+
+    use super::*;
+    use clap::ArgMatches;
+    use itertools::Itertools;
+    use lazy_regex::regex;
+    use pdbtbx::{StrictnessLevel, PDB};
+
+    fn test_pdb(path: &str) -> PDB {
+        let (pdb, _) = pdbtbx::open_pdb(path, StrictnessLevel::Strict).unwrap();
+        pdb
+    }
+
+    fn get_matches<'a>(args: impl Iterator<Item = &'a str>) -> ArgMatches {
+        clap_args().get_matches_from(args)
+    }
+
+    fn get_edit_action<'a>(pdb_path: &str, args: impl Iterator<Item = &'a str>) -> String {
+        let mut pdb = test_pdb(pdb_path);
+        let matches = clap_args().get_matches_from(args);
+        let mode = Mode::new(&matches).unwrap();
+        format!("{:?}", dispatch(mode, &mut pdb, pdb_path).unwrap().unwrap())
+    }
+
+    fn get_editop(text: &str) -> (&str, &str, &str) {
+        let re = regex!(r"(\w+)\s\{\sregion:\s(\w+),\satoms:\s\[((\d(, )?)+)\]\s");
+        let caps = re.captures(text).unwrap();
+        let (edit_action, region, atoms) = (
+            caps.get(1).unwrap().as_str(),
+            caps.get(2).unwrap().as_str(),
+            caps.get(3).unwrap().as_str(),
+        );
+        (edit_action, region, atoms)
+    }
+
+    fn get_atomvec(text: &str) -> Vec<usize> {
+        let atom_vec: Vec<usize> = text
+            .split(',')
+            .map(|a| a.trim().parse::<usize>().unwrap())
+            .sorted()
+            .collect();
+        atom_vec
+    }
+
+    #[test]
+    fn return_nothing() {
+        let pdb_path = "tests/test_blank.pdb";
+        let mut pdb = test_pdb(pdb_path);
+        let matches = get_matches(["Y"].into_iter());
+        let mode = Mode::new(&matches).unwrap();
+        assert!(dispatch(mode, &mut pdb, pdb_path).unwrap().is_none());
+
+        // let matches = get_matches(["Q", "-rl", "12"].into_iter());
+        // let mode = Mode::new(&matches).unwrap();
+        // assert!(dispatch(mode, &mut pdb, pdb_path).unwrap().is_none())
+    }
+
+    #[test]
+    fn add_qm1() {
+        let edit_action =
+            get_edit_action("tests/test_blank.pdb", ["A", "-qtl", "4,1,9"].into_iter());
+        let (edit_action, region, atoms) = get_editop(&edit_action);
+        let atom_vec = get_atomvec(atoms);
+
+        assert_eq!(edit_action, "ToAdd");
+        assert_eq!(region, "QM1");
+        assert_eq!(atom_vec, vec![1, 4, 9])
+    }
+
+    #[test]
+    fn add_qm2() {
+        let edit_action =
+            get_edit_action("tests/test_blank.pdb", ["A", "-otl", "22,17,8"].into_iter());
+        let (edit_action, region, atoms) = get_editop(&edit_action);
+        let atom_vec = get_atomvec(atoms);
+
+        assert_eq!(edit_action, "ToAdd");
+        assert_eq!(region, "QM2");
+        assert_eq!(atom_vec, vec![8, 17, 22])
+    }
+
+    #[test]
+    fn add_active() {
+        let edit_action =
+            get_edit_action("tests/test_blank.pdb", ["A", "-atl", "22,17,8"].into_iter());
+        let (edit_action, region, atoms) = get_editop(&edit_action);
+        let atom_vec = get_atomvec(atoms);
+
+        assert_eq!(edit_action, "ToAdd");
+        assert_eq!(region, "Active");
+        assert_eq!(atom_vec, vec![8, 17, 22])
+    }
+
+    #[test]
+    fn remove_qm1() {
+        let edit_action =
+            get_edit_action("tests/test_full.pdb", ["R", "-qtl", "22,17,8"].into_iter());
+        let (edit_action, region, atoms) = get_editop(&edit_action);
+        let atom_vec = get_atomvec(atoms);
+
+        assert_eq!(edit_action, "ToRemove");
+        assert_eq!(region, "QM1");
+        assert_eq!(atom_vec, vec![8, 17, 22])
+    }
+
+    #[test]
+    fn remove_active() {
+        let edit_action =
+            get_edit_action("tests/test_full.pdb", ["R", "-atl", "22,17,8"].into_iter());
+        let (edit_action, region, atoms) = get_editop(&edit_action);
+        let atom_vec = get_atomvec(atoms);
+
+        assert_eq!(edit_action, "ToRemove");
+        assert_eq!(region, "Active");
+        assert_eq!(atom_vec, vec![8, 17, 22])
+    }
+
+    #[test]
+    #[should_panic]
+    fn remove_empty() {
+        get_edit_action("tests/test_blank.pdb", ["R", "-atl", "22,17,8"].into_iter());
+    }
+
+    #[test]
+    #[should_panic]
+    fn add_existing() {
+        get_edit_action("tests/test_full.pdb", ["A", "-qtl", "22,17,8"].into_iter());
+    }
+
+    #[test]
+    fn checked_add() {
+        let edit_action = get_edit_action(
+            "tests/test_overwrite.pdb",
+            ["A", "-qtl", "1,3,4"].into_iter(),
+        );
+        let (edit_action, region, atoms) = get_editop(&edit_action);
+        let atom_vec = get_atomvec(atoms);
+
+        assert_eq!(edit_action, "ToAdd");
+        assert_eq!(region, "QM1");
+        assert_eq!(atom_vec, vec![3, 4])
+    }
+
+    #[test]
+    fn checked_remove() {
+        let edit_action =
+            get_edit_action("tests/test_overwrite.pdb", ["R", "-atl", "1-3"].into_iter());
+        let (edit_action, region, atoms) = get_editop(&edit_action);
+        let atom_vec = get_atomvec(atoms);
+
+        assert_eq!(edit_action, "ToRemove");
+        assert_eq!(region, "Active");
+        assert_eq!(atom_vec, vec![3])
+    }
+
+    #[test]
+    fn overwrite_qm() {
+        let edit_action = get_edit_action(
+            "tests/test_overwrite.pdb",
+            ["A", "-otl", "9,1-3"].into_iter(),
+        );
+        let re = regex!(r"(\w+)\s\{\sregion:\s(\w+),\satoms:\s\[((\d(, )?)+)\]\s");
+        let mut matches = re.find_iter(&edit_action);
+
+        let mut qm1_vec = Vec::new();
+        let match1 = matches.next().unwrap();
+        let caps1 = re.captures(match1.as_str()).unwrap();
+
+        for i in 1..=3 {
+            qm1_vec.push(caps1.get(i).unwrap().as_str());
+        }
+
+        let mut qm2_vec = Vec::new();
+        let match2 = matches.next().unwrap();
+        let caps2 = re.captures(match2.as_str()).unwrap();
+
+        for i in 1..=3 {
+            qm2_vec.push(caps2.get(i).unwrap().as_str());
+        }
+
+        assert_eq!(qm1_vec[..2], vec!["ToRemove", "QM1"]);
+        assert_eq!(qm2_vec[..2], vec!["ToAdd", "QM2"]);
+
+        let qm1_atoms: Vec<usize> = qm1_vec[2]
+            .split(',')
+            .map(|a| a.trim().parse::<usize>().unwrap())
+            .sorted()
+            .collect();
+        let qm2_atoms: Vec<usize> = qm2_vec[2]
+            .split(',')
+            .map(|a| a.trim().parse::<usize>().unwrap())
+            .sorted()
+            .collect();
+
+        assert_eq!(qm1_atoms, vec![1]);
+        assert_eq!(qm2_atoms, vec![1, 3, 9]);
+    }
 }

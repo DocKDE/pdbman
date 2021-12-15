@@ -149,7 +149,7 @@ mod tests {
     }
 
     #[test]
-    fn edit_atoms_test() {
+    fn edit_atoms_unchecked_test() {
         let mut pdb = test_pdb("tests/test_blank.pdb");
         let atom_id_list = &[1, 5, 9];
         edit_atoms_unchecked(&mut pdb, atom_id_list, "Add", Region::QM1);

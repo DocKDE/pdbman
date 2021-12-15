@@ -5,7 +5,7 @@ use crate::options;
 
 type AtomList = Vec<usize>;
 
-#[derive(Debug, Display, Clone, PartialEq, PartialOrd)]
+#[derive(Debug, Display)]
 pub enum EditOp {
     ToAdd {
         region: options::Region,
@@ -61,9 +61,3 @@ impl Revertable for Vec<EditOp> {
         }
     }
 }
-
-// impl core::fmt::Debug for dyn Revertable {
-//     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-//         write!(f, "{:?}", self)
-//     }
-// }
