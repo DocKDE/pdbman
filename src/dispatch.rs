@@ -1,12 +1,9 @@
-// use std::collections::HashSet;
 use std::fs::File;
 use std::io::{self, BufRead, BufReader, BufWriter, Write};
 
 use anyhow::Context;
 use colored::Colorize;
 use pdbtbx::{save_pdb, ContainsAtomConformer, ContainsAtomConformerResidue};
-// use rayon::iter::ParallelIterator;
-// use rayon::iter::ParallelIterator;
 
 use crate::functions::*;
 use crate::options::{Mode, Output, Partial, Region, Source, Target};
@@ -210,46 +207,35 @@ pub fn dispatch(
             }
             if source.is_some() {
                 edit_op = match mode.to_string().as_str() {
+                    // Necessary when adding QM1 atoms over QM2 atoms or vice versa
                     "Add" => match region.unwrap() {
-                        Region::QM1 => {
-                            let actual_qm2 = edit_atoms(pdb, &input_list, "Remove", Region::QM2);
-                            let actual_qm1 = edit_atoms(pdb, &input_list, "Add", Region::QM1)?;
-                            if let Ok(actual) = actual_qm2 {
+                        r @ Region::QM1 | r @ Region::QM2 => {
+                            let other_region = match r {
+                                Region::QM1 => Region::QM2,
+                                Region::QM2 => Region::QM1,
+                                _ => unreachable!(),
+                            };
+
+                            // Try removing atoms from other QM region when adding any to see if anything would be
+                            // overwritten.
+                            let actual_other = edit_atoms(pdb, &input_list, "Remove", other_region);
+                            let actual_self = edit_atoms(pdb, &input_list, "Add", r)?;
+
+                            if let Ok(actual) = actual_other {
                                 Some(Box::new(vec![
                                     EditOp::ToRemove {
-                                        region: Region::QM2,
+                                        region: other_region,
                                         atoms: actual,
                                     },
                                     EditOp::ToAdd {
-                                        region: Region::QM1,
-                                        atoms: actual_qm1,
+                                        region: r,
+                                        atoms: actual_self,
                                     },
                                 ]))
                             } else {
                                 Some(Box::new(EditOp::ToAdd {
-                                    region: Region::QM1,
-                                    atoms: actual_qm1,
-                                }))
-                            }
-                        }
-                        Region::QM2 => {
-                            let actual_qm1 = edit_atoms(pdb, &input_list, "Remove", Region::QM1);
-                            let actual_qm2 = edit_atoms(pdb, &input_list, "Add", Region::QM2)?;
-                            if let Ok(actual) = actual_qm1 {
-                                Some(Box::new(vec![
-                                    EditOp::ToRemove {
-                                        region: Region::QM1,
-                                        atoms: actual,
-                                    },
-                                    EditOp::ToAdd {
-                                        region: Region::QM2,
-                                        atoms: actual_qm2,
-                                    },
-                                ]))
-                            } else {
-                                Some(Box::new(EditOp::ToAdd {
-                                    region: Region::QM2,
-                                    atoms: actual_qm2,
+                                    region: r,
+                                    atoms: actual_self,
                                 }))
                             }
                         }
@@ -258,6 +244,54 @@ pub fn dispatch(
                             atoms: edit_atoms(pdb, &input_list, "Add", Region::Active)?,
                         })),
                     },
+                    // "Add" => match region.unwrap() {
+                    //     Region::QM1 => {
+                    //         let actual_qm2 = edit_atoms(pdb, &input_list, "Remove", Region::QM2);
+                    //         let actual_qm1 = edit_atoms(pdb, &input_list, "Add", Region::QM1)?;
+                    //         if let Ok(actual) = actual_qm2 {
+                    //             Some(Box::new(vec![
+                    //                 EditOp::ToRemove {
+                    //                     region: Region::QM2,
+                    //                     atoms: actual,
+                    //                 },
+                    //                 EditOp::ToAdd {
+                    //                     region: Region::QM1,
+                    //                     atoms: actual_qm1,
+                    //                 },
+                    //             ]))
+                    //         } else {
+                    //             Some(Box::new(EditOp::ToAdd {
+                    //                 region: Region::QM1,
+                    //                 atoms: actual_qm1,
+                    //             }))
+                    //         }
+                    //     }
+                    //     Region::QM2 => {
+                    //         let actual_qm1 = edit_atoms(pdb, &input_list, "Remove", Region::QM1);
+                    //         let actual_qm2 = edit_atoms(pdb, &input_list, "Add", Region::QM2)?;
+                    //         if let Ok(actual) = actual_qm1 {
+                    //             Some(Box::new(vec![
+                    //                 EditOp::ToRemove {
+                    //                     region: Region::QM1,
+                    //                     atoms: actual,
+                    //                 },
+                    //                 EditOp::ToAdd {
+                    //                     region: Region::QM2,
+                    //                     atoms: actual_qm2,
+                    //                 },
+                    //             ]))
+                    //         } else {
+                    //             Some(Box::new(EditOp::ToAdd {
+                    //                 region: Region::QM2,
+                    //                 atoms: actual_qm2,
+                    //             }))
+                    //         }
+                    //     }
+                    //     Region::Active => Some(Box::new(EditOp::ToAdd {
+                    //         region: Region::Active,
+                    //         atoms: edit_atoms(pdb, &input_list, "Add", Region::Active)?,
+                    //     })),
+                    // },
                     "Remove" => Some(Box::new(EditOp::ToRemove {
                         region: region.unwrap(),
                         atoms: edit_atoms(pdb, &input_list, "Remove", region.unwrap())?,
