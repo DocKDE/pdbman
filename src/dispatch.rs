@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::fs::File;
 use std::io::{self, BufRead, BufReader, BufWriter, Write};
 
@@ -100,7 +101,7 @@ pub fn dispatch(
                     input_list.extend(match target.unwrap() {
                         Target::Atoms => parse_atomic_list(&list, pdb)?,
                         Target::Residues => {
-                            let residue_list = parse_residue_list(&list, pdb)?;
+                            let residue_list: HashSet<isize> = HashSet::from_iter(parse_residue_list(&list, pdb)?);
                             match partial {
                                 None => pdb
                                     .atoms_with_hierarchy()
@@ -218,8 +219,9 @@ pub fn dispatch(
 
                             // Try removing atoms from other QM region when adding any to see if anything would be
                             // overwritten.
-                            let actual_other = edit_atoms(pdb, &input_list, "Remove", other_region);
-                            let actual_self = edit_atoms(pdb, &input_list, "Add", r)?;
+                            let actual_other =
+                                edit_atoms_checked(pdb, &input_list, "Remove", other_region);
+                            let actual_self = edit_atoms_checked(pdb, &input_list, "Add", r)?;
 
                             if let Ok(actual) = actual_other {
                                 Some(Box::new(vec![
@@ -241,12 +243,12 @@ pub fn dispatch(
                         }
                         Region::Active => Some(Box::new(EditOp::ToAdd {
                             region: Region::Active,
-                            atoms: edit_atoms(pdb, &input_list, "Add", Region::Active)?,
+                            atoms: edit_atoms_checked(pdb, &input_list, "Add", Region::Active)?,
                         })),
                     },
                     "Remove" => Some(Box::new(EditOp::ToRemove {
                         region: region.unwrap(),
-                        atoms: edit_atoms(pdb, &input_list, "Remove", region.unwrap())?,
+                        atoms: edit_atoms_checked(pdb, &input_list, "Remove", region.unwrap())?,
                     })),
                     _ => unreachable!(),
                 }
