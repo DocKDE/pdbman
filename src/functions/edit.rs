@@ -95,6 +95,26 @@ pub fn edit_atoms(
     Ok(actual_op_list)
 }
 
+pub fn edit_atoms_unchecked(pdb: &mut PDB, list: &[usize], mode: &str, region: Region) {
+    let edit = |a: &mut Atom| match mode {
+        "Add" => match region {
+            // This cannot fail because new values are finite and positive
+            Region::QM1 => a.set_occupancy(1.00).unwrap(),
+            Region::QM2 => a.set_occupancy(2.00).unwrap(),
+            Region::Active => a.set_b_factor(1.00).unwrap(),
+        },
+        "Remove" => match region {
+            Region::QM1 | Region::QM2 => a.set_occupancy(0.00).unwrap(),
+            Region::Active => a.set_b_factor(0.00).unwrap(),
+        },
+        _ => unreachable!(),
+    };
+
+    pdb.par_atoms_mut()
+        .filter(|a| list.contains(&a.serial_number()))
+        .for_each(|a| edit(a))
+}
+
 /// Removes a whole region from PDB file.
 pub fn remove_region(pdb: &mut PDB, region: Option<Region>) {
     match region {
