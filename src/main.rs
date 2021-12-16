@@ -200,6 +200,7 @@ fn run() -> Result<(), anyhow::Error> {
                     "e" => break,
                     "quit" => break,
                     "undo" => {
+                        rl.add_history_entry("undo");
                         if edit_ops_index == 0 {
                             println!("Nothing to undo");
                         } else {
@@ -210,6 +211,7 @@ fn run() -> Result<(), anyhow::Error> {
                         continue;
                     }
                     "redo" => {
+                        rl.add_history_entry("redo");
                         if edit_ops.len() == edit_ops_index {
                             println!("Nothing to redo");
                         } else {
@@ -218,15 +220,8 @@ fn run() -> Result<(), anyhow::Error> {
                         }
                         continue;
                     }
-                    "-h" => {
-                        println!("{}", HELP_INTER);
-                        continue;
-                    }
-                    "--help" => {
-                        println!("{}", HELP_INTER);
-                        continue;
-                    }
-                    "help" => {
+                    h @ "-h" | h @ "--help" | h @ "help" => {
+                        rl.add_history_entry(h);
                         println!("{}", HELP_INTER);
                         continue;
                     }

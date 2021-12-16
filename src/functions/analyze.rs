@@ -282,7 +282,8 @@ mod tests {
     #[test]
     fn analyze_residues_test() {
         let pdb = test_pdb("tests/test_get_residuelist.pdb");
-        let (basic, qm2_residues) = analyze(&pdb, Some(Region::QM2), Some(Target::Residues)).unwrap();
+        let (basic, qm2_residues) =
+            analyze(&pdb, Some(Region::QM2), Some(Target::Residues)).unwrap();
         let basic_table = table!(
             ["", "# of Atoms", "# of Residues"],
             ["QM1", 20, 2],

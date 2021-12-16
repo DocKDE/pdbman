@@ -5,7 +5,7 @@ use crate::options;
 
 type AtomList = Vec<usize>;
 
-#[derive(Debug, Display)]
+#[derive(Debug, Display, PartialEq)]
 pub enum EditOp {
     ToAdd {
         region: options::Region,
