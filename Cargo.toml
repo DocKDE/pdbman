@@ -5,6 +5,7 @@ authors = ["Benedikt M. Flöser <benedikt.floeser@cec.mpg.de>"]
 edition = "2021"
 description = "Analyzes and edits PDB files for usage in QM/MM calculations with the ORCA Quantum Chemistry package"
 license = "GPL-2.0-or-later"
+readme = "README.md"
 
 [dependencies]
 prettytable-rs = {version = "0.8", default-features = false}
@@ -31,3 +32,9 @@ prettytable-rs = {version = "0.8.0", default-features = true}
 version = "3.0.0-beta.5"
 default-features = false
 features = ["std", "cargo", "color", "suggestions", "unicode"]
+
+[profile.release]
+opt-level = 3
+# strip = true
+lto = true
+# codegen-units = 1
