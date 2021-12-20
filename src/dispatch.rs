@@ -1,13 +1,13 @@
-use std::collections::HashSet;
+// use std::collections::HashSet;
 use std::fs::File;
 use std::io::{self, BufRead, BufReader, BufWriter, Write};
 
 use anyhow::Context;
 use colored::Colorize;
-use pdbtbx::{save_pdb, ContainsAtomConformer, ContainsAtomConformerResidue};
+use pdbtbx::save_pdb;
 
 use crate::functions::*;
-use crate::options::{Distance, Mode, Output, Partial, Region, Source, Target};
+use crate::options::{Distance, Mode, Output, Region, Source, Target};
 use crate::revertable::{EditOp, Revertable};
 
 // Run function that handles the logic of when to call which function given an enum with the
@@ -26,21 +26,10 @@ pub fn dispatch(
                     query_atoms(pdb, &parse_atomic_list(list, pdb)?)?.printstd();
                 }
                 Target::Residues => {
-                    query_residues(pdb, &parse_residue_list(list, pdb)?)?.printstd();
+                    query_atoms(pdb, &parse_residue_list(list, pdb, None)?)?.printstd();
                 }
             },
             Source::Sphere(origin_id, radius) => {
-                // let sphere_origin = pdb
-                //     .atoms_with_hierarchy()
-                //     .find(|a| a.atom().serial_number() == *origin_id)
-                //     .ok_or_else::<_, _>(|| {
-                //         anyhow!(
-                //             "{}: '{}'",
-                //             "\nNO ATOM WITH FOUND WITH SERIAL NUMBER".red(),
-                //             origin_id.to_string().blue(),
-                //         )
-                //     })?;
-
                 let list = match target {
                     Target::Atoms => get_atom_sphere(pdb, *origin_id, *radius, false)?,
                     Target::Residues => get_residue_sphere(pdb, *origin_id, *radius, false)?,
@@ -126,39 +115,10 @@ pub fn dispatch(
 
                     input_list.extend(match target.unwrap() {
                         Target::Atoms => parse_atomic_list(&list, pdb)?,
-                        Target::Residues => {
-                            let residue_list: HashSet<isize> =
-                                HashSet::from_iter(parse_residue_list(&list, pdb)?);
-                            match partial {
-                                None => pdb
-                                    .atoms_with_hierarchy()
-                                    .filter(|a| residue_list.contains(&a.residue().serial_number()))
-                                    .map(|a| a.atom().serial_number())
-                                    .collect(),
-                                Some(p) => pdb
-                                    .atoms_with_hierarchy()
-                                    .filter(|a| match p {
-                                        Partial::Backbone => a.is_backbone(),
-                                        Partial::Sidechain => a.is_sidechain(),
-                                    } && residue_list.contains(&a.residue().serial_number()))
-                                    .map(|a| a.atom().serial_number())
-                                    .collect(),
-                            }
-                        }
+                        Target::Residues => parse_residue_list(&list, pdb, *partial)?,
                     })
                 }
                 Some(Source::Sphere(origin_id, radius)) => {
-                    // let sphere_origin = pdb
-                    //     .atoms_with_hierarchy()
-                    //     .find(|a| a.atom().serial_number() == *origin_id)
-                    //     .ok_or_else::<_, _>(|| {
-                    //         anyhow!(
-                    //             "{}: '{}'",
-                    //             "NO ATOM FOUND WITH SERIAL NUMBER".red(),
-                    //             origin_id.to_string().blue(),
-                    //         )
-                    //     })?;
-
                     input_list.extend(match target.unwrap() {
                         Target::Atoms => get_atom_sphere(pdb, *origin_id, *radius, true)?,
                         Target::Residues => get_residue_sphere(pdb, *origin_id, *radius, true)?,

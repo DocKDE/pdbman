@@ -3,12 +3,14 @@ use std::collections::HashSet;
 use anyhow::Result;
 use itertools::Itertools;
 use lazy_regex::regex;
-use pdbtbx::PDB;
+use pdbtbx::{ContainsAtomConformer, ContainsAtomConformerResidue, PDB};
 use rayon::iter::FromParallelIterator;
 use rayon::prelude::ParallelIterator;
 
+use crate::options::Partial;
+
 type AtomList = Vec<usize>;
-type ResidueList = Vec<isize>;
+// type ResidueList = Vec<isize>;
 
 /// Takes a comma-separated list (usually from command line input) as string and parses it into
 /// a vector of Atom IDs. The Input may be atom IDs or Atom Names
@@ -85,8 +87,13 @@ pub fn parse_atomic_list(input: &str, pdb: &PDB) -> Result<AtomList, anyhow::Err
 /// Parses a string (usually taken from command line) and returns a list of residues given by a tuple
 /// of serial numbers and insertion codes. The input can be either a comma-separated list of serial numbers
 /// and insertion codes or residues names.
-pub fn parse_residue_list(input: &str, pdb: &PDB) -> Result<ResidueList, anyhow::Error> {
-    let mut output_vec: ResidueList = vec![];
+pub fn parse_residue_list(
+    input: &str,
+    pdb: &PDB,
+    partial: Option<Partial>,
+) -> Result<AtomList, anyhow::Error> {
+    let mut residue_set: HashSet<isize> = HashSet::new();
+    let atom_vec: AtomList;
 
     match input
         .split(&[',', '-', ':'][..])
@@ -101,24 +108,44 @@ pub fn parse_residue_list(input: &str, pdb: &PDB) -> Result<ResidueList, anyhow:
                         .split(&['-', ':'][..])
                         .map(|x| x.parse::<isize>().unwrap());
                     let range = iter.next().unwrap()..=iter.next().unwrap();
-                    output_vec.extend(range);
+                    residue_set.extend(range);
                 } else {
-                    output_vec.push(i.parse().unwrap())
+                    residue_set.insert(i.parse().unwrap());
                 }
             }
-            let output_set: HashSet<isize> = HashSet::from_iter(output_vec.iter().copied());
+
+            // let residue_set: HashSet<isize> = HashSet::from_iter(residue_vec.iter().copied());
+
             let pdb_set: HashSet<isize> =
                 HashSet::from_par_iter(pdb.par_residues().map(|a| a.serial_number()));
-            let mut missing_residues = output_set.difference(&pdb_set).peekable();
+            let mut missing_residues = residue_set.difference(&pdb_set).peekable();
 
             ensure!(
                 missing_residues.peek().is_none(),
                 "No residue(s) found with serial number(s): {}",
                 missing_residues.format(",")
             );
+
+            atom_vec = {
+                match partial {
+                    None => pdb
+                        .atoms_with_hierarchy()
+                        .filter(|a| residue_set.contains(&a.residue().serial_number()))
+                        .map(|a| a.atom().serial_number())
+                        .collect(),
+                    Some(p) => pdb
+                        .atoms_with_hierarchy()
+                        .filter(|a| match p {
+                            Partial::Backbone => a.is_backbone(),
+                            Partial::Sidechain => a.is_sidechain(),
+                        } && residue_set.contains(&a.residue().serial_number()))
+                        .map(|a| a.atom().serial_number())
+                        .collect(),
+                }
+            };
         }
         false => {
-            let input_vec: Vec<&str> = input.split(',').collect();
+            let residue_set: HashSet<String> = input.split(',').map(|s| s.to_owned()).collect();
 
             // This might not be necessary
             ensure!(
@@ -126,11 +153,11 @@ pub fn parse_residue_list(input: &str, pdb: &PDB) -> Result<ResidueList, anyhow:
                 "Ranges are not allowed for residue name inputs."
             );
 
-            let input_set: HashSet<String> = input_vec.iter().map(|s| s.to_lowercase()).collect();
+            // let input_set: HashSet<String> = input_vec.iter().map(|s| s.to_lowercase()).collect();
             let pdb_set: HashSet<String> = HashSet::from_par_iter(
                 pdb.par_residues().map(|a| a.name().unwrap().to_lowercase()),
             );
-            let mut missing_residues = input_set.difference(&pdb_set).peekable();
+            let mut missing_residues = residue_set.difference(&pdb_set).peekable();
 
             ensure!(
                 missing_residues.peek().is_none(),
@@ -138,19 +165,36 @@ pub fn parse_residue_list(input: &str, pdb: &PDB) -> Result<ResidueList, anyhow:
                 missing_residues.format(",")
             );
 
-            output_vec = pdb
-                .residues()
-                .filter(|x| {
-                    input_vec
-                        .iter()
-                        .any(|y| x.name().unwrap().to_lowercase() == y.to_lowercase())
-                })
-                .map(|r| r.serial_number())
-                .collect();
+            // output_vec = pdb
+            //     .residues()
+            //     .filter(|x| {
+            //         input_vec
+            //             .iter()
+            //             .any(|y| x.name().unwrap().to_lowercase() == y.to_lowercase())
+            //     })
+            //     .map(|r| r.serial_number())
+            //     .collect();
+            atom_vec = {
+                match partial {
+                    None => pdb
+                        .atoms_with_hierarchy()
+                        .filter(|a| residue_set.contains(&a.residue().name().unwrap().to_lowercase()))
+                        .map(|a| a.atom().serial_number())
+                        .collect(),
+                    Some(p) => pdb
+                        .atoms_with_hierarchy()
+                        .filter(|a| match p {
+                            Partial::Backbone => a.is_backbone(),
+                            Partial::Sidechain => a.is_sidechain(),
+                        } && residue_set.contains(a.residue().name().unwrap()))
+                        .map(|a| a.atom().serial_number())
+                        .collect(),
+                }
+            };
         }
     }
 
-    Ok(output_vec)
+    Ok(atom_vec)
 }
 
 #[cfg(test)]
@@ -186,6 +230,9 @@ mod tests {
             parse_atomic_list(num_list, &pdb).unwrap(),
             vec!(1, 2, 3, 4, 5, 6, 7)
         );
-        assert_eq!(parse_residue_list(str_list, &pdb).unwrap(), vec![2, 6, 7])
+        assert_eq!(
+            parse_residue_list(str_list, &pdb, None).unwrap(),
+            vec![19, 20, 21, 22, 23, 24, 25, 78, 79, 80, 81, 82, 83]
+        )
     }
 }
