@@ -114,8 +114,6 @@ pub fn parse_residue_list(
                 }
             }
 
-            // let residue_set: HashSet<isize> = HashSet::from_iter(residue_vec.iter().copied());
-
             let pdb_set: HashSet<isize> =
                 HashSet::from_par_iter(pdb.par_residues().map(|a| a.serial_number()));
             let mut missing_residues = residue_set.difference(&pdb_set).peekable();
@@ -153,7 +151,6 @@ pub fn parse_residue_list(
                 "Ranges are not allowed for residue name inputs."
             );
 
-            // let input_set: HashSet<String> = input_vec.iter().map(|s| s.to_lowercase()).collect();
             let pdb_set: HashSet<String> = HashSet::from_par_iter(
                 pdb.par_residues().map(|a| a.name().unwrap().to_lowercase()),
             );
@@ -165,20 +162,11 @@ pub fn parse_residue_list(
                 missing_residues.format(",")
             );
 
-            // output_vec = pdb
-            //     .residues()
-            //     .filter(|x| {
-            //         input_vec
-            //             .iter()
-            //             .any(|y| x.name().unwrap().to_lowercase() == y.to_lowercase())
-            //     })
-            //     .map(|r| r.serial_number())
-            //     .collect();
             atom_vec = {
                 match partial {
                     None => pdb
                         .atoms_with_hierarchy()
-                        .filter(|a| residue_set.contains(&a.residue().name().unwrap().to_lowercase()))
+                        .filter(|a| residue_set.contains(&a.residue().name().unwrap_or("").to_lowercase()))
                         .map(|a| a.atom().serial_number())
                         .collect(),
                     Some(p) => pdb
@@ -186,7 +174,7 @@ pub fn parse_residue_list(
                         .filter(|a| match p {
                             Partial::Backbone => a.is_backbone(),
                             Partial::Sidechain => a.is_sidechain(),
-                        } && residue_set.contains(a.residue().name().unwrap()))
+                        } && residue_set.contains(&a.residue().name().unwrap_or("").to_lowercase()))
                         .map(|a| a.atom().serial_number())
                         .collect(),
                 }
