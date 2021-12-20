@@ -30,20 +30,20 @@ pub fn dispatch(
                 }
             },
             Source::Sphere(origin_id, radius) => {
-                let sphere_origin = pdb
-                    .atoms_with_hierarchy()
-                    .find(|a| a.atom().serial_number() == *origin_id)
-                    .ok_or_else::<_, _>(|| {
-                        anyhow!(
-                            "{}: '{}'",
-                            "\nNO ATOM WITH FOUND WITH SERIAL NUMBER".red(),
-                            origin_id.to_string().blue(),
-                        )
-                    })?;
+                // let sphere_origin = pdb
+                //     .atoms_with_hierarchy()
+                //     .find(|a| a.atom().serial_number() == *origin_id)
+                //     .ok_or_else::<_, _>(|| {
+                //         anyhow!(
+                //             "{}: '{}'",
+                //             "\nNO ATOM WITH FOUND WITH SERIAL NUMBER".red(),
+                //             origin_id.to_string().blue(),
+                //         )
+                //     })?;
 
                 let list = match target {
-                    Target::Atoms => calc_atom_sphere(pdb, sphere_origin.atom(), *radius, false)?,
-                    Target::Residues => calc_residue_sphere(pdb, sphere_origin, *radius, false)?,
+                    Target::Atoms => get_atom_sphere(pdb, *origin_id, *radius, false)?,
+                    Target::Residues => get_residue_sphere(pdb, *origin_id, *radius, false)?,
                 };
 
                 query_atoms(pdb, &list)?.printstd();
@@ -148,22 +148,20 @@ pub fn dispatch(
                     })
                 }
                 Some(Source::Sphere(origin_id, radius)) => {
-                    let sphere_origin = pdb
-                        .atoms_with_hierarchy()
-                        .find(|a| a.atom().serial_number() == *origin_id)
-                        .ok_or_else::<_, _>(|| {
-                            anyhow!(
-                                "{}: '{}'",
-                                "NO ATOM FOUND WITH SERIAL NUMBER".red(),
-                                origin_id.to_string().blue(),
-                            )
-                        })?;
+                    // let sphere_origin = pdb
+                    //     .atoms_with_hierarchy()
+                    //     .find(|a| a.atom().serial_number() == *origin_id)
+                    //     .ok_or_else::<_, _>(|| {
+                    //         anyhow!(
+                    //             "{}: '{}'",
+                    //             "NO ATOM FOUND WITH SERIAL NUMBER".red(),
+                    //             origin_id.to_string().blue(),
+                    //         )
+                    //     })?;
 
                     input_list.extend(match target.unwrap() {
-                        Target::Atoms => {
-                            calc_atom_sphere(pdb, sphere_origin.atom(), *radius, true)?
-                        }
-                        Target::Residues => calc_residue_sphere(pdb, sphere_origin, *radius, true)?,
+                        Target::Atoms => get_atom_sphere(pdb, *origin_id, *radius, true)?,
+                        Target::Residues => get_residue_sphere(pdb, *origin_id, *radius, true)?,
                     });
                 }
                 None => {
