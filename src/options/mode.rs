@@ -9,8 +9,9 @@ use strum_macros::{Display, EnumString, EnumVariantNames};
 #[derive(Display, PartialEq, Debug, Clone, EnumVariantNames)]
 pub enum Mode<'a> {
     Query {
-        source: Source<'a>,
-        target: Target,
+        // source: Source<'a>,
+        // target: Target,
+        input: String,
     },
     Analyze {
         region: Option<Region>,
@@ -80,51 +81,59 @@ impl<'a> Mode<'a> {
     pub fn new(matches: &clap::ArgMatches) -> Result<Mode, anyhow::Error> {
         match matches.subcommand_name() {
             Some("Query") => {
-                let source_str = Source::VARIANTS
-                    .iter()
-                    .find(|x| matches.subcommand_matches("Query").unwrap().is_present(x))
+                // let source_str = Source::VARIANTS
+                //     .iter()
+                //     .find(|x| matches.subcommand_matches("Query").unwrap().is_present(x))
+                //     .unwrap();
+
+                // let source = match *source_str {
+                //     "Infile" => Source::Infile(
+                //         matches
+                //             .subcommand_matches("Query")
+                //             .unwrap()
+                //             .value_of("Infile")
+                //             .unwrap(),
+                //     ),
+                //     "List" => Source::List(
+                //         matches
+                //             .subcommand_matches("Query")
+                //             .unwrap()
+                //             .value_of("List")
+                //             .unwrap(),
+                //     ),
+                //     "Sphere" => {
+                //         let (origin_str, radius_str) = matches
+                //             .subcommand_matches("Query")
+                //             .unwrap()
+                //             .values_of("Sphere")
+                //             .unwrap()
+                //             .next_tuple()
+                //             .unwrap();
+                //         Source::Sphere(
+                //             origin_str.parse().context(
+                //                 format!("Invalid input for atom ID: '{}'", origin_str).red(),
+                //             )?,
+                //             radius_str.parse()?,
+                //         )
+                //     }
+                //     _ => unreachable!(),
+                // };
+
+                // let target_str = Target::VARIANTS
+                //     .iter()
+                //     .find(|x| matches.subcommand_matches("Query").unwrap().is_present(x))
+                //     .unwrap();
+                // let target = Target::from_str(target_str)?;
+                let mut input = matches
+                    .subcommand_matches("Query")
+                    .unwrap()
+                    .values_of("Input")
                     .unwrap();
 
-                let source = match *source_str {
-                    "Infile" => Source::Infile(
-                        matches
-                            .subcommand_matches("Query")
-                            .unwrap()
-                            .value_of("Infile")
-                            .unwrap(),
-                    ),
-                    "List" => Source::List(
-                        matches
-                            .subcommand_matches("Query")
-                            .unwrap()
-                            .value_of("List")
-                            .unwrap(),
-                    ),
-                    "Sphere" => {
-                        let (origin_str, radius_str) = matches
-                            .subcommand_matches("Query")
-                            .unwrap()
-                            .values_of("Sphere")
-                            .unwrap()
-                            .next_tuple()
-                            .unwrap();
-                        Source::Sphere(
-                            origin_str.parse().context(
-                                format!("Invalid input for atom ID: '{}'", origin_str).red(),
-                            )?,
-                            radius_str.parse()?,
-                        )
-                    }
-                    _ => unreachable!(),
-                };
-
-                let target_str = Target::VARIANTS
-                    .iter()
-                    .find(|x| matches.subcommand_matches("Query").unwrap().is_present(x))
-                    .unwrap();
-                let target = Target::from_str(target_str)?;
-
-                Ok(Mode::Query { source, target })
+                Ok(Mode::Query {
+                    input: input.join(" "),
+                })
+                // Ok(Mode::Query { source, target })
             }
             Some("Analyze") => {
                 // If no other argument to the subcommand is given, the find method yields None.

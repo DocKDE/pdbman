@@ -166,10 +166,7 @@ fn str_and_list(input: &str) -> IResult<&str, Selection> {
         separated_pair(
             alt((
                 tag_no_case("Name"),
-                alt((
-                    tag_no_case("Resname"),
-                    tag_no_case("Resn")
-                ))
+                alt((tag_no_case("Resname"), tag_no_case("Resn"))),
             )),
             space0,
             str_list,
@@ -233,13 +230,15 @@ fn conj_then_sel(input: &str) -> IResult<&str, Option<(Vec<Conjunction>, Vec<Sel
     }
 }
 
-fn full_list(input: &str) -> IResult<&str, (Vec<Selection>, Option<Vec<Conjunction>>)> {
+pub fn full_list(input: &str) -> IResult<&str, (Vec<Selection>, Option<Vec<Conjunction>>)> {
     let (rem, (base_sele, opt_sele)) = separated_pair(selection, space0, conj_then_sel)(input)?;
+    let mut final_sele_vec = vec![base_sele];
+
     if let Some((conj_vec, mut sele_vec)) = opt_sele {
-        sele_vec.push(base_sele);
-        Ok((rem, (sele_vec, Some(conj_vec))))
+        final_sele_vec.append(&mut sele_vec);
+        Ok((rem, (final_sele_vec, Some(conj_vec))))
     } else {
-        Ok((rem, (vec![base_sele], None)))
+        Ok((rem, (final_sele_vec, None)))
     }
 }
 

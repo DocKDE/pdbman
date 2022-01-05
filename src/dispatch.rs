@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 // use std::collections::HashSet;
 use std::fs::File;
 use std::io::{self, BufRead, BufReader, BufWriter, Write};
@@ -5,10 +6,12 @@ use std::io::{self, BufRead, BufReader, BufWriter, Write};
 use anyhow::Context;
 use colored::Colorize;
 use pdbtbx::save_pdb;
+use rayon::iter::ParallelIterator;
 
 use crate::functions::*;
 use crate::options::{Distance, Mode, Output, Region, Source, Target};
 use crate::revertable::{EditOp, Revertable};
+use crate::select::{full_list, Conjunction, Selection};
 
 // Run function that handles the logic of when to call which function given an enum with the
 // command line options. Hands all occurring errors to caller.
@@ -20,25 +23,131 @@ pub fn dispatch(
     let mut edit_op: Option<Box<dyn Revertable>> = None;
 
     match &mode {
-        Mode::Query { source, target } => match source {
-            Source::List(list) => match target {
-                Target::Atoms => {
-                    query_atoms(pdb, &parse_atomic_list(list, pdb)?)?.printstd();
-                }
-                Target::Residues => {
-                    query_atoms(pdb, &parse_residue_list(list, pdb, None)?)?.printstd();
-                }
-            },
-            Source::Sphere(origin_id, radius) => {
-                let list = match target {
-                    Target::Atoms => get_atom_sphere(pdb, *origin_id, *radius, false)?,
-                    Target::Residues => get_residue_sphere(pdb, *origin_id, *radius, false)?,
-                };
+        Mode::Query { input } => {
+            let (rem, (sele_vec, conj_vec)) = full_list(input).unwrap();
+            ensure!(rem.is_empty(), "Not everything could be parsed");
 
-                query_atoms(pdb, &list)?.printstd();
+            let mut sele_iter = sele_vec.into_iter();
+            let initial_sel = sele_iter.next().unwrap();
+            let to_invert: bool;
+            let mut initial_atomvec = match initial_sel {
+                Selection::ID { atomlist, invert } => {
+                    to_invert = invert;
+                    atomlist
+                }
+                Selection::Name { atomlist, invert } => {
+                    to_invert = invert;
+                    parse_atomic_list(&atomlist.join(","), pdb)?
+                }
+                Selection::Resid { atomlist, invert } => {
+                    to_invert = invert;
+                    pdb.par_residues()
+                        .filter(|r| atomlist.contains(&r.serial_number()))
+                        .flat_map(|r| r.par_atoms().map(|a| a.serial_number()))
+                        .collect()
+                }
+                Selection::Resname { atomlist, invert } => {
+                    to_invert = invert;
+                    parse_residue_list(&atomlist.join(","), pdb, None)?
+                }
+                Selection::Sphere { sphere, invert } => {
+                    to_invert = invert;
+                    get_atom_sphere(pdb, sphere.0, sphere.1, false)?
+                }
+                Selection::ResSphere { sphere, invert } => {
+                    to_invert = invert;
+                    get_residue_sphere(pdb, sphere.0, sphere.1, false)?
+                }
+            };
+
+            if to_invert {
+                initial_atomvec = get_inverted(&initial_atomvec, pdb);
             }
-            _ => bail!("Please don't do this to me..."),
-        },
+
+            match conj_vec {
+                None => {
+                    query_atoms(pdb, &initial_atomvec)?.printstd();
+                }
+                Some(cv) => {
+                    let mut prev_set: HashSet<usize> = HashSet::from_iter(initial_atomvec);
+
+                    // let mut new_set: HashSet<usize>;
+
+                    for (sele, conj) in sele_iter.zip(cv) {
+                        let to_invert: bool;
+                        let mut current_atomvec = match sele {
+                            Selection::ID { atomlist, invert } => {
+                                to_invert = invert;
+                                atomlist
+                            }
+                            Selection::Name { atomlist, invert } => {
+                                to_invert = invert;
+                                parse_atomic_list(&atomlist.join(","), pdb)?
+                            }
+                            Selection::Resid { atomlist, invert } => {
+                                to_invert = invert;
+                                pdb.par_residues()
+                                    .filter(|r| atomlist.contains(&r.serial_number()))
+                                    .flat_map(|r| r.par_atoms().map(|a| a.serial_number()))
+                                    .collect()
+                            }
+                            Selection::Resname { atomlist, invert } => {
+                                to_invert = invert;
+                                parse_residue_list(&atomlist.join(","), pdb, None)?
+                            }
+                            Selection::Sphere { sphere, invert } => {
+                                to_invert = invert;
+                                get_atom_sphere(pdb, sphere.0, sphere.1, false)?
+                            }
+                            Selection::ResSphere { sphere, invert } => {
+                                to_invert = invert;
+                                get_residue_sphere(pdb, sphere.0, sphere.1, false)?
+                            }
+                        };
+
+                        if to_invert {
+                            current_atomvec = get_inverted(&current_atomvec, pdb);
+                        }
+
+                        let current_set: HashSet<usize> = HashSet::from_iter(current_atomvec);
+
+                        prev_set = match conj {
+                            Conjunction::And => {
+                                prev_set.intersection(&current_set).copied().collect()
+                            }
+                            Conjunction::Or => prev_set.union(&current_set).copied().collect(),
+                        };
+
+                        // prev_set = new_set;
+                    }
+
+                    query_atoms(pdb, &prev_set.into_iter().collect::<Vec<usize>>())?.printstd();
+                }
+            }
+            // println!("{:?}", sele_vec);
+            // if let Some(c) = conj_vec {
+            //     println!("{:?}", c)
+            // }
+        }
+        // Mode::Query { source, target } => match source {
+        //     Source::List(list) => match target {
+        //         Target::Atoms => {
+        //             query_atoms(pdb, &parse_atomic_list(list, pdb)?)?.printstd();
+        //         }
+        //         Target::Residues => {
+        //             query_atoms(pdb, &parse_residue_list(list, pdb, None)?)?.printstd();
+        //         }
+        //     },
+        //     Source::Sphere(origin_id, radius) => {
+        //         let list = match target {
+        //             Target::Atoms => get_atom_sphere(pdb, *origin_id, *radius, false)?,
+        //             Target::Residues => get_residue_sphere(pdb, *origin_id, *radius, false)?,
+        //         };
+
+        //         query_atoms(pdb, &list)?.printstd();
+        //     }
+        //     _ => bail!("Please don't do this to me..."),
+        // },
         Mode::Analyze {
             region,
             target,

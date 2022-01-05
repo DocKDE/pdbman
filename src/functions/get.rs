@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use crate::options::Region;
 
 use anyhow::Result;
@@ -131,6 +133,14 @@ pub fn get_residuelist(pdb: &PDB, region: Region) -> Result<ResidueList, anyhow:
 
     ensure!(!num_vec.is_empty(), "No residues in the requested region!");
     Ok(num_vec)
+}
+
+pub fn get_inverted(atomlist: &[usize], pdb: &PDB) -> Vec<usize> {
+    let atom_set: HashSet<&usize> = HashSet::from_iter(atomlist);
+    pdb.par_atoms()
+        .filter(|a| !atom_set.contains(&a.serial_number()))
+        .map(|a| a.serial_number())
+        .collect()
 }
 
 #[cfg(test)]
