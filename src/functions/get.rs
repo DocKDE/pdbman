@@ -9,6 +9,7 @@ use pdbtbx::{
 use rayon::prelude::ParallelIterator;
 
 type AtomList = Vec<usize>;
+type ResidueList = Vec<isize>;
 
 /// Takes an Atom struct as point of origin and a radius in A. Returns a Vector of Atom IDs
 /// of Atoms within the given radius wrapped in a Result. Origin can be included or excluded.
@@ -21,8 +22,8 @@ pub fn get_atom_sphere(
     include_self: bool,
 ) -> Result<AtomList, anyhow::Error> {
     let origin_atom = pdb
-        .atoms()
-        .find(|a| a.serial_number() == origin_id)
+        .par_atoms()
+        .find_first(|a| a.serial_number() == origin_id)
         .ok_or_else::<_, _>(|| {
             anyhow!(
                 "{}: '{}'",
@@ -96,7 +97,7 @@ pub fn get_residue_sphere(
 }
 
 // Get list of atom IDs for printing to stdout or file
-pub fn get_atomlist(pdb: &PDB, region: Region) -> Result<Vec<usize>, anyhow::Error> {
+pub fn get_atomlist(pdb: &PDB, region: Region) -> Result<AtomList, anyhow::Error> {
     let filt_closure = match region {
         Region::QM1 => |a: &Atom| a.occupancy() == 1.00,
         Region::QM2 => |a: &Atom| a.occupancy() == 2.00,
@@ -114,7 +115,7 @@ pub fn get_atomlist(pdb: &PDB, region: Region) -> Result<Vec<usize>, anyhow::Err
 }
 
 // Get list of residue IDs for printing to stdout or file
-pub fn get_residuelist(pdb: &PDB, region: Region) -> Result<Vec<isize>, anyhow::Error> {
+pub fn get_residuelist(pdb: &PDB, region: Region) -> Result<ResidueList, anyhow::Error> {
     let filt_closure = match region {
         Region::QM1 => |a: &AtomConformerResidueChainModel| a.atom().occupancy() == 1.00,
         Region::QM2 => |a: &AtomConformerResidueChainModel| a.atom().occupancy() == 2.00,

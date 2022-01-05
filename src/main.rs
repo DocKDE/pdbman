@@ -18,6 +18,7 @@ mod help;
 mod options;
 mod residue_ascii;
 mod revertable;
+mod select;
 mod shell;
 
 use std::env;
@@ -76,17 +77,17 @@ fn run() -> Result<(), anyhow::Error> {
         .setting(AppSettings::DisableVersionFlag)
         .setting(AppSettings::IgnoreErrors)
         .setting(AppSettings::NoAutoHelp)
-        .arg(Arg::new("PDBFILE").about("Path to PDB file").required(true))
+        .arg(Arg::new("PDBFILE").help("Path to PDB file").required(true))
         .arg(
             Arg::new("Interactive")
-                .about("Interactive Mode")
+                .help("Interactive Mode")
                 .long("interactive")
                 .short('i')
                 .conflicts_with("File"),
         )
         .arg(
             Arg::new("File")
-                .about("Read Commands from file")
+                .help("Read Commands from file")
                 .long("file")
                 .short('f')
                 .takes_value(true)
@@ -94,7 +95,7 @@ fn run() -> Result<(), anyhow::Error> {
         )
         .arg(
             Arg::new("Help")
-                .about("Display help message")
+                .help("Display help message")
                 .long("help")
                 .short('h'),
         )

@@ -113,9 +113,9 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
 name = "clap"
-version = "3.0.0-beta.5"
+version = "3.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "feff3878564edb93745d58cf63e17b63f24142506e7a20c87a5521ed7bfb1d63"
+checksum = "d01c9347757e131122b19cd19a05c85805b68c2352a97b623efdc3c295290299"
 dependencies = [
  "atty",
  "bitflags",
@@ -502,6 +502,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "minimal-lexical"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "68354c5c6bd36d73ff3feceb05efa59b6acb7626617f4962be322a825e61f79a"
+
+[[package]]
 name = "nibble_vec"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -521,6 +527,17 @@ dependencies = [
  "cfg-if",
  "libc",
  "memoffset",
+]
+
+[[package]]
+name = "nom"
+version = "7.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1b1d11e1ef389c76fe5b81bcaf2ea32cf88b62bc494e19f493d0b30e7a930109"
+dependencies = [
+ "memchr",
+ "minimal-lexical",
+ "version_check",
 ]
 
 [[package]]
@@ -550,9 +567,9 @@ checksum = "692fcb63b64b1758029e0a96ee63e049ce8c5948587f2f7208df04625e5f6b56"
 
 [[package]]
 name = "os_str_bytes"
-version = "4.2.0"
+version = "6.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "addaa943333a514159c80c97ff4a93306530d965d27e139188283cd13e06a799"
+checksum = "8e22443d1643a904602595ba1cd8f7d896afe56d26712531c5ff73a15b2fbf64"
 dependencies = [
  "memchr",
 ]
@@ -568,6 +585,7 @@ dependencies = [
  "itertools",
  "lazy-regex",
  "lazy_static",
+ "nom",
  "pdbtbx",
  "prettytable-rs",
  "rayon",

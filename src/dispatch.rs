@@ -97,15 +97,14 @@ pub fn dispatch(
                             file.lines()
                                 .enumerate()
                                 .map(|(i, l)| -> Result<String, anyhow::Error> {
-                                    let s = l
-                                        .context(format!(
-                                            "{}: {}",
-                                            "COULDN'T READ LINE FROM FILE".red(),
-                                            i.to_string().blue()
-                                        ))?
-                                        .trim()
-                                        .to_owned();
-                                    Ok(s)
+                                    Ok(l.context(format!(
+                                        "{}: {}",
+                                        "COULDN'T READ LINE FROM FILE".red(),
+                                        i.to_string().blue()
+                                    ))?
+                                    .trim()
+                                    .to_owned())
+                                    // Ok(s)
                                 })
                                 .collect::<Result<Vec<String>, anyhow::Error>>()?
                                 .join(",")
