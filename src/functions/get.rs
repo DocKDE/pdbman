@@ -1,6 +1,9 @@
 use std::collections::HashSet;
 
-use crate::{options::Region, select::Selection};
+use crate::{
+    options::{Partial, Region},
+    select::Selection,
+};
 
 use anyhow::Result;
 use colored::Colorize;
@@ -137,11 +140,27 @@ pub fn get_residuelist(pdb: &PDB, region: Region) -> Result<ResidueList, anyhow:
     Ok(num_vec)
 }
 
-pub fn get_atomlist_from_residuelist(list: &[isize], pdb: &PDB) -> Vec<usize> {
-    pdb.par_residues()
-        .filter(|r| list.contains(&r.serial_number()))
-        .flat_map(|r| r.par_atoms().map(|a| a.serial_number()))
-        .collect()
+pub fn get_atomlist_from_residuelist(
+    list: &[isize],
+    pdb: &PDB,
+    partial: Option<Partial>,
+) -> Vec<usize> {
+    let residue_set: HashSet<isize> = HashSet::from_iter(list.iter().copied());
+    match partial {
+        None => pdb
+            .atoms_with_hierarchy()
+            .filter(|a| residue_set.contains(&a.residue().serial_number()))
+            .map(|a| a.atom().serial_number())
+            .collect(),
+        Some(p) => pdb
+            .atoms_with_hierarchy()
+            .filter(|a| match p {
+                Partial::Backbone => a.is_backbone(),
+                Partial::Sidechain => a.is_sidechain(),
+            } && residue_set.contains(&a.residue().serial_number()))
+            .map(|a| a.atom().serial_number())
+            .collect(),
+    }
 }
 
 fn get_inverted(atomlist: &[usize], pdb: &PDB) -> Vec<usize> {
@@ -182,7 +201,11 @@ fn verify_residuelist(list: &[isize], pdb: &PDB) -> Result<(), anyhow::Error> {
     Ok(())
 }
 
-pub fn get_atoms_from_selection(s: Selection, pdb: &PDB) -> Result<Vec<usize>, anyhow::Error> {
+pub fn get_atoms_from_selection(
+    s: Selection,
+    pdb: &PDB,
+    partial: Option<Partial>,
+) -> Result<Vec<usize>, anyhow::Error> {
     let to_invert: bool;
     let mut atomvec = match s {
         Selection::ID { atomlist, invert } => {
@@ -197,12 +220,12 @@ pub fn get_atoms_from_selection(s: Selection, pdb: &PDB) -> Result<Vec<usize>, a
         Selection::Resid { reslist, invert } => {
             to_invert = invert;
             verify_residuelist(&reslist, pdb)?;
-            get_atomlist_from_residuelist(&reslist, pdb)
+            get_atomlist_from_residuelist(&reslist, pdb, partial)
         }
         Selection::Resname { reslist, invert } => {
             to_invert = invert;
-            let res_list = parse_residue_list(&reslist.join(","), pdb, None)?;
-            get_atomlist_from_residuelist(&res_list, pdb)
+            let res_list = parse_residue_list(&reslist.join(","), pdb)?;
+            get_atomlist_from_residuelist(&res_list, pdb, partial)
         }
         Selection::Sphere {
             origin,

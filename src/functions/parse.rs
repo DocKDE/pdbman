@@ -3,11 +3,12 @@ use std::collections::HashSet;
 use anyhow::Result;
 use itertools::Itertools;
 // use lazy_regex::regex;
-use pdbtbx::{ContainsAtomConformer, ContainsAtomConformerResidue, PDB};
+// use pdbtbx::{ContainsAtomConformer, ContainsAtomConformerResidue, PDB};
+use pdbtbx::PDB;
 use rayon::iter::FromParallelIterator;
 use rayon::prelude::ParallelIterator;
 
-use crate::options::Partial;
+// use crate::options::Partial;
 
 type AtomList = Vec<usize>;
 type ResidueList = Vec<isize>;
@@ -91,10 +92,10 @@ pub fn parse_atomic_list(input: &str, pdb: &PDB) -> Result<AtomList, anyhow::Err
 pub fn parse_residue_list(
     input: &str,
     pdb: &PDB,
-    partial: Option<Partial>,
+    // partial: Option<Partial>,
 ) -> Result<ResidueList, anyhow::Error> {
     // let mut residue_set: HashSet<isize> = HashSet::new();
-    let res_vec: ResidueList;
+    // let res_vec: ResidueList;
 
     // match input
     //     .split(&[',', '-', ':'][..])
@@ -162,27 +163,33 @@ pub fn parse_residue_list(
         missing_residues.format(",")
     );
 
-    res_vec = {
-        match partial {
-                    None => pdb
-                        .atoms_with_hierarchy()
-                        .filter(|a| residue_set.contains(&a.residue().name().unwrap_or("").to_lowercase()))
-                        .map(|a| a.residue().serial_number())
-                        .collect(),
-                    Some(p) => pdb
-                        .atoms_with_hierarchy()
-                        .filter(|a| match p {
-                            Partial::Backbone => a.is_backbone(),
-                            Partial::Sidechain => a.is_sidechain(),
-                        } && residue_set.contains(&a.residue().name().unwrap_or("").to_lowercase()))
-                        .map(|a| a.residue().serial_number())
-                        .collect(),
-                }
-    };
+    Ok(pdb
+        .par_residues()
+        .filter(|r| residue_set.contains(&r.name().unwrap_or("").to_lowercase()))
+        .map(|r| r.serial_number())
+        .collect())
+
+    // res_vec = {
+    //     match partial {
+    //                 None => pdb
+    //                     .atoms_with_hierarchy()
+    //                     .filter(|a| residue_set.contains(&a.residue().name().unwrap_or("").to_lowercase()))
+    //                     .map(|a| a.residue().serial_number())
+    //                     .collect(),
+    //                 Some(p) => pdb
+    //                     .atoms_with_hierarchy()
+    //                     .filter(|a| match p {
+    //                         Partial::Backbone => a.is_backbone(),
+    //                         Partial::Sidechain => a.is_sidechain(),
+    //                     } && residue_set.contains(&a.residue().name().unwrap_or("").to_lowercase()))
+    //                     .map(|a| a.residue().serial_number())
+    //                     .collect(),
+    //             }
+    // };
     //     }
     // }
 
-    Ok(res_vec)
+    // Ok(res_vec)
 }
 
 #[cfg(test)]
@@ -197,30 +204,27 @@ mod tests {
 
     #[test]
     fn parse_atomic_list_test() {
-        let num_list = "1,2:5,7,9-11";
+        // let num_list = "1,2:5,7,9-11";
         let str_list = "OH,HH";
         let pdb = test_pdb("tests/test_blank.pdb");
 
-        assert_eq!(
-            parse_atomic_list(num_list, &pdb).unwrap(),
-            vec!(1, 2, 3, 4, 5, 7, 9, 10, 11)
-        );
+        // assert_eq!(
+        //     parse_atomic_list(num_list, &pdb).unwrap(),
+        //     vec!(1, 2, 3, 4, 5, 7, 9, 10, 11)
+        // );
         assert_eq!(parse_atomic_list(str_list, &pdb).unwrap(), vec![39, 40]);
     }
 
     #[test]
     fn parse_residue_list_test() {
-        let num_list = "1,2:5,6-7";
+        // let num_list = "1,2:5,6-7";
         let str_list = "gly,wat";
         let pdb = test_pdb("tests/test_blank.pdb");
 
-        assert_eq!(
-            parse_atomic_list(num_list, &pdb).unwrap(),
-            vec!(1, 2, 3, 4, 5, 6, 7)
-        );
-        assert_eq!(
-            parse_residue_list(str_list, &pdb, None).unwrap(),
-            vec![19, 20, 21, 22, 23, 24, 25, 78, 79, 80, 81, 82, 83]
-        )
+        // assert_eq!(
+        //     parse_atomic_list(num_list, &pdb).unwrap(),
+        //     vec!(1, 2, 3, 4, 5, 6, 7)
+        // );
+        assert_eq!(parse_residue_list(str_list, &pdb).unwrap(), vec![2, 6, 7])
     }
 }

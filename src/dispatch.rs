@@ -41,7 +41,7 @@ pub fn dispatch(
 
             let mut sele_iter = sele_vec.into_iter();
             let initial_sel = sele_iter.next().unwrap();
-            let initial_atomvec = get_atoms_from_selection(initial_sel, pdb)?;
+            let initial_atomvec = get_atoms_from_selection(initial_sel, pdb, None)?;
 
             match conj_vec {
                 // if vec of conjunctions is not present, the vec of selections can only have one element
@@ -54,7 +54,7 @@ pub fn dispatch(
                     // let mut new_set: HashSet<usize>;
 
                     for (sele, conj) in sele_iter.zip(cv) {
-                        let current_atomvec = get_atoms_from_selection(sele, pdb)?;
+                        let current_atomvec = get_atoms_from_selection(sele, pdb, None)?;
                         let current_set: HashSet<usize> = HashSet::from_iter(current_atomvec);
 
                         prev_set = match conj {
@@ -170,26 +170,25 @@ pub fn dispatch(
                         Ok(r) => r,
                         Err(e) => {
                             println!("{:#?}", convert_error(input.as_ref(), e));
-                            bail!("Something went wrong during parsing")
+                            bail!("\nSomething went wrong during parsing".red())
                         }
                     };
 
                     let mut sele_iter = sele_vec.into_iter();
                     let initial_sel = sele_iter.next().unwrap();
-                    let initial_atomvec = get_atoms_from_selection(initial_sel, pdb)?;
+                    let initial_atomvec = get_atoms_from_selection(initial_sel, pdb, *partial)?;
 
                     match conj_vec {
                         // if vec of conjunctions is not present, the vec of selections can only have one element
-                        None => {
-                            input_list.extend(initial_atomvec)
-                        }
+                        None => input_list.extend(initial_atomvec),
                         Some(cv) => {
                             let mut prev_set: HashSet<usize> = HashSet::from_iter(initial_atomvec);
 
                             // let mut new_set: HashSet<usize>;
 
                             for (sele, conj) in sele_iter.zip(cv) {
-                                let current_atomvec = get_atoms_from_selection(sele, pdb)?;
+                                let current_atomvec =
+                                    get_atoms_from_selection(sele, pdb, *partial)?;
                                 let current_set: HashSet<usize> =
                                     HashSet::from_iter(current_atomvec);
 
@@ -484,8 +483,10 @@ mod tests {
 
     #[test]
     fn add_qm1() {
-        let edit_action =
-            get_edit_action("tests/test_blank.pdb", ["A", "-qtl", "4,1,9"].into_iter());
+        let edit_action = get_edit_action(
+            "tests/test_blank.pdb",
+            ["A", "-ql", "id", "4,1,9"].into_iter(),
+        );
         let (edit_action, region, atoms) = get_editop(&edit_action);
         let atom_vec = get_atomvec(atoms);
 
@@ -496,8 +497,10 @@ mod tests {
 
     #[test]
     fn add_qm2() {
-        let edit_action =
-            get_edit_action("tests/test_blank.pdb", ["A", "-otl", "22,17,8"].into_iter());
+        let edit_action = get_edit_action(
+            "tests/test_blank.pdb",
+            ["A", "-ol", "id", "22,17,8"].into_iter(),
+        );
         let (edit_action, region, atoms) = get_editop(&edit_action);
         let atom_vec = get_atomvec(atoms);
 
@@ -508,8 +511,10 @@ mod tests {
 
     #[test]
     fn add_active() {
-        let edit_action =
-            get_edit_action("tests/test_blank.pdb", ["A", "-atl", "22,17,8"].into_iter());
+        let edit_action = get_edit_action(
+            "tests/test_blank.pdb",
+            ["A", "-al", "id", "22,17,8"].into_iter(),
+        );
         let (edit_action, region, atoms) = get_editop(&edit_action);
         let atom_vec = get_atomvec(atoms);
 
@@ -520,8 +525,10 @@ mod tests {
 
     #[test]
     fn remove_qm1() {
-        let edit_action =
-            get_edit_action("tests/test_full.pdb", ["R", "-qtl", "22,17,8"].into_iter());
+        let edit_action = get_edit_action(
+            "tests/test_full.pdb",
+            ["R", "-ql", "id", "22,17,8"].into_iter(),
+        );
         let (edit_action, region, atoms) = get_editop(&edit_action);
         let atom_vec = get_atomvec(atoms);
 
@@ -532,8 +539,10 @@ mod tests {
 
     #[test]
     fn remove_active() {
-        let edit_action =
-            get_edit_action("tests/test_full.pdb", ["R", "-atl", "22,17,8"].into_iter());
+        let edit_action = get_edit_action(
+            "tests/test_full.pdb",
+            ["R", "-al", "id", "22,17,8"].into_iter(),
+        );
         let (edit_action, region, atoms) = get_editop(&edit_action);
         let atom_vec = get_atomvec(atoms);
 
@@ -545,20 +554,26 @@ mod tests {
     #[test]
     #[should_panic]
     fn remove_empty() {
-        get_edit_action("tests/test_blank.pdb", ["R", "-atl", "22,17,8"].into_iter());
+        get_edit_action(
+            "tests/test_blank.pdb",
+            ["R", "-al", "id", "22,17,8"].into_iter(),
+        );
     }
 
     #[test]
     #[should_panic]
     fn add_existing() {
-        get_edit_action("tests/test_full.pdb", ["A", "-qtl", "22,17,8"].into_iter());
+        get_edit_action(
+            "tests/test_full.pdb",
+            ["A", "-ql", "id", "22,17,8"].into_iter(),
+        );
     }
 
     #[test]
     fn checked_add() {
         let edit_action = get_edit_action(
             "tests/test_overwrite.pdb",
-            ["A", "-qtl", "1,3,4"].into_iter(),
+            ["A", "-ql", "id", "1,3,4"].into_iter(),
         );
         let (edit_action, region, atoms) = get_editop(&edit_action);
         let atom_vec = get_atomvec(atoms);
@@ -570,8 +585,10 @@ mod tests {
 
     #[test]
     fn checked_remove() {
-        let edit_action =
-            get_edit_action("tests/test_overwrite.pdb", ["R", "-atl", "1-3"].into_iter());
+        let edit_action = get_edit_action(
+            "tests/test_overwrite.pdb",
+            ["R", "-al", "id", "1-3"].into_iter(),
+        );
         let (edit_action, region, atoms) = get_editop(&edit_action);
         let atom_vec = get_atomvec(atoms);
 
@@ -584,7 +601,7 @@ mod tests {
     fn overwrite_qm() {
         let edit_action = get_edit_action(
             "tests/test_overwrite.pdb",
-            ["A", "-otl", "9,1-3"].into_iter(),
+            ["A", "-ol", "id", "9,1-3"].into_iter(),
         );
         let re = regex!(r"(\w+)\s\{\sregion:\s(\w+),\satoms:\s\[((\d(, )?)+)\]\s");
         let mut matches = re.find_iter(&edit_action);
