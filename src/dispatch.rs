@@ -127,25 +127,27 @@ pub fn dispatch(
         Mode::Add {
             region,
             source,
-            target,
+            // target,
             partial,
+            // input,
         }
         | Mode::Remove {
             region,
             source,
-            target,
+            // target,
             partial,
+            // input,
         } => {
             let mut input_list: Vec<usize> = Vec::new();
             match source {
                 // If source is Some(_), clap requires target and region arguments as well, hence
                 // calling unwrap on them is fine.
-                Some(Source::List(_)) | Some(Source::Infile(_)) => {
-                    let list = match *source.as_ref().unwrap() {
-                        Source::List(l) => l.to_string(),
+                Some(s) => {
+                    let input = match s {
+                        Source::List(l) => l.to_owned(),
                         Source::Infile(f) => {
                             let file = BufReader::new(
-                                File::open(f).context("\nNO SUCH FILE OR DIRECTORY".red())?,
+                                File::open(f).context("\nNo such file or directory".red())?,
                             );
                             file.lines()
                                 .enumerate()
@@ -162,25 +164,90 @@ pub fn dispatch(
                                 .collect::<Result<Vec<String>, anyhow::Error>>()?
                                 .join(",")
                         }
-                        _ => unreachable!(),
                     };
 
-                    input_list.extend(match target.unwrap() {
-                        Target::Atoms => parse_atomic_list(&list, pdb)?,
-                        Target::Residues => {
-                            let res_list = parse_residue_list(&list, pdb, *partial)?;
-                            get_atomlist_from_residuelist(&res_list, pdb)
+                    let (_, (sele_vec, conj_vec)) = match full_list(&input).finish() {
+                        Ok(r) => r,
+                        Err(e) => {
+                            println!("{:#?}", convert_error(input.as_ref(), e));
+                            bail!("Something went wrong during parsing")
                         }
-                    })
+                    };
+
+                    let mut sele_iter = sele_vec.into_iter();
+                    let initial_sel = sele_iter.next().unwrap();
+                    let initial_atomvec = get_atoms_from_selection(initial_sel, pdb)?;
+
+                    match conj_vec {
+                        // if vec of conjunctions is not present, the vec of selections can only have one element
+                        None => {
+                            input_list.extend(initial_atomvec)
+                        }
+                        Some(cv) => {
+                            let mut prev_set: HashSet<usize> = HashSet::from_iter(initial_atomvec);
+
+                            // let mut new_set: HashSet<usize>;
+
+                            for (sele, conj) in sele_iter.zip(cv) {
+                                let current_atomvec = get_atoms_from_selection(sele, pdb)?;
+                                let current_set: HashSet<usize> =
+                                    HashSet::from_iter(current_atomvec);
+
+                                prev_set = match conj {
+                                    Conjunction::And => {
+                                        prev_set.intersection(&current_set).copied().collect()
+                                    }
+                                    Conjunction::Or => {
+                                        prev_set.union(&current_set).copied().collect()
+                                    }
+                                };
+                            }
+
+                            input_list.extend(prev_set)
+                        }
+                    }
+
+                    // Some(Source::List(_)) | Some(Source::Infile(_)) => {
+                    //     let input = match source.as_ref().unwrap() {
+                    //         Source::List(l) => l.to_string(),
+                    //         Source::Infile(f) => {
+                    //             let file = BufReader::new(
+                    //                 File::open(f).context("\nNO SUCH FILE OR DIRECTORY".red())?,
+                    //             );
+                    //             file.lines()
+                    //                 .enumerate()
+                    //                 .map(|(i, l)| -> Result<String, anyhow::Error> {
+                    //                     Ok(l.context(format!(
+                    //                         "{}: {}",
+                    //                         "COULDN'T READ LINE FROM FILE".red(),
+                    //                         i.to_string().blue()
+                    //                     ))?
+                    //                     .trim()
+                    //                     .to_owned())
+                    //                     // Ok(s)
+                    //                 })
+                    //                 .collect::<Result<Vec<String>, anyhow::Error>>()?
+                    //                 .join(",")
+                    //         }
+                    //         _ => unreachable!(),
+                    //     };
+
+                    // input_list.extend(match target.unwrap() {
+                    //     Target::Atoms => parse_atomic_list(&list, pdb)?,
+                    //     Target::Residues => {
+                    //         let res_list = parse_residue_list(&list, pdb, *partial)?;
+                    //         get_atomlist_from_residuelist(&res_list, pdb)
+                    //     }
+                    // })
                 }
-                Some(Source::Sphere(origin_id, radius)) => {
-                    input_list.extend(match target.unwrap() {
-                        Target::Atoms => get_atom_sphere(pdb, *origin_id, *radius, true)?,
-                        Target::Residues => get_residue_sphere(pdb, *origin_id, *radius, true)?,
-                    });
-                }
+                // Some(Source::Sphere(origin_id, radius)) => {
+                //     input_list.extend(match target.unwrap() {
+                //         Target::Atoms => get_atom_sphere(pdb, *origin_id, *radius, true)?,
+                //         Target::Residues => get_residue_sphere(pdb, *origin_id, *radius, true)?,
+                //     });
+                // }
                 None => {
-                    if mode.to_string() == "Remove" && *region == None && *target == None {
+                    if mode.to_string() == "Remove" && *region == None {
                         let mut qm1_atoms = Vec::new();
                         let mut qm2_atoms = Vec::new();
                         let mut active_atoms = Vec::new();
@@ -222,7 +289,7 @@ pub fn dispatch(
                         }
 
                         remove_region(pdb, None);
-                    } else if region.is_some() && *target == None {
+                    } else if region.is_some() {
                         let region_atoms: Vec<usize> = pdb
                             .atoms()
                             .filter(|a| match region.unwrap() {
