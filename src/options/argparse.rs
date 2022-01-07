@@ -1,71 +1,4 @@
-// use anyhow::Result;
 use clap::{App, AppSettings, Arg, ArgGroup};
-// use itertools::Itertools;
-// use lazy_regex::{regex, regex_is_match};
-
-// use crate::HELP_LONG;
-
-// fn sphere_valid(v: &str) -> Result<(), anyhow::Error> {
-//     let err_chars = v
-//         .chars()
-//         .filter(|x| !regex_is_match!(r"[\d.]", &x.to_string()))
-//         .collect::<String>();
-
-//     ensure!(
-//         err_chars.is_empty(),
-//         "\nInvalid characters: '{}'",
-//         err_chars
-//     );
-
-//     Ok(())
-// }
-
-// fn list_valid(v: &str) -> Result<(), anyhow::Error> {
-//     let re_num = regex!(r"^(?P<id1>\d+)([:-](?P<id2>\d+))?$");
-//     let re_str = regex!(r"^[A-Za-z]+$");
-//     let re_chars = regex!(r"[\dA-Z-a-z:,-]");
-
-//     let mut err_chars = v
-//         .chars()
-//         .filter(|x| !re_chars.is_match(&x.to_string()))
-//         .sorted()
-//         .dedup()
-//         .peekable();
-
-//     ensure!(
-//         err_chars.peek().is_none(),
-//         "\nInvalid character(s) found: '{}'",
-//         err_chars.join("")
-//     );
-
-//     let mut numerical_inp = false;
-//     let mut string_inp = false;
-
-//     for i in v.split(',') {
-//         if re_num.is_match(i) {
-//             numerical_inp = true;
-
-//             let caps = re_num.captures(i).unwrap();
-//             let id1 = caps.name("id1").unwrap().as_str().parse::<i32>()?;
-//             let id2 = caps.name("id2").map(|m| m.as_str().parse::<i32>().unwrap());
-
-//             if let Some(id2) = id2 {
-//                 ensure!(id1 < id2, "\nLeft number must be lower: '{}-{}'", id1, id2)
-//             }
-//         } else if re_str.is_match(i) {
-//             string_inp = true;
-//         } else {
-//             bail!("\nInvalid range definition found: '{}'", i)
-//         }
-//     }
-
-//     ensure!(
-//         !(numerical_inp && string_inp),
-//         "\nInput list containts mixed types!"
-//     );
-
-//     Ok(())
-// }
 
 /// Defines all Args, their configuration and all ArgGroups as defined by clap.
 pub fn clap_args() -> App<'static> {
@@ -83,46 +16,6 @@ pub fn clap_args() -> App<'static> {
                 .help("Input for atom selection")
                 .required(true)
                 .multiple_values(true))
-            // .arg(
-            //     Arg::new("Residues")
-            //         .help("Residue Mode")
-            //         .long("residues")
-            //         .short('r')
-            // )
-            // .arg(
-            //     Arg::new("Atoms")
-            //         .help("Atom Mode")
-            //         .long("atoms")
-            //         .short('t')
-            // )
-            // .arg(
-            //     Arg::new("Infile")
-            //         .help("File for list input")
-            //         .long("file")
-            //         .short('f')
-            //         .takes_value(true),
-            // )
-            // .arg(
-            //     Arg::new("List")
-            //         .help("Command line list")
-            //         .long("list")
-            //         .short('l')
-            //         .takes_value(true)
-            //         .validator(list_valid)
-            // )
-            // .arg(
-            //     Arg::new("Sphere")
-            //         .help("Calculate sphere around atom. Requires Atom ID and radius in Angstrom.")
-            //         .long("sphere")
-            //         .short('s')
-            //         .takes_value(true)
-            //         .number_of_values(2)
-            //         .value_names(&["Atom ID", "Radius"])
-            //         .conflicts_with_all(&["Sidechain", "Backbone"])
-            //         .validator(sphere_valid),
-            // )
-            // .group(ArgGroup::new("target").args(&["Residues", "Atoms"]).required(true))
-            // .group(ArgGroup::new("source").args(&["Infile", "List", "Sphere"]).required(true))
         )
         .subcommand(App::new("Analyze")
             .about("Analysis QM and active regions")
@@ -176,18 +69,6 @@ pub fn clap_args() -> App<'static> {
         .subcommand(App::new("Add")
             .about("Add atoms or residues to QM or active regions")
             .visible_aliases(&["add", "A", "a"])
-            // .arg(
-            //     Arg::new("Residues")
-            //         .help("Residue Mode")
-            //         .long("residues")
-            //         .short('r')
-            // )
-            // .arg(
-            //     Arg::new("Atoms")
-            //         .help("Atom Mode")
-            //         .long("atoms")
-            //         .short('t')
-            // )
             .arg(
                 Arg::new("Infile")
                     .help("File for list input")
@@ -202,19 +83,7 @@ pub fn clap_args() -> App<'static> {
                     .short('l')
                     .takes_value(true)
                     .multiple_values(true)
-                    // .validator(list_valid)
             )
-            // .arg(
-            //     Arg::new("Sphere")
-            //         .help("Calculate sphere around atom. Requires Atom ID and radius in Angstrom.")
-            //         .long("sphere")
-            //         .short('s')
-            //         .takes_value(true)
-            //         .number_of_values(2)
-            //         .value_names(&["Atom ID", "Radius"])
-            //         .conflicts_with_all(&["Sidechain", "Backbone"])
-            //         .validator(sphere_valid),
-            // )
             .arg(
                 Arg::new("QM1")
                     .help("QM1 region")
@@ -245,10 +114,6 @@ pub fn clap_args() -> App<'static> {
                     .long("backbone")
                     .short('b')
             )
-            // .group(
-            //     ArgGroup::new("target")
-            //         .args(&["Residues", "Atoms"])
-            //         .required(true))
             .group(
                 ArgGroup::new("partial")
                     .args(&["Sidechain", "Backbone"])
@@ -267,18 +132,6 @@ pub fn clap_args() -> App<'static> {
         .subcommand(App::new("Remove")
             .about("Remove atoms or residues to QM or active regions")
             .visible_aliases(&["remove"])
-            // .arg(
-            //     Arg::new("Residues")
-            //         .help("Residue Mode")
-            //         .long("residues")
-            //         .short('r')
-            // )
-            // .arg(
-            //     Arg::new("Atoms")
-            //         .help("Atom Mode")
-            //         .long("atoms")
-            //         .short('t')
-            // )
             .arg(
                 Arg::new("Infile")
                     .help("File for list input")
@@ -293,19 +146,7 @@ pub fn clap_args() -> App<'static> {
                     .short('l')
                     .takes_value(true)
                     .multiple_values(true)
-                    // .validator(list_valid)
             )
-            // .arg(
-            //     Arg::new("Sphere")
-            //         .help("Calculate sphere around atom. Requires Atom ID and radius in Angstrom.")
-            //         .long("sphere")
-            //         .short('s')
-            //         .takes_value(true)
-            //         .number_of_values(2)
-            //         .value_names(&["Atom ID", "Radius"])
-            //         .conflicts_with_all(&["Sidechain", "Backbone"])
-            //         .validator(sphere_valid),
-            // )
             .arg(
                 Arg::new("QM1")
                     .help("QM1 region")
@@ -336,10 +177,6 @@ pub fn clap_args() -> App<'static> {
                     .long("backbone")
                     .short('b')
             )
-            // .group(
-            //     ArgGroup::new("target")
-            //         .args(&["Residues", "Atoms"])
-            //         .requires_all(&["region", "source"]))
             .group(
                 ArgGroup::new("partial")
                     .args(&["Sidechain", "Backbone"])

@@ -68,30 +68,7 @@ pub fn dispatch(
                     query_atoms(pdb, &prev_set.into_iter().collect::<Vec<usize>>())?.printstd();
                 }
             }
-            // println!("{:?}", sele_vec);
-            // if let Some(c) = conj_vec {
-            //     println!("{:?}", c)
-            // }
         }
-        // Mode::Query { source, target } => match source {
-        //     Source::List(list) => match target {
-        //         Target::Atoms => {
-        //             query_atoms(pdb, &parse_atomic_list(list, pdb)?)?.printstd();
-        //         }
-        //         Target::Residues => {
-        //             query_atoms(pdb, &parse_residue_list(list, pdb, None)?)?.printstd();
-        //         }
-        //     },
-        //     Source::Sphere(origin_id, radius) => {
-        //         let list = match target {
-        //             Target::Atoms => get_atom_sphere(pdb, *origin_id, *radius, false)?,
-        //             Target::Residues => get_residue_sphere(pdb, *origin_id, *radius, false)?,
-        //         };
-
-        //         query_atoms(pdb, &list)?.printstd();
-        //     }
-        //     _ => bail!("Please don't do this to me..."),
-        // },
         Mode::Analyze {
             region,
             target,
@@ -205,46 +182,7 @@ pub fn dispatch(
                             input_list.extend(prev_set)
                         }
                     }
-
-                    // Some(Source::List(_)) | Some(Source::Infile(_)) => {
-                    //     let input = match source.as_ref().unwrap() {
-                    //         Source::List(l) => l.to_string(),
-                    //         Source::Infile(f) => {
-                    //             let file = BufReader::new(
-                    //                 File::open(f).context("\nNO SUCH FILE OR DIRECTORY".red())?,
-                    //             );
-                    //             file.lines()
-                    //                 .enumerate()
-                    //                 .map(|(i, l)| -> Result<String, anyhow::Error> {
-                    //                     Ok(l.context(format!(
-                    //                         "{}: {}",
-                    //                         "COULDN'T READ LINE FROM FILE".red(),
-                    //                         i.to_string().blue()
-                    //                     ))?
-                    //                     .trim()
-                    //                     .to_owned())
-                    //                     // Ok(s)
-                    //                 })
-                    //                 .collect::<Result<Vec<String>, anyhow::Error>>()?
-                    //                 .join(",")
-                    //         }
-                    //         _ => unreachable!(),
-                    //     };
-
-                    // input_list.extend(match target.unwrap() {
-                    //     Target::Atoms => parse_atomic_list(&list, pdb)?,
-                    //     Target::Residues => {
-                    //         let res_list = parse_residue_list(&list, pdb, *partial)?;
-                    //         get_atomlist_from_residuelist(&res_list, pdb)
-                    //     }
-                    // })
                 }
-                // Some(Source::Sphere(origin_id, radius)) => {
-                //     input_list.extend(match target.unwrap() {
-                //         Target::Atoms => get_atom_sphere(pdb, *origin_id, *radius, true)?,
-                //         Target::Residues => get_residue_sphere(pdb, *origin_id, *radius, true)?,
-                //     });
-                // }
                 None => {
                     if mode.to_string() == "Remove" && *region == None {
                         let mut qm1_atoms = Vec::new();

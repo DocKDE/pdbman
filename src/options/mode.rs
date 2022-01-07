@@ -9,8 +9,6 @@ use strum_macros::{Display, EnumString, EnumVariantNames};
 #[derive(Display, PartialEq, Debug, Clone, EnumVariantNames)]
 pub enum Mode<'a> {
     Query {
-        // source: Source<'a>,
-        // target: Target,
         input: String,
     },
     Analyze {
@@ -21,16 +19,12 @@ pub enum Mode<'a> {
     Add {
         region: Option<Region>,
         source: Option<Source<'a>>,
-        // target: Option<Target>,
         partial: Option<Partial>,
-        // input: Option<String>,
     },
     Remove {
         region: Option<Region>,
         source: Option<Source<'a>>,
-        // target: Option<Target>,
         partial: Option<Partial>,
-        // input: Option<String>
     },
     Write {
         output: Option<Output<'a>>,
@@ -50,7 +44,6 @@ pub enum Region {
 pub enum Source<'a> {
     Infile(&'a str),
     List(String),
-    // Sphere(usize, f64),
 }
 
 #[derive(Display, PartialEq, Debug, Clone, Copy, PartialOrd, EnumString, EnumVariantNames)]
@@ -83,50 +76,6 @@ impl<'a> Mode<'a> {
     pub fn new(matches: &clap::ArgMatches) -> Result<Mode, anyhow::Error> {
         match matches.subcommand_name() {
             Some("Query") => {
-                // let source_str = Source::VARIANTS
-                //     .iter()
-                //     .find(|x| matches.subcommand_matches("Query").unwrap().is_present(x))
-                //     .unwrap();
-
-                // let source = match *source_str {
-                //     "Infile" => Source::Infile(
-                //         matches
-                //             .subcommand_matches("Query")
-                //             .unwrap()
-                //             .value_of("Infile")
-                //             .unwrap(),
-                //     ),
-                //     "List" => Source::List(
-                //         matches
-                //             .subcommand_matches("Query")
-                //             .unwrap()
-                //             .value_of("List")
-                //             .unwrap(),
-                //     ),
-                //     "Sphere" => {
-                //         let (origin_str, radius_str) = matches
-                //             .subcommand_matches("Query")
-                //             .unwrap()
-                //             .values_of("Sphere")
-                //             .unwrap()
-                //             .next_tuple()
-                //             .unwrap();
-                //         Source::Sphere(
-                //             origin_str.parse().context(
-                //                 format!("Invalid input for atom ID: '{}'", origin_str).red(),
-                //             )?,
-                //             radius_str.parse()?,
-                //         )
-                //     }
-                //     _ => unreachable!(),
-                // };
-
-                // let target_str = Target::VARIANTS
-                //     .iter()
-                //     .find(|x| matches.subcommand_matches("Query").unwrap().is_present(x))
-                //     .unwrap();
-                // let target = Target::from_str(target_str)?;
-
                 Ok(Mode::Query {
                     input: matches
                         .subcommand_matches("Query")
@@ -135,7 +84,6 @@ impl<'a> Mode<'a> {
                         .unwrap()
                         .join(" "),
                 })
-                // Ok(Mode::Query { source, target })
             }
             Some("Analyze") => {
                 // If no other argument to the subcommand is given, the find method yields None.
@@ -190,46 +138,18 @@ impl<'a> Mode<'a> {
                             .unwrap()
                             .join(" "),
                     )),
-                    // "Sphere" => {
-                    //     let (origin_str, radius_str) = matches
-                    //         .subcommand_matches("Add")
-                    //         .unwrap()
-                    //         .values_of("Sphere")
-                    //         .unwrap()
-                    //         .next_tuple()
-                    //         .unwrap();
-                    //     Some(Source::Sphere(
-                    //         origin_str.parse().context(
-                    //             format!("Invalid input for atom ID: '{}'", origin_str).red(),
-                    //         )?,
-                    //         radius_str.parse()?,
-                    //     ))
-                    // }
                     _ => unreachable!(),
                 };
-
-                // let target = Target::VARIANTS
-                //     .iter()
-                //     .find(|x| matches.subcommand_matches("Add").unwrap().is_present(x))
-                //     .map(|s| Target::from_str(s).unwrap());
 
                 let partial = Partial::VARIANTS
                     .iter()
                     .find(|x| matches.subcommand_matches("Add").unwrap().is_present(x))
                     .map(|s| Partial::from_str(s).unwrap());
 
-                // let input = if let Some(i) = matches.subcommand_matches("Add").unwrap().values_of("Input") {
-                //     Some(i.join(" "))
-                // } else {
-                //     None
-                // };
-
                 Ok(Mode::Add {
                     region,
                     source,
-                    // target,
                     partial,
-                    // input,
                 })
             }
             Some("Remove") => {
@@ -259,40 +179,13 @@ impl<'a> Mode<'a> {
                             .unwrap()
                             .join(" "),
                     )),
-                    // "Sphere" => {
-                    //     let (origin_str, radius_str) = matches
-                    //         .subcommand_matches("Remove")
-                    //         .unwrap()
-                    //         .values_of("Sphere")
-                    //         .unwrap()
-                    //         .next_tuple()
-                    //         .unwrap();
-                    //     // Some(Source::Sphere(origin_str.parse()?, radius_str.parse()?))
-                    //     Some(Source::Sphere(
-                    //         origin_str.parse().context(
-                    //             format!("Invalid input for atom ID: '{}'", origin_str).red(),
-                    //         )?,
-                    //         radius_str.parse()?,
-                    //     ))
-                    // }
                     _ => None,
                 };
-
-                // let target = Target::VARIANTS
-                //     .iter()
-                //     .find(|x| matches.subcommand_matches("Remove").unwrap().is_present(x))
-                //     .map(|s| Target::from_str(s).unwrap());
 
                 let partial = Partial::VARIANTS
                     .iter()
                     .find(|x| matches.subcommand_matches("Remove").unwrap().is_present(x))
                     .map(|s| Partial::from_str(s).unwrap());
-
-                // let input = if let Some(i) = matches.subcommand_matches("Remove").unwrap().values_of("Input") {
-                //     Some(i.join(" "))
-                // } else {
-                //     None
-                // };
 
                 Ok(Mode::Remove {
                     region,

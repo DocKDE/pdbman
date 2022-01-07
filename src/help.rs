@@ -1,5 +1,5 @@
 pub const HELP_LONG: &str = "
-pdbman 0.8.6
+pdbman 0.9.0
     
 Benedikt M. Flöser <benedikt.floeser@cec.mpg.de>
     
