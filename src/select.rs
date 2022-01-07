@@ -7,8 +7,11 @@ use nom::character::complete::alphanumeric1;
 use nom::character::complete::char;
 use nom::character::complete::u32;
 use nom::character::complete::{space0, space1};
+// use nom::combinator::all_consuming;
 use nom::combinator::opt;
 use nom::combinator::recognize;
+use nom::error::context;
+use nom::error::VerboseError;
 use nom::multi::separated_list0;
 use nom::multi::separated_list1;
 use nom::number::complete::double;
@@ -16,6 +19,7 @@ use nom::sequence::pair;
 use nom::sequence::separated_pair;
 use nom::sequence::terminated;
 use nom::IResult;
+// use nom_supreme::parser_ext::ParserExt;
 
 #[derive(Debug, PartialEq)]
 pub enum Conjunction {
@@ -34,22 +38,28 @@ pub enum Selection<'a> {
         invert: bool,
     },
     Resid {
-        atomlist: Vec<isize>,
+        reslist: Vec<isize>,
         invert: bool,
     },
     Resname {
-        atomlist: Vec<&'a str>,
+        reslist: Vec<&'a str>,
         invert: bool,
     },
     Sphere {
-        sphere: (usize, f64),
+        // sphere: (usize, f64),
+        origin: usize,
+        radius: f64,
         invert: bool,
     },
     ResSphere {
-        sphere: (usize, f64),
+        // sphere: (usize, f64),
+        origin: usize,
+        radius: f64,
         invert: bool,
     },
 }
+
+type Res<T, U> = IResult<T, U, VerboseError<T>>;
 
 // fn identifier(input: &str) -> IResult<&str, &str> {
 //     alt((
@@ -62,26 +72,30 @@ pub enum Selection<'a> {
 //     ))(input)
 // }
 
-fn range_sep(input: &str) -> IResult<&str, &str> {
+fn range_sep(input: &str) -> Res<&str, &str> {
     recognize(alt((char('-'), char(':'))))(input)
 }
 
-fn range(input: &str) -> IResult<&str, Vec<u32>> {
+fn range(input: &str) -> Res<&str, Vec<u32>> {
     // recognize(tuple((digit1, range_sep, digit1)))(input)
-    let (rem, tup) = separated_pair(u32, range_sep, u32)(input)?;
-    Ok((rem, (tup.0..=tup.1).collect()))
+    let (rem, (a, b)) = separated_pair(u32, range_sep, u32)(input)?;
+    if a < b {
+        Ok((rem, (a..=b).collect()))
+    } else {
+        Ok((rem, (b..=a).collect()))
+    }
 }
 
-fn digit_to_vec(input: &str) -> IResult<&str, Vec<u32>> {
+fn digit_to_vec(input: &str) -> Res<&str, Vec<u32>> {
     let (rem, b) = u32(input)?;
     Ok((rem, vec![b]))
 }
 
-fn id_with_opt_range(input: &str) -> IResult<&str, Vec<u32>> {
-    alt((range, digit_to_vec))(input)
+fn id_with_opt_range(input: &str) -> Res<&str, Vec<u32>> {
+    context("id", alt((range, digit_to_vec)))(input)
 }
 
-fn num_list(input: &str) -> IResult<&str, Vec<u32>> {
+fn num_list(input: &str) -> Res<&str, Vec<u32>> {
     let (rem, vec) = separated_list1(char(','), id_with_opt_range)(input)?;
     let mut flat_vec: Vec<u32> = vec.into_iter().flatten().collect();
     flat_vec.sort_unstable();
@@ -89,19 +103,19 @@ fn num_list(input: &str) -> IResult<&str, Vec<u32>> {
     Ok((rem, flat_vec))
 }
 
-fn str_list(input: &str) -> IResult<&str, Vec<&str>> {
+fn str_list(input: &str) -> Res<&str, Vec<&str>> {
     let (rem, mut str_vec) = separated_list1(char(','), alphanumeric1)(input)?;
     str_vec.sort_unstable();
     str_vec.dedup();
     Ok((rem, str_vec))
 }
 
-fn sphere_values(input: &str) -> IResult<&str, (usize, f64)> {
+fn sphere_values(input: &str) -> Res<&str, (usize, f64)> {
     let (rem, (origin, radius)) = separated_pair(u32, space1, double)(input)?;
     Ok((rem, (origin as usize, radius)))
 }
 
-fn sphere(input: &str) -> IResult<&str, Selection> {
+fn sphere(input: &str) -> Res<&str, Selection> {
     let (rem, (neg, (sphere_str, (origin, radius)))) = pair(
         opt(negate),
         separated_pair(
@@ -117,14 +131,16 @@ fn sphere(input: &str) -> IResult<&str, Selection> {
         "sphere" | "s" => Ok((
             rem,
             Selection::Sphere {
-                sphere: (origin, radius),
+                origin,
+                radius,
                 invert: neg.is_some(),
             },
         )),
         "ressphere" | "rs" => Ok((
             rem,
             Selection::ResSphere {
-                sphere: (origin, radius),
+                origin,
+                radius,
                 invert: neg.is_some(),
             },
         )),
@@ -132,7 +148,7 @@ fn sphere(input: &str) -> IResult<&str, Selection> {
     }
 }
 
-fn id_and_list(input: &str) -> IResult<&str, Selection> {
+fn id_and_list(input: &str) -> Res<&str, Selection> {
     let (rem, (neg, (id_str, atom_vec))) = pair(
         opt(negate),
         separated_pair(
@@ -152,7 +168,7 @@ fn id_and_list(input: &str) -> IResult<&str, Selection> {
         "resid" => Ok((
             rem,
             Selection::Resid {
-                atomlist: atom_vec.into_iter().map(|n| n as isize).collect(),
+                reslist: atom_vec.into_iter().map(|n| n as isize).collect(),
                 invert: neg.is_some(),
             },
         )),
@@ -160,7 +176,7 @@ fn id_and_list(input: &str) -> IResult<&str, Selection> {
     }
 }
 
-fn str_and_list(input: &str) -> IResult<&str, Selection> {
+fn str_and_list(input: &str) -> Res<&str, Selection> {
     let (rem, (neg, (name_str, atom_vec))) = pair(
         opt(negate),
         separated_pair(
@@ -183,7 +199,7 @@ fn str_and_list(input: &str) -> IResult<&str, Selection> {
         "resname" | "resn" => Ok((
             rem,
             Selection::Resname {
-                atomlist: atom_vec,
+                reslist: atom_vec,
                 invert: neg.is_some(),
             },
         )),
@@ -191,15 +207,15 @@ fn str_and_list(input: &str) -> IResult<&str, Selection> {
     }
 }
 
-fn negate(input: &str) -> IResult<&str, &str> {
+fn negate(input: &str) -> Res<&str, &str> {
     terminated(alt((tag("!"), tag_no_case("Not"))), space0)(input)
 }
 
-fn selection(input: &str) -> IResult<&str, Selection> {
+fn selection(input: &str) -> Res<&str, Selection> {
     alt((sphere, id_and_list, str_and_list))(input)
 }
 
-fn conjunction(input: &str) -> IResult<&str, Conjunction> {
+fn conjunction(input: &str) -> Res<&str, Conjunction> {
     let (rem, conj) = alt((
         alt((tag("&"), tag_no_case("and"))),
         alt((tag("|"), tag_no_case("or"))),
@@ -214,7 +230,7 @@ fn conjunction(input: &str) -> IResult<&str, Conjunction> {
     ))
 }
 
-fn conj_then_sel(input: &str) -> IResult<&str, Option<(Vec<Conjunction>, Vec<Selection>)>> {
+fn conj_then_sel(input: &str) -> Res<&str, Option<(Vec<Conjunction>, Vec<Selection>)>> {
     let (rem, vec) =
         separated_list0(space1, separated_pair(conjunction, space1, selection))(input)?;
     let mut conjunctions = Vec::new();
@@ -230,7 +246,7 @@ fn conj_then_sel(input: &str) -> IResult<&str, Option<(Vec<Conjunction>, Vec<Sel
     }
 }
 
-pub fn full_list(input: &str) -> IResult<&str, (Vec<Selection>, Option<Vec<Conjunction>>)> {
+pub fn full_list(input: &str) -> Res<&str, (Vec<Selection>, Option<Vec<Conjunction>>)> {
     let (rem, (base_sele, opt_sele)) = separated_pair(selection, space0, conj_then_sel)(input)?;
     let mut final_sele_vec = vec![base_sele];
 
@@ -280,7 +296,7 @@ mod tests {
         assert_eq!(
             sele,
             Selection::Resname {
-                atomlist: vec!["ala", "cu", "his", "wat"],
+                reslist: vec!["ala", "cu", "his", "wat"],
                 invert: false
             }
         );
@@ -290,7 +306,9 @@ mod tests {
         assert_eq!(
             sele,
             Selection::Sphere {
-                sphere: (2589, 5.9),
+                // sphere: (2589, 5.9),
+                origin: 2589,
+                radius: 5.9,
                 invert: false
             }
         )
@@ -319,6 +337,10 @@ mod tests {
         let (rem, sele) = full_list(str).unwrap();
 
         let selections_vec = vec![
+            Selection::Resname {
+                reslist: vec!["his"],
+                invert: false,
+            },
             Selection::ID {
                 atomlist: vec![1, 2, 3],
                 invert: false,
@@ -328,12 +350,10 @@ mod tests {
                 invert: false,
             },
             Selection::Sphere {
-                sphere: (23, 4.6),
+                // sphere: (23, 4.6),
+                origin: 23,
+                radius: 4.6,
                 invert: true,
-            },
-            Selection::Resname {
-                atomlist: vec!["his"],
-                invert: false,
             },
         ];
 

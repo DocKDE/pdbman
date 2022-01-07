@@ -124,14 +124,14 @@ impl<'a> Mode<'a> {
                 //     .find(|x| matches.subcommand_matches("Query").unwrap().is_present(x))
                 //     .unwrap();
                 // let target = Target::from_str(target_str)?;
-                let mut input = matches
-                    .subcommand_matches("Query")
-                    .unwrap()
-                    .values_of("Input")
-                    .unwrap();
 
                 Ok(Mode::Query {
-                    input: input.join(" "),
+                    input: matches
+                        .subcommand_matches("Query")
+                        .unwrap()
+                        .values_of("Input")
+                        .unwrap()
+                        .join(" "),
                 })
                 // Ok(Mode::Query { source, target })
             }

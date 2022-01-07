@@ -51,6 +51,7 @@ pub fn query_atoms(pdb: &PDB, atom_list: &[usize]) -> Result<Table, anyhow::Erro
         }
     }
 
+    ensure!(table.len() > 1, "No atoms found in given selection");
     Ok(table)
 }
 

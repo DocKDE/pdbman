@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use crate::options::Region;
+use crate::{options::Region, select::Selection};
 
 use anyhow::Result;
 use colored::Colorize;
@@ -8,7 +8,9 @@ use itertools::Itertools;
 use pdbtbx::{
     Atom, AtomConformerResidueChainModel, ContainsAtomConformer, ContainsAtomConformerResidue, PDB,
 };
-use rayon::prelude::ParallelIterator;
+use rayon::{iter::FromParallelIterator, prelude::ParallelIterator};
+
+use super::{parse_atomic_list, parse_residue_list};
 
 type AtomList = Vec<usize>;
 type ResidueList = Vec<isize>;
@@ -135,12 +137,95 @@ pub fn get_residuelist(pdb: &PDB, region: Region) -> Result<ResidueList, anyhow:
     Ok(num_vec)
 }
 
-pub fn get_inverted(atomlist: &[usize], pdb: &PDB) -> Vec<usize> {
+pub fn get_atomlist_from_residuelist(list: &[isize], pdb: &PDB) -> Vec<usize> {
+    pdb.par_residues()
+        .filter(|r| list.contains(&r.serial_number()))
+        .flat_map(|r| r.par_atoms().map(|a| a.serial_number()))
+        .collect()
+}
+
+fn get_inverted(atomlist: &[usize], pdb: &PDB) -> Vec<usize> {
     let atom_set: HashSet<&usize> = HashSet::from_iter(atomlist);
     pdb.par_atoms()
         .filter(|a| !atom_set.contains(&a.serial_number()))
         .map(|a| a.serial_number())
         .collect()
+}
+
+fn verify_atomlist(list: &[usize], pdb: &PDB) -> Result<(), anyhow::Error> {
+    let output_set: HashSet<usize> = HashSet::from_iter(list.iter().copied());
+    let pdb_set: HashSet<usize> =
+        HashSet::from_par_iter(pdb.par_atoms().map(|a| a.serial_number()));
+    let mut missing_atoms = output_set.difference(&pdb_set).peekable();
+
+    ensure!(
+        missing_atoms.peek().is_none(),
+        "No atom(s) found with serial number(s): {}",
+        missing_atoms.format(",")
+    );
+
+    Ok(())
+}
+
+fn verify_residuelist(list: &[isize], pdb: &PDB) -> Result<(), anyhow::Error> {
+    let output_set: HashSet<isize> = HashSet::from_iter(list.iter().copied());
+    let pdb_set: HashSet<isize> =
+        HashSet::from_par_iter(pdb.par_residues().map(|a| a.serial_number()));
+    let mut missing_atoms = output_set.difference(&pdb_set).peekable();
+
+    ensure!(
+        missing_atoms.peek().is_none(),
+        "No residue(s) found with serial number(s): {}",
+        missing_atoms.format(",")
+    );
+
+    Ok(())
+}
+
+pub fn get_atoms_from_selection(s: Selection, pdb: &PDB) -> Result<Vec<usize>, anyhow::Error> {
+    let to_invert: bool;
+    let mut atomvec = match s {
+        Selection::ID { atomlist, invert } => {
+            to_invert = invert;
+            verify_atomlist(&atomlist, pdb)?;
+            atomlist
+        }
+        Selection::Name { atomlist, invert } => {
+            to_invert = invert;
+            parse_atomic_list(&atomlist.join(","), pdb)?
+        }
+        Selection::Resid { reslist, invert } => {
+            to_invert = invert;
+            verify_residuelist(&reslist, pdb)?;
+            get_atomlist_from_residuelist(&reslist, pdb)
+        }
+        Selection::Resname { reslist, invert } => {
+            to_invert = invert;
+            let res_list = parse_residue_list(&reslist.join(","), pdb, None)?;
+            get_atomlist_from_residuelist(&res_list, pdb)
+        }
+        Selection::Sphere {
+            origin,
+            radius,
+            invert,
+        } => {
+            to_invert = invert;
+            get_atom_sphere(pdb, origin, radius, false)?
+        }
+        Selection::ResSphere {
+            origin,
+            radius,
+            invert,
+        } => {
+            to_invert = invert;
+            get_residue_sphere(pdb, origin, radius, false)?
+        }
+    };
+
+    if to_invert {
+        atomvec = get_inverted(&atomvec, pdb);
+    }
+    Ok(atomvec)
 }
 
 #[cfg(test)]
