@@ -1,25 +1,14 @@
 use std::vec;
 
 use nom::branch::alt;
-use nom::bytes::complete::tag;
-use nom::bytes::complete::tag_no_case;
-use nom::character::complete::alphanumeric1;
-use nom::character::complete::char;
-use nom::character::complete::u32;
-use nom::character::complete::{space0, space1};
-// use nom::combinator::all_consuming;
-use nom::combinator::opt;
-use nom::combinator::recognize;
-use nom::error::context;
-use nom::error::VerboseError;
-use nom::multi::separated_list0;
-use nom::multi::separated_list1;
+use nom::bytes::complete::{tag, tag_no_case};
+use nom::character::complete::{alphanumeric1, char, space0, space1, u32};
+use nom::combinator::{opt, recognize};
+use nom::error::{context, VerboseError};
+use nom::multi::{separated_list0, separated_list1};
 use nom::number::complete::double;
-use nom::sequence::pair;
-use nom::sequence::separated_pair;
-use nom::sequence::terminated;
+use nom::sequence::{pair, separated_pair, terminated};
 use nom::IResult;
-// use nom_supreme::parser_ext::ParserExt;
 
 #[derive(Debug, PartialEq)]
 pub enum Conjunction {
@@ -77,7 +66,6 @@ fn range_sep(input: &str) -> Res<&str, &str> {
 }
 
 fn range(input: &str) -> Res<&str, Vec<u32>> {
-    // recognize(tuple((digit1, range_sep, digit1)))(input)
     let (rem, (a, b)) = separated_pair(u32, range_sep, u32)(input)?;
     if a < b {
         Ok((rem, (a..=b).collect()))
