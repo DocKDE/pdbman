@@ -55,7 +55,7 @@ pub fn edit_atoms_checked(
     mode: &str,
     region: Region,
 ) -> Result<Vec<usize>, anyhow::Error> {
-    let input_set: HashSet<usize> = HashSet::from_iter(list.iter().copied());
+    let input_set: HashSet<usize> = list.iter().copied().collect();
     let set_of_existing: HashSet<usize> = pdb
         .par_atoms()
         .filter(|a| match region {
@@ -63,7 +63,7 @@ pub fn edit_atoms_checked(
             Region::QM2 => a.occupancy() == 2.00,
             Region::Active => a.b_factor() == 1.00,
         })
-        .map(|a| a.serial_number())
+        .map(Atom::serial_number)
         .collect();
 
     let actual_op_set: HashSet<usize> = match mode {
@@ -110,11 +110,11 @@ pub fn edit_atoms_unchecked(pdb: &mut PDB, list: &[usize], mode: &str, region: R
         _ => unreachable!(),
     };
 
-    let list_set: HashSet<usize> = HashSet::from_iter(list.iter().copied());
+    let list_set: HashSet<usize> = list.iter().copied().collect();
 
     pdb.par_atoms_mut()
         .filter(|a| list_set.contains(&a.serial_number()))
-        .for_each(|a| edit(a))
+        .for_each(|a| edit(a));
 }
 
 /// Removes a whole region from PDB file.
@@ -133,7 +133,7 @@ pub fn remove_region(pdb: &mut PDB, region: Option<Region>) {
             .for_each(|a| a.set_b_factor(0.00).unwrap()),
         None => pdb.par_atoms_mut().for_each(|a| {
             a.set_occupancy(0.00).unwrap();
-            a.set_b_factor(0.00).unwrap()
+            a.set_b_factor(0.00).unwrap();
         }),
     }
 }

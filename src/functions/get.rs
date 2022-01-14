@@ -9,7 +9,8 @@ use anyhow::Result;
 use colored::Colorize;
 use itertools::Itertools;
 use pdbtbx::{
-    Atom, AtomConformerResidueChainModel, ContainsAtomConformer, ContainsAtomConformerResidue, PDB,
+    Atom, AtomConformerResidueChainModel, ContainsAtomConformer, ContainsAtomConformerResidue,
+    Residue, PDB,
 };
 use rayon::{iter::FromParallelIterator, prelude::ParallelIterator};
 
@@ -46,7 +47,7 @@ pub fn get_atom_sphere(
         .collect();
 
     if !include_self {
-        sphere_atoms.retain(|&x| x != origin_atom.serial_number())
+        sphere_atoms.retain(|&x| x != origin_atom.serial_number());
     }
 
     sphere_atoms.sort_unstable();
@@ -82,18 +83,18 @@ pub fn get_residue_sphere(
 
     let mut sphere_atoms: AtomList = tree
         .locate_within_distance(sphere_origin.atom().pos(), radius.powf(2.0))
-        .flat_map(|atom_hier| atom_hier.residue().atoms().map(|atom| atom.serial_number()))
+        .flat_map(|atom_hier| atom_hier.residue().atoms().map(Atom::serial_number))
         .unique()
         .collect();
 
     let origin_res_atoms: AtomList = sphere_origin
         .residue()
         .atoms()
-        .map(|atom| atom.serial_number())
+        .map(Atom::serial_number)
         .collect();
 
     if !include_self {
-        sphere_atoms.retain(|x| !origin_res_atoms.contains(x))
+        sphere_atoms.retain(|x| !origin_res_atoms.contains(x));
     }
 
     ensure!(
@@ -114,7 +115,7 @@ pub fn get_atomlist(pdb: &PDB, region: Region) -> Result<AtomList, anyhow::Error
     let num_vec = pdb
         .par_atoms()
         .filter(|&a| filt_closure(a))
-        .map(|a| a.serial_number())
+        .map(Atom::serial_number)
         .collect::<Vec<usize>>();
 
     ensure!(!num_vec.is_empty(), "No atoms in the requested region!");
@@ -145,7 +146,7 @@ pub fn get_atomlist_from_residuelist(
     pdb: &PDB,
     partial: Option<Partial>,
 ) -> Vec<usize> {
-    let residue_set: HashSet<isize> = HashSet::from_iter(list.iter().copied());
+    let residue_set: HashSet<isize> = list.iter().copied().collect();
     match partial {
         None => pdb
             .atoms_with_hierarchy()
@@ -167,14 +168,13 @@ fn get_inverted(atomlist: &[usize], pdb: &PDB) -> Vec<usize> {
     let atom_set: HashSet<&usize> = HashSet::from_iter(atomlist);
     pdb.par_atoms()
         .filter(|a| !atom_set.contains(&a.serial_number()))
-        .map(|a| a.serial_number())
+        .map(Atom::serial_number)
         .collect()
 }
 
 fn verify_atomlist(list: &[usize], pdb: &PDB) -> Result<(), anyhow::Error> {
-    let output_set: HashSet<usize> = HashSet::from_iter(list.iter().copied());
-    let pdb_set: HashSet<usize> =
-        HashSet::from_par_iter(pdb.par_atoms().map(|a| a.serial_number()));
+    let output_set: HashSet<usize> = list.iter().copied().collect();
+    let pdb_set: HashSet<usize> = HashSet::from_par_iter(pdb.par_atoms().map(Atom::serial_number));
     let mut missing_atoms = output_set.difference(&pdb_set).peekable();
 
     ensure!(
@@ -187,9 +187,9 @@ fn verify_atomlist(list: &[usize], pdb: &PDB) -> Result<(), anyhow::Error> {
 }
 
 fn verify_residuelist(list: &[isize], pdb: &PDB) -> Result<(), anyhow::Error> {
-    let output_set: HashSet<isize> = HashSet::from_iter(list.iter().copied());
+    let output_set: HashSet<isize> = list.iter().copied().collect();
     let pdb_set: HashSet<isize> =
-        HashSet::from_par_iter(pdb.par_residues().map(|a| a.serial_number()));
+        HashSet::from_par_iter(pdb.par_residues().map(Residue::serial_number));
     let mut missing_atoms = output_set.difference(&pdb_set).peekable();
 
     ensure!(

@@ -1,14 +1,17 @@
 use std::vec;
 
 use nom::branch::alt;
-use nom::bytes::complete::{tag, tag_no_case};
 use nom::character::complete::{alphanumeric1, char, space0, space1, u32};
 use nom::combinator::{opt, recognize};
-use nom::error::{context, VerboseError};
+use nom::error::context;
 use nom::multi::{separated_list0, separated_list1};
 use nom::number::complete::double;
 use nom::sequence::{pair, separated_pair, terminated};
-use nom::IResult;
+use nom::{IResult, Parser};
+use nom_supreme::error::ErrorTree;
+use nom_supreme::final_parser::{final_parser, Location};
+use nom_supreme::parser_ext::ParserExt;
+use nom_supreme::tag::complete::{tag, tag_no_case};
 
 #[derive(Debug, PartialEq)]
 pub enum Conjunction {
@@ -35,20 +38,18 @@ pub enum Selection<'a> {
         invert: bool,
     },
     Sphere {
-        // sphere: (usize, f64),
         origin: usize,
         radius: f64,
         invert: bool,
     },
     ResSphere {
-        // sphere: (usize, f64),
         origin: usize,
         radius: f64,
         invert: bool,
     },
 }
 
-type Res<T, U> = IResult<T, U, VerboseError<T>>;
+type Res<T, U> = IResult<T, U, ErrorTree<T>>;
 
 // fn identifier(input: &str) -> IResult<&str, &str> {
 //     alt((
@@ -66,7 +67,11 @@ fn range_sep(input: &str) -> Res<&str, &str> {
 }
 
 fn range(input: &str) -> Res<&str, Vec<u32>> {
-    let (rem, (a, b)) = separated_pair(u32, range_sep, u32)(input)?;
+    let (rem, (a, b)) = separated_pair(
+        u32.context("Start of range"),
+        range_sep.context("Separator"),
+        u32.context("End of range"),
+    )(input)?;
     if a < b {
         Ok((rem, (a..=b).collect()))
     } else {
@@ -80,11 +85,18 @@ fn digit_to_vec(input: &str) -> Res<&str, Vec<u32>> {
 }
 
 fn id_with_opt_range(input: &str) -> Res<&str, Vec<u32>> {
-    context("id", alt((range, digit_to_vec)))(input)
+    context(
+        "id",
+        alt((
+            range.context("Range"),
+            digit_to_vec.context("Single number"),
+        )),
+    )(input)
 }
 
 fn num_list(input: &str) -> Res<&str, Vec<u32>> {
-    let (rem, vec) = separated_list1(char(','), id_with_opt_range)(input)?;
+    let (rem, vec) =
+        separated_list1(char(','), id_with_opt_range.context("Number list element"))(input)?;
     let mut flat_vec: Vec<u32> = vec.into_iter().flatten().collect();
     flat_vec.sort_unstable();
     flat_vec.dedup();
@@ -92,20 +104,21 @@ fn num_list(input: &str) -> Res<&str, Vec<u32>> {
 }
 
 fn str_list(input: &str) -> Res<&str, Vec<&str>> {
-    let (rem, mut str_vec) = separated_list1(char(','), alphanumeric1)(input)?;
+    let (rem, mut str_vec) = separated_list1(char(','), alphanumeric1.context("Name"))(input)?;
     str_vec.sort_unstable();
     str_vec.dedup();
     Ok((rem, str_vec))
 }
 
 fn sphere_values(input: &str) -> Res<&str, (usize, f64)> {
-    let (rem, (origin, radius)) = separated_pair(u32, space1, double)(input)?;
+    let (rem, (origin, radius)) =
+        separated_pair(u32.context("Origin"), space1, double.context("Radius"))(input)?;
     Ok((rem, (origin as usize, radius)))
 }
 
 fn sphere(input: &str) -> Res<&str, Selection> {
     let (rem, (neg, (sphere_str, (origin, radius)))) = pair(
-        opt(negate),
+        opt(negate.context("negate")),
         separated_pair(
             alt((
                 alt((tag_no_case("Sphere"), tag_no_case("S"))),
@@ -138,11 +151,11 @@ fn sphere(input: &str) -> Res<&str, Selection> {
 
 fn id_and_list(input: &str) -> Res<&str, Selection> {
     let (rem, (neg, (id_str, atom_vec))) = pair(
-        opt(negate),
+        opt(negate.context("Negate")),
         separated_pair(
             alt((tag_no_case("ID"), tag_no_case("Resid"))),
             space0,
-            num_list,
+            num_list.context("Number list"),
         ),
     )(input)?;
     match id_str.to_lowercase().as_str() {
@@ -166,14 +179,14 @@ fn id_and_list(input: &str) -> Res<&str, Selection> {
 
 fn str_and_list(input: &str) -> Res<&str, Selection> {
     let (rem, (neg, (name_str, atom_vec))) = pair(
-        opt(negate),
+        opt(negate.context("Negate")),
         separated_pair(
             alt((
                 tag_no_case("Name"),
                 alt((tag_no_case("Resname"), tag_no_case("Resn"))),
             )),
             space0,
-            str_list,
+            str_list.context("List of names"),
         ),
     )(input)?;
     match name_str.to_lowercase().as_str() {
@@ -218,24 +231,33 @@ fn conjunction(input: &str) -> Res<&str, Conjunction> {
     ))
 }
 
-fn conj_then_sel(input: &str) -> Res<&str, Option<(Vec<Conjunction>, Vec<Selection>)>> {
-    let (rem, vec) =
-        separated_list0(space1, separated_pair(conjunction, space1, selection))(input)?;
+fn conj_then_sel(input: &str) -> Res<&str, (Conjunction, Selection)> {
+    separated_pair(conjunction.context("Conjunction"), space1, selection)(input)
+}
+
+#[allow(clippy::type_complexity)]
+fn optional_sels(input: &str) -> Res<&str, Option<(Vec<Conjunction>, Vec<Selection>)>> {
+    // let list_parser = separated_list0(
+    //     space1,
+    //     separated_pair(conjunction.context("Conjunction"), space1, selection),
+    // );
+    let (rem, vec) = separated_list0(space1, conj_then_sel)(input)?;
     let mut conjunctions = Vec::new();
     let mut selections = Vec::new();
-    if !vec.is_empty() {
+    if vec.is_empty() {
+        Ok((rem, (None)))
+    } else {
         for (conj, sel) in vec {
             conjunctions.push(conj);
-            selections.push(sel)
+            selections.push(sel);
         }
         Ok((rem, Some((conjunctions, selections))))
-    } else {
-        Ok((rem, (None)))
     }
 }
 
-pub fn full_list(input: &str) -> Res<&str, (Vec<Selection>, Option<Vec<Conjunction>>)> {
-    let (rem, (base_sele, opt_sele)) = separated_pair(selection, space0, conj_then_sel)(input)?;
+fn full_list(input: &str) -> Res<&str, (Vec<Selection>, Option<Vec<Conjunction>>)> {
+    let (rem, (base_sele, opt_sele)) =
+        separated_pair(selection.cut(), space0, optional_sels.cut())(input)?;
     let mut final_sele_vec = vec![base_sele];
 
     if let Some((conj_vec, mut sele_vec)) = opt_sele {
@@ -246,9 +268,23 @@ pub fn full_list(input: &str) -> Res<&str, (Vec<Selection>, Option<Vec<Conjuncti
     }
 }
 
+fn final_parse<'a>(
+    list_parse: impl Parser<&'a str, (Vec<Selection<'a>>, Option<Vec<Conjunction>>), ErrorTree<&'a str>>,
+) -> impl FnMut(&'a str) -> Result<(Vec<Selection>, Option<Vec<Conjunction>>), ErrorTree<Location>>
+{
+    final_parser(list_parse)
+}
+
+#[allow(clippy::type_complexity)]
+pub fn parse_expr(
+    input: &str,
+) -> Result<(Vec<Selection>, Option<Vec<Conjunction>>), ErrorTree<Location>> {
+    final_parse(full_list.cut())(input)
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
-
     #[test]
     fn num_list_test() {
         let str = "1,2,4-5,6:9asdjlaks";
@@ -294,7 +330,6 @@ mod tests {
         assert_eq!(
             sele,
             Selection::Sphere {
-                // sphere: (2589, 5.9),
                 origin: 2589,
                 radius: 5.9,
                 invert: false
@@ -338,7 +373,6 @@ mod tests {
                 invert: false,
             },
             Selection::Sphere {
-                // sphere: (23, 4.6),
                 origin: 23,
                 radius: 4.6,
                 invert: true,

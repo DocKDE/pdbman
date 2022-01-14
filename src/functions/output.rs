@@ -25,7 +25,7 @@ pub fn print_pdb_to_stdout(pdb: &PDB) -> Result<(), anyhow::Error> {
             atom_hier.atom().occupancy(),
             atom_hier.atom().b_factor(),
             atom_hier.atom().element()
-        ).context("Failed to print PDB to stdout")?
+        ).context("Failed to print PDB to stdout")?;
     }
     Ok(())
 }

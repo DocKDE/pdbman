@@ -29,7 +29,7 @@ use std::process;
 use anyhow::Context;
 use anyhow::Result;
 use clap::{AppSettings, Arg};
-use colored::*;
+use colored::Colorize;
 use pdbtbx::StrictnessLevel;
 use rustyline::completion::FilenameCompleter;
 use rustyline::config::OutputStreamType;
@@ -121,13 +121,14 @@ fn run() -> Result<(), anyhow::Error> {
                 if Path::new(pdbman_match.value_of("PDBFILE").unwrap()).exists() {
                     println!("{}", HELP_LONG);
                 } else if let Err(e) = clap_args().try_get_matches_from(given_args.iter().skip(1)) {
-                    println!("{}", e)
+                    println!("{}", e);
                 }
             }
             _ => {
-                let skip_val = match Path::new(pdbman_match.value_of("PDBFILE").unwrap()).exists() {
-                    true => 2,
-                    false => 1,
+                let skip_val = if Path::new(pdbman_match.value_of("PDBFILE").unwrap()).exists() {
+                    2
+                } else {
+                    1
                 };
 
                 if let Err(e) = clap_args().try_get_matches_from(given_args.iter().skip(skip_val)) {
@@ -197,9 +198,7 @@ fn run() -> Result<(), anyhow::Error> {
             // Get command from read line and deal with special commands
             let command = match rl.readline(p) {
                 Ok(c) => match c.as_str() {
-                    "exit" => break,
-                    "e" => break,
-                    "quit" => break,
+                    "exit" | "e" | "quit" => break,
                     "undo" => {
                         rl.add_history_entry("undo");
                         if edit_ops_index == 0 {
@@ -221,7 +220,7 @@ fn run() -> Result<(), anyhow::Error> {
                         }
                         continue;
                     }
-                    h @ "-h" | h @ "--help" | h @ "help" => {
+                    h @ ("-h" | "--help" | "help") => {
                         rl.add_history_entry(h);
                         println!("{}", HELP_INTER);
                         continue;
@@ -261,13 +260,13 @@ fn run() -> Result<(), anyhow::Error> {
                 }
             };
 
-            match dispatch(mode, &mut pdb, filename) {
-                Ok(optop) => {
-                    if let Some(edit_op) = optop {
+            match dispatch(&mode, &mut pdb, filename) {
+                Ok(opt_op) => {
+                    if let Some(edit_op) = opt_op {
                         // ensures the undo/redo tree remains via cutting stale branches
                         if undone {
                             edit_ops.truncate(edit_ops_index);
-                            undone = false
+                            undone = false;
                         }
                         edit_ops.push(edit_op);
                         edit_ops_index += 1;
@@ -283,46 +282,43 @@ fn run() -> Result<(), anyhow::Error> {
         let input;
         let args_env;
 
-        let args = match pdbman_match.is_present("File") {
-            true => {
-                let inpfile = match pdbman_match.value_of("File") {
-                    Some(s) => s,
-                    None => {
-                        bail!(
-                            "\n{}\n\n{}",
-                            "NO INPUT FILE PATH FOR THE '--file' OPTION WAS GIVEN".red(),
-                            HELP_SHORT
-                        )
-                    }
-                };
-
-                input = fs::read_to_string(inpfile).with_context(|| {
-                    format!(
-                        "\n{}: '{}'",
-                        "FILE COULD NOT BE FOUND".red(),
-                        inpfile.blue()
+        let args = if pdbman_match.is_present("File") {
+            let inpfile = match pdbman_match.value_of("File") {
+                Some(s) => s,
+                None => {
+                    bail!(
+                        "\n{}\n\n{}",
+                        "NO INPUT FILE PATH FOR THE '--file' OPTION WAS GIVEN".red(),
+                        HELP_SHORT
                     )
-                })?;
+                }
+            };
 
-                input.trim().split('\n')
-            }
-            false => {
-                args_env = given_args[2..].join(" ");
+            input = fs::read_to_string(inpfile).with_context(|| {
+                format!(
+                    "\n{}: '{}'",
+                    "FILE COULD NOT BE FOUND".red(),
+                    inpfile.blue()
+                )
+            })?;
 
-                ensure!(
-                    !args_env.trim().is_empty(),
-                    "{}\n\n{}\n\n{}",
-                    "NO COMMAND ARGUMENTS WERE PROVIDED".red(),
-                    "If you want to enter interactive mode, provide the '-i' flag.",
-                    HELP_SHORT
-                );
+            input.trim().split('\n')
+        } else {
+            args_env = given_args[2..].join(" ");
 
-                args_env.split('/')
-            }
+            ensure!(
+                !args_env.trim().is_empty(),
+                "{}\n\n{}\n\n{}",
+                "NO COMMAND ARGUMENTS WERE PROVIDED".red(),
+                "If you want to enter interactive mode, provide the '-i' flag.",
+                HELP_SHORT
+            );
+
+            args_env.split('/')
         };
 
         // More convenient so the args can be reused without cloning
-        let args_vec: Vec<&str> = args.map(|a| a.trim()).collect();
+        let args_vec: Vec<&str> = args.map(str::trim).collect();
         let mut pdb_cache = PDBCacher::new(read_pdb);
 
         // Test for input errors before actually processing anything
@@ -359,7 +355,7 @@ fn run() -> Result<(), anyhow::Error> {
                 Err(e) => bail!(e.to_string()),
             };
 
-            if let Err(e) = dispatch(mode, pdb, filename) {
+            if let Err(e) = dispatch(&mode, pdb, filename) {
                 bail!(
                     "\n{}: '{}'\n\n{}",
                     "ERROR DURING PROCESSING OF INPUT".red(),

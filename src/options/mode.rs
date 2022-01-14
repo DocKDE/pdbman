@@ -75,16 +75,14 @@ impl<'a> Mode<'a> {
     /// where the given command line options are stored for later use.
     pub fn new(matches: &clap::ArgMatches) -> Result<Mode, anyhow::Error> {
         match matches.subcommand_name() {
-            Some("Query") => {
-                Ok(Mode::Query {
-                    input: matches
-                        .subcommand_matches("Query")
-                        .unwrap()
-                        .values_of("Input")
-                        .unwrap()
-                        .join(" "),
-                })
-            }
+            Some("Query") => Ok(Mode::Query {
+                input: matches
+                    .subcommand_matches("Query")
+                    .unwrap()
+                    .values_of("Input")
+                    .unwrap()
+                    .join(" "),
+            }),
             Some("Analyze") => {
                 // If no other argument to the subcommand is given, the find method yields None.
                 // Thus the subsequent map method may use unwrap, since the presence and

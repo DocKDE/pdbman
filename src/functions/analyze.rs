@@ -117,17 +117,17 @@ pub fn analyze(
             atom_num += 1;
             if atom.occupancy() == 1.00 {
                 qm1_residue_list.push(residue);
-                qm1_atom_list.push(atom)
+                qm1_atom_list.push(atom);
             }
 
             if atom.occupancy() == 2.00 {
                 qm2_residue_list.push(residue);
-                qm2_atom_list.push(atom)
+                qm2_atom_list.push(atom);
             }
 
             if atom.b_factor() == 1.00 {
                 active_residue_list.push(residue);
-                active_atom_list.push(atom)
+                active_atom_list.push(atom);
             }
         }
     }
@@ -162,44 +162,46 @@ pub fn analyze(
             // Impossible because if target is Some(..), a region is required by clap
             None => unreachable!(),
         };
-        if !residue_list.is_empty() {
-            let mut residue_table = Table::new();
-            residue_table.add_row(row![
-                "Residue ID",
-                "Residue Name",
-                "# of Atoms",
-                match region {
-                    Some(Region::QM1) => "# of QM1 Atoms",
-                    Some(Region::QM2) => "# of QM2 Atoms",
-                    Some(Region::Active) => "# of Active Atoms",
-                    None => unreachable!(),
-                }
-            ]);
 
-            for residue in residue_list {
-                let mut resid_atoms = 0;
-                let mut atom_counter = 0;
-                for atom in residue.atoms() {
-                    atom_counter += 1;
-                    if (region == Some(Region::QM1) && atom.occupancy() == 1.00)
-                        || (region == Some(Region::QM2) && atom.occupancy() == 2.00)
-                        || (region == Some(Region::Active) && atom.b_factor() == 1.00)
-                    {
-                        resid_atoms += 1;
-                    }
-                }
+        ensure!(
+            !residue_list.is_empty(),
+            "No Residues found in given region!"
+        );
 
-                residue_table.add_row(row![
-                    residue.serial_number().to_string() + residue.insertion_code().unwrap_or(""),
-                    residue.name().unwrap_or(""),
-                    atom_counter,
-                    resid_atoms,
-                ]);
+        let mut residue_table = Table::new();
+        residue_table.add_row(row![
+            "Residue ID",
+            "Residue Name",
+            "# of Atoms",
+            match region {
+                Some(Region::QM1) => "# of QM1 Atoms",
+                Some(Region::QM2) => "# of QM2 Atoms",
+                Some(Region::Active) => "# of Active Atoms",
+                None => unreachable!(),
             }
-            detailed_table = Some(residue_table)
-        } else {
-            bail!("No Residues found in given region!");
+        ]);
+
+        for residue in residue_list {
+            let mut resid_atoms = 0;
+            let mut atom_counter = 0;
+            for atom in residue.atoms() {
+                atom_counter += 1;
+                if (region == Some(Region::QM1) && atom.occupancy() == 1.00)
+                    || (region == Some(Region::QM2) && atom.occupancy() == 2.00)
+                    || (region == Some(Region::Active) && atom.b_factor() == 1.00)
+                {
+                    resid_atoms += 1;
+                }
+            }
+
+            residue_table.add_row(row![
+                residue.serial_number().to_string() + residue.insertion_code().unwrap_or(""),
+                residue.name().unwrap_or(""),
+                atom_counter,
+                resid_atoms,
+            ]);
         }
+        detailed_table = Some(residue_table);
     } else if target == Some(Target::Atoms) {
         let (atom_list, residue_list) = match region {
             Some(Region::QM1) => (qm1_atom_list, qm1_residue_list),
@@ -208,36 +210,34 @@ pub fn analyze(
             None => unreachable!(),
         };
 
-        if !atom_list.is_empty() {
-            let mut atom_table = Table::new();
-            atom_table.add_row(row![
-                "Atom ID",
-                "Atom name",
-                "Residue ID",
-                "Residue Name",
-                "QM",
-                "Active"
-            ]);
+        ensure!(!atom_list.is_empty(), "No Atoms found in given region!");
 
-            for residue in residue_list {
-                for atom in residue.atoms() {
-                    if atom_list.contains(&atom) {
-                        atom_table.add_row(row![
-                            atom.serial_number(),
-                            atom.name(),
-                            residue.serial_number().to_string()
-                                + residue.insertion_code().unwrap_or(""),
-                            residue.name().unwrap_or(""),
-                            atom.occupancy(),
-                            atom.b_factor(),
-                        ]);
-                    }
+        let mut atom_table = Table::new();
+        atom_table.add_row(row![
+            "Atom ID",
+            "Atom name",
+            "Residue ID",
+            "Residue Name",
+            "QM",
+            "Active"
+        ]);
+
+        for residue in residue_list {
+            for atom in residue.atoms() {
+                if atom_list.contains(&atom) {
+                    atom_table.add_row(row![
+                        atom.serial_number(),
+                        atom.name(),
+                        residue.serial_number().to_string()
+                            + residue.insertion_code().unwrap_or(""),
+                        residue.name().unwrap_or(""),
+                        atom.occupancy(),
+                        atom.b_factor(),
+                    ]);
                 }
             }
-            detailed_table = Some(atom_table)
-        } else {
-            bail!("No Atoms found in given region!")
         }
+        detailed_table = Some(atom_table);
     }
     Ok((basic_table, detailed_table))
 }

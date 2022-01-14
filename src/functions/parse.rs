@@ -1,8 +1,9 @@
+use std::borrow::ToOwned;
 use std::collections::HashSet;
 
 use anyhow::Result;
 use itertools::Itertools;
-use pdbtbx::PDB;
+use pdbtbx::{Atom, Residue, PDB};
 use rayon::iter::FromParallelIterator;
 use rayon::prelude::ParallelIterator;
 
@@ -32,7 +33,7 @@ pub fn parse_atomic_list(input: &str, pdb: &PDB) -> Result<AtomList, anyhow::Err
                 .iter()
                 .any(|y| x.name().to_lowercase() == y.to_lowercase())
         })
-        .map(|x| x.serial_number())
+        .map(Atom::serial_number)
         .collect();
 
     Ok(output_vec)
@@ -42,7 +43,7 @@ pub fn parse_atomic_list(input: &str, pdb: &PDB) -> Result<AtomList, anyhow::Err
 /// of serial numbers and insertion codes. The input can be either a comma-separated list of serial numbers
 /// and insertion codes or residues names.
 pub fn parse_residue_list(input: &str, pdb: &PDB) -> Result<ResidueList, anyhow::Error> {
-    let residue_set: HashSet<String> = input.split(',').map(|s| s.to_owned()).collect();
+    let residue_set: HashSet<String> = input.split(',').map(ToOwned::to_owned).collect();
 
     let pdb_set: HashSet<String> =
         HashSet::from_par_iter(pdb.par_residues().map(|a| a.name().unwrap().to_lowercase()));
@@ -57,7 +58,7 @@ pub fn parse_residue_list(input: &str, pdb: &PDB) -> Result<ResidueList, anyhow:
     Ok(pdb
         .par_residues()
         .filter(|r| residue_set.contains(&r.name().unwrap_or("").to_lowercase()))
-        .map(|r| r.serial_number())
+        .map(Residue::serial_number)
         .collect())
 }
 

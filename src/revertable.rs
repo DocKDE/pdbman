@@ -28,10 +28,10 @@ impl Revertable for EditOp {
     fn undo(&self, pdb: &mut pdbtbx::PDB) {
         match self {
             EditOp::ToAdd { region, atoms } => {
-                functions::edit_atoms_unchecked(pdb, atoms, "Remove", *region)
+                functions::edit_atoms_unchecked(pdb, atoms, "Remove", *region);
             }
             EditOp::ToRemove { region, atoms } => {
-                functions::edit_atoms_unchecked(pdb, atoms, "Add", *region)
+                functions::edit_atoms_unchecked(pdb, atoms, "Add", *region);
             }
         }
     }
@@ -39,10 +39,10 @@ impl Revertable for EditOp {
     fn redo(&self, pdb: &mut pdbtbx::PDB) {
         match self {
             EditOp::ToAdd { region, atoms } => {
-                functions::edit_atoms_unchecked(pdb, atoms, "Add", *region)
+                functions::edit_atoms_unchecked(pdb, atoms, "Add", *region);
             }
             EditOp::ToRemove { region, atoms } => {
-                functions::edit_atoms_unchecked(pdb, atoms, "Remove", *region)
+                functions::edit_atoms_unchecked(pdb, atoms, "Remove", *region);
             }
         }
     }
@@ -51,13 +51,13 @@ impl Revertable for EditOp {
 impl Revertable for Vec<EditOp> {
     fn undo(&self, pdb: &mut pdbtbx::PDB) {
         for i in self.iter().rev() {
-            i.undo(pdb)
+            i.undo(pdb);
         }
     }
 
     fn redo(&self, pdb: &mut pdbtbx::PDB) {
         for i in self {
-            i.redo(pdb)
+            i.redo(pdb);
         }
     }
 }

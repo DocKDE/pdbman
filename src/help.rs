@@ -1,7 +1,7 @@
 pub const HELP_LONG: &str = "
 pdbman 0.9.0
     
-Benedikt M. Flöser <benedikt.floeser@cec.mpg.de>
+Benedikt M. Fl\u{f6}ser <benedikt.floeser@cec.mpg.de>
     
 Analyzes and edits PDB files for usage in QM/MM calculations with the ORCA Quantum Chemistry package
 

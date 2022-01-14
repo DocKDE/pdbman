@@ -4,40 +4,58 @@ use std::io::{self, BufRead, BufReader, BufWriter, Write};
 
 use anyhow::Context;
 use colored::Colorize;
-use nom::error::convert_error;
-use nom::Finish;
+// use nom::Finish;
+use nom_supreme::error::ErrorTree;
 // use nom::error::context;
-// use nom_supreme::final_parser::final_parser;
-use pdbtbx::save_pdb;
+use pdbtbx::{save_pdb, Atom};
 // use rayon::iter::ParallelIterator;
 
 use crate::functions::*;
 use crate::options::{Distance, Mode, Output, Region, Source, Target};
 use crate::revertable::{EditOp, Revertable};
-use crate::select::{full_list, Conjunction};
+use crate::select::{parse_expr, Conjunction};
 
 // Run function that handles the logic of when to call which function given an enum with the
 // command line options. Hands all occurring errors to caller.
 pub fn dispatch(
-    mode: Mode,
+    mode: &Mode,
     pdb: &mut pdbtbx::PDB,
     pdb_path: &str,
 ) -> Result<Option<Box<dyn Revertable>>, anyhow::Error> {
     let mut edit_op: Option<Box<dyn Revertable>> = None;
 
-    match &mode {
+    match mode {
         Mode::Query { input } => {
-            // let (sel, conj) = final_parser(full_list)(input)?;
-            // let (_, (sele_vec, conj_vec)) = context("test", full_list)(input).map_err(|e| e.to_owned()).finish()?;
-            // let (_, (sele_vec, conj_vec)) = full_list(input).map_err(|e| e.to_owned())?;
-            // let (_, (sele_vec, conj_vec)) = full_list(input)?;
-            let (_, (sele_vec, conj_vec)) = match full_list(input).finish() {
-                Ok(r) => r,
-                Err(e) => {
-                    println!("{:#?}", convert_error(input.as_ref(), e));
-                    bail!("Something went wrong during parsing")
-                }
-            };
+            // let (sele_vec, conj_vec) = match parse_expr(input) {
+            //     Ok(v) => v,
+            //     Err(e) => match e {
+            //         ErrorTree::Base { location, kind: _ } => {
+            //             bail!(
+            //                 "Error during parsing selection input:\n{}\n{}{}",
+            //                 input,
+            //                 " ".repeat(location.column - 1),
+            //                 "^ Couldn't parse this character".green()
+            //             );
+            //         }
+            //         ErrorTree::Alt(_a) => {
+            //             bail!("alt");
+            //         }
+            //         ErrorTree::Stack { base, contexts } => {
+            //             println!("{:?}", base);
+            //             println!("{:?}", contexts);
+            //             bail!("stack");
+            //         }
+            //     },
+            // };
+
+            let (sele_vec, conj_vec) = parse_expr(input)?;
+            // let (_, (sele_vec, conj_vec)) = match full_list(input).finish() {
+            //     Ok(r) => r,
+            //     Err(e) => {
+            //         println!("{:#?}", convert_error(input.as_ref(), e));
+            //         bail!("Something went wrong during parsing")
+            //     }
+            // };
 
             let mut sele_iter = sele_vec.into_iter();
             let initial_sel = sele_iter.next().unwrap();
@@ -104,16 +122,12 @@ pub fn dispatch(
         Mode::Add {
             region,
             source,
-            // target,
             partial,
-            // input,
         }
         | Mode::Remove {
             region,
             source,
-            // target,
             partial,
-            // input,
         } => {
             let mut input_list: Vec<usize> = Vec::new();
             match source {
@@ -121,7 +135,7 @@ pub fn dispatch(
                 // calling unwrap on them is fine.
                 Some(s) => {
                     let input = match s {
-                        Source::List(l) => l.to_owned(),
+                        Source::List(l) => l.clone(),
                         Source::Infile(f) => {
                             let file = BufReader::new(
                                 File::open(f).context("\nNo such file or directory".red())?,
@@ -143,10 +157,10 @@ pub fn dispatch(
                         }
                     };
 
-                    let (_, (sele_vec, conj_vec)) = match full_list(&input).finish() {
+                    let (sele_vec, conj_vec) = match parse_expr(&input) {
                         Ok(r) => r,
                         Err(e) => {
-                            println!("{:#?}", convert_error(input.as_ref(), e));
+                            println!("{:#?}", e);
                             bail!("\nSomething went wrong during parsing".red())
                         }
                     };
@@ -234,7 +248,7 @@ pub fn dispatch(
                                 Region::QM2 => a.occupancy() == 2.00,
                                 Region::Active => a.b_factor() == 1.00,
                             })
-                            .map(|a| a.serial_number())
+                            .map(Atom::serial_number)
                             .collect();
 
                         if !region_atoms.is_empty() {
@@ -254,11 +268,11 @@ pub fn dispatch(
                 edit_op = match mode.to_string().as_str() {
                     // Necessary when adding QM1 atoms over QM2 atoms or vice versa
                     "Add" => match region.unwrap() {
-                        r @ Region::QM1 | r @ Region::QM2 => {
+                        r @ (Region::QM1 | Region::QM2) => {
                             let other_region = match r {
                                 Region::QM1 => Region::QM2,
                                 Region::QM2 => Region::QM1,
-                                _ => unreachable!(),
+                                Region::Active => unreachable!(),
                             };
 
                             // Try removing atoms from other QM region when adding any to see if anything would be
@@ -303,9 +317,10 @@ pub fn dispatch(
             region,
             target,
         } => match output {
-            None => match region {
-                None => print_pdb_to_stdout(pdb)?,
-                _ => {
+            None => {
+                if region.is_none() {
+                    print_pdb_to_stdout(pdb)?;
+                } else {
                     let stdout = io::stdout();
                     let mut handle = stdout.lock();
                     // target can be unwrapped because required to be Some by clap if region is Some
@@ -324,11 +339,11 @@ pub fn dispatch(
                         }
                     }
                 }
-            },
+            }
             Some(Output::Outfile(f)) => match region {
                 None => {
                     if let Err(e) = save_pdb(pdb, f, pdbtbx::StrictnessLevel::Loose) {
-                        e.into_iter().for_each(|e| println!("{}", e))
+                        e.into_iter().for_each(|e| println!("{}", e));
                     }
                 }
                 _ => {
@@ -352,7 +367,7 @@ pub fn dispatch(
             },
             Some(Output::Overwrite) => {
                 if let Err(e) = save_pdb(pdb, pdb_path, pdbtbx::StrictnessLevel::Loose) {
-                    e.into_iter().for_each(|e| println!("{}", e))
+                    e.into_iter().for_each(|e| println!("{}", e));
                 }
             }
         },
@@ -383,7 +398,10 @@ mod tests {
         let mut pdb = test_pdb(pdb_path);
         let matches = clap_args().get_matches_from(args);
         let mode = Mode::new(&matches).unwrap();
-        format!("{:?}", dispatch(mode, &mut pdb, pdb_path).unwrap().unwrap())
+        format!(
+            "{:?}",
+            dispatch(&mode, &mut pdb, pdb_path).unwrap().unwrap()
+        )
     }
 
     fn get_editop(text: &str) -> (&str, &str, &str) {
@@ -412,7 +430,7 @@ mod tests {
         let mut pdb = test_pdb(pdb_path);
         let matches = get_matches(["Y"].into_iter());
         let mode = Mode::new(&matches).unwrap();
-        assert!(dispatch(mode, &mut pdb, pdb_path).unwrap().is_none());
+        assert!(dispatch(&mode, &mut pdb, pdb_path).unwrap().is_none());
 
         // let matches = get_matches(["Q", "-rl", "12"].into_iter());
         // let mode = Mode::new(&matches).unwrap();
