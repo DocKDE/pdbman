@@ -21,8 +21,10 @@ env_logger = "0.9"
 anyhow = "1.0.44"
 colored = "2.0.0"
 pdbtbx = {version = "0.8", features = ["rayon", "rstar"]}
-nom = "7.1"
-nom-supreme = "0.6"
+pest = "2"
+pest_derive = "2"
+# nom = "7.1"
+# nom-supreme = "0.6"
 # pdbtbx = {git = "https://github.com/nonnominandus/pdbtbx", branch = "master", features = ["rayon", "rstar"]}
 # pdbtbx = {path = "../pdbtbx", features = ["rayon", "rstar"]}
 

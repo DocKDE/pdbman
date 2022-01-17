@@ -5,7 +5,7 @@ use std::io::{self, BufRead, BufReader, BufWriter, Write};
 use anyhow::Context;
 use colored::Colorize;
 // use nom::Finish;
-use nom_supreme::error::ErrorTree;
+// use nom_supreme::error::ErrorTree;
 // use nom::error::context;
 use pdbtbx::{save_pdb, Atom};
 // use rayon::iter::ParallelIterator;
@@ -13,7 +13,7 @@ use pdbtbx::{save_pdb, Atom};
 use crate::functions::*;
 use crate::options::{Distance, Mode, Output, Region, Source, Target};
 use crate::revertable::{EditOp, Revertable};
-use crate::select::{parse_expr, Conjunction};
+use crate::select::{convert_result, parse_selection, Conjunction};
 
 // Run function that handles the logic of when to call which function given an enum with the
 // command line options. Hands all occurring errors to caller.
@@ -26,65 +26,33 @@ pub fn dispatch(
 
     match mode {
         Mode::Query { input } => {
-            // let (sele_vec, conj_vec) = match parse_expr(input) {
-            //     Ok(v) => v,
-            //     Err(e) => match e {
-            //         ErrorTree::Base { location, kind: _ } => {
-            //             bail!(
-            //                 "Error during parsing selection input:\n{}\n{}{}",
-            //                 input,
-            //                 " ".repeat(location.column - 1),
-            //                 "^ Couldn't parse this character".green()
-            //             );
-            //         }
-            //         ErrorTree::Alt(_a) => {
-            //             bail!("alt");
-            //         }
-            //         ErrorTree::Stack { base, contexts } => {
-            //             println!("{:?}", base);
-            //             println!("{:?}", contexts);
-            //             bail!("stack");
-            //         }
-            //     },
-            // };
-
-            let (sele_vec, conj_vec) = parse_expr(input)?;
-            // let (_, (sele_vec, conj_vec)) = match full_list(input).finish() {
-            //     Ok(r) => r,
-            //     Err(e) => {
-            //         println!("{:#?}", convert_error(input.as_ref(), e));
-            //         bail!("Something went wrong during parsing")
-            //     }
-            // };
+            let input = input.to_owned() + " ";
+            let (sele_vec, conj_vec) = convert_result(parse_selection(&input), &input)?;
 
             let mut sele_iter = sele_vec.into_iter();
             let initial_sel = sele_iter.next().unwrap();
             let initial_atomvec = get_atoms_from_selection(initial_sel, pdb, None)?;
 
-            match conj_vec {
-                // if vec of conjunctions is not present, the vec of selections can only have one element
-                None => {
-                    query_atoms(pdb, &initial_atomvec)?.printstd();
+            if conj_vec.is_empty()
+            // if vec of conjunctions is not present, the vec of selections can only have one element
+            {
+                query_atoms(pdb, &initial_atomvec)?.printstd();
+            } else {
+                let mut prev_set: HashSet<usize> = HashSet::from_iter(initial_atomvec);
+
+                // let mut new_set: HashSet<usize>;
+
+                for (sele, conj) in sele_iter.zip(conj_vec) {
+                    let current_atomvec = get_atoms_from_selection(sele, pdb, None)?;
+                    let current_set: HashSet<usize> = HashSet::from_iter(current_atomvec);
+
+                    prev_set = match conj {
+                        Conjunction::And => prev_set.intersection(&current_set).copied().collect(),
+                        Conjunction::Or => prev_set.union(&current_set).copied().collect(),
+                    };
                 }
-                Some(cv) => {
-                    let mut prev_set: HashSet<usize> = HashSet::from_iter(initial_atomvec);
 
-                    // let mut new_set: HashSet<usize>;
-
-                    for (sele, conj) in sele_iter.zip(cv) {
-                        let current_atomvec = get_atoms_from_selection(sele, pdb, None)?;
-                        let current_set: HashSet<usize> = HashSet::from_iter(current_atomvec);
-
-                        prev_set = match conj {
-                            Conjunction::And => {
-                                prev_set.intersection(&current_set).copied().collect()
-                            }
-                            Conjunction::Or => prev_set.union(&current_set).copied().collect(),
-                        };
-                    }
-
-                    query_atoms(pdb, &prev_set.into_iter().collect::<Vec<usize>>())?.printstd();
-                }
+                query_atoms(pdb, &prev_set.into_iter().collect::<Vec<usize>>())?.printstd();
             }
         }
         Mode::Analyze {
@@ -134,7 +102,7 @@ pub fn dispatch(
                 // If source is Some(_), clap requires target and region arguments as well, hence
                 // calling unwrap on them is fine.
                 Some(s) => {
-                    let input = match s {
+                    let mut input = match s {
                         Source::List(l) => l.clone(),
                         Source::Infile(f) => {
                             let file = BufReader::new(
@@ -156,45 +124,35 @@ pub fn dispatch(
                                 .join(",")
                         }
                     };
+                    input.push(' ');
 
-                    let (sele_vec, conj_vec) = match parse_expr(&input) {
-                        Ok(r) => r,
-                        Err(e) => {
-                            println!("{:#?}", e);
-                            bail!("\nSomething went wrong during parsing".red())
-                        }
-                    };
+                    let (sele_vec, conj_vec) = convert_result(parse_selection(&input), &input)?;
 
                     let mut sele_iter = sele_vec.into_iter();
                     let initial_sel = sele_iter.next().unwrap();
                     let initial_atomvec = get_atoms_from_selection(initial_sel, pdb, *partial)?;
 
-                    match conj_vec {
+                    if conj_vec.is_empty() {
                         // if vec of conjunctions is not present, the vec of selections can only have one element
-                        None => input_list.extend(initial_atomvec),
-                        Some(cv) => {
-                            let mut prev_set: HashSet<usize> = HashSet::from_iter(initial_atomvec);
+                        input_list.extend(initial_atomvec)
+                    } else {
+                        let mut prev_set: HashSet<usize> = HashSet::from_iter(initial_atomvec);
 
-                            // let mut new_set: HashSet<usize>;
+                        // let mut new_set: HashSet<usize>;
 
-                            for (sele, conj) in sele_iter.zip(cv) {
-                                let current_atomvec =
-                                    get_atoms_from_selection(sele, pdb, *partial)?;
-                                let current_set: HashSet<usize> =
-                                    HashSet::from_iter(current_atomvec);
+                        for (sele, conj) in sele_iter.zip(conj_vec) {
+                            let current_atomvec = get_atoms_from_selection(sele, pdb, *partial)?;
+                            let current_set: HashSet<usize> = HashSet::from_iter(current_atomvec);
 
-                                prev_set = match conj {
-                                    Conjunction::And => {
-                                        prev_set.intersection(&current_set).copied().collect()
-                                    }
-                                    Conjunction::Or => {
-                                        prev_set.union(&current_set).copied().collect()
-                                    }
-                                };
-                            }
-
-                            input_list.extend(prev_set)
+                            prev_set = match conj {
+                                Conjunction::And => {
+                                    prev_set.intersection(&current_set).copied().collect()
+                                }
+                                Conjunction::Or => prev_set.union(&current_set).copied().collect(),
+                            };
                         }
+
+                        input_list.extend(prev_set)
                     }
                 }
                 None => {

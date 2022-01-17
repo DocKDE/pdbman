@@ -1,0 +1,31 @@
+space_sep = _{ (" "+ | "\t"+) }
+
+range_start = @{ ASCII_DIGIT+ }
+range_end = @{ ASCII_DIGIT+ }
+range = ${ range_start ~ ("-" | ":") ~ range_end }
+numlist_element = ${ (range | ASCII_DIGIT+) }
+namelist_element = @{ ASCII_ALPHANUMERIC+ }
+
+numlist = ${ (numlist_element ~ (",")?)+ }
+namelist = ${ (namelist_element ~ (",")?)+ }
+
+origin = @{ ASCII_DIGIT+ }
+radius = @{ ( ASCII_DIGIT+ ~ "." ~ ASCII_DIGIT+ | "." ~ ASCII_DIGIT+ | ASCII_DIGIT+ ~ "." | ASCII_DIGIT+ ) }
+sphere_values = ${ origin ~ space_sep ~ radius }
+
+id_str = @{ ^"id" | ^"resid" }
+name_str = @{ ^"name" | ^"resn" | ^"resname" }
+sphere_str = @{ ^"sphere" | ^"s" | ^"ressphere" | ^"rs" }
+
+idsel = ${ id_str ~ space_sep ~ numlist }
+namesel = ${ name_str ~ space_sep ~ namelist }
+sphere = ${ sphere_str ~ space_sep ~ sphere_values }
+
+negate = { ("!" | ^"not")? }
+
+selection = { negate ~ (idsel | namesel | sphere) }
+conjunction = { (("and" | "&") | ("or" | "|")) }
+
+selection_chain = { SOI ~ selection ~ (conjunction ~ selection)* ~ EOI }
+
+WHITESPACE = _{ " " }

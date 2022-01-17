@@ -12,6 +12,9 @@ extern crate lazy_static;
 #[macro_use]
 extern crate anyhow;
 
+#[macro_use]
+extern crate pest_derive;
+
 mod dispatch;
 mod functions;
 mod help;
