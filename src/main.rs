@@ -21,7 +21,7 @@ mod help;
 mod options;
 mod residue_ascii;
 mod revertable;
-mod select;
+mod selection;
 mod shell;
 
 use std::env;

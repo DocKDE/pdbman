@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use crate::{
     options::{Partial, Region},
-    select::Selection,
+    selection::Selection,
 };
 
 use anyhow::Result;

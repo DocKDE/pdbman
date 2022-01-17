@@ -4,16 +4,12 @@ use std::io::{self, BufRead, BufReader, BufWriter, Write};
 
 use anyhow::Context;
 use colored::Colorize;
-// use nom::Finish;
-// use nom_supreme::error::ErrorTree;
-// use nom::error::context;
 use pdbtbx::{save_pdb, Atom};
-// use rayon::iter::ParallelIterator;
 
 use crate::functions::*;
 use crate::options::{Distance, Mode, Output, Region, Source, Target};
 use crate::revertable::{EditOp, Revertable};
-use crate::select::{convert_result, parse_selection, Conjunction};
+use crate::selection::{convert_result, parse_selection, Conjunction};
 
 // Run function that handles the logic of when to call which function given an enum with the
 // command line options. Hands all occurring errors to caller.
@@ -26,6 +22,8 @@ pub fn dispatch(
 
     match mode {
         Mode::Query { input } => {
+            // Add a space to the given user input. This will make pest parse the
+            // last character as a finished word resulting in more meaningful error messages.
             let input = input.to_owned() + " ";
             let (sele_vec, conj_vec) = convert_result(parse_selection(&input), &input)?;
 
@@ -39,8 +37,6 @@ pub fn dispatch(
                 query_atoms(pdb, &initial_atomvec)?.printstd();
             } else {
                 let mut prev_set: HashSet<usize> = HashSet::from_iter(initial_atomvec);
-
-                // let mut new_set: HashSet<usize>;
 
                 for (sele, conj) in sele_iter.zip(conj_vec) {
                     let current_atomvec = get_atoms_from_selection(sele, pdb, None)?;

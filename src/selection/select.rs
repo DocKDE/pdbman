@@ -1,12 +1,10 @@
 use colored::Colorize;
 use itertools::Itertools;
-use pest::{
-    error::{ErrorVariant, InputLocation},
-    Parser,
-};
+use pest::error::{ErrorVariant, InputLocation};
+use pest::Parser;
 
 #[derive(Parser)]
-#[grammar = "selection.pest"]
+#[grammar = "selection/selection.pest"]
 pub struct SelectionParser;
 
 #[derive(Debug, PartialEq)]
@@ -170,12 +168,10 @@ pub fn convert_result<'a>(
         Err(e) => {
             match e.location {
                 InputLocation::Pos(p) => {
-                    err_string.push_str("Error while parsing selection:\n\n");
+                    err_string.push_str("Error while parsing selection input:\n\n");
                     err_string.push_str(text);
                     err_string.push('\n');
                     err_string.push_str(&(format!("{}{}", " ".repeat(p), "^---".green())));
-                    // err_string.push_str(&" ".repeat(p));
-                    // err_string.push_str(&"^---".green());
                 }
                 _ => unreachable!(),
             };
@@ -207,7 +203,7 @@ pub fn convert_result<'a>(
                                 Rule::range_end => "number for end of range",
                                 _ => "something else",
                             })
-                            .join(&" OR\n".red()),
+                            .join(&format!("{}", " OR\n".red())),
                     )
                 }
             }
