@@ -192,15 +192,19 @@ pub fn convert_result<'a>(
                             .into_iter()
                             .map(|rule| match rule {
                                 Rule::EOI => "the end of input",
-                                Rule::selection => "a selection",
-                                Rule::conjunction => "a conjunction: 'and'/'or'",
-                                Rule::range => "a range of numbers, e.g. '1-4'",
+                                Rule::selection => {
+                                    "selection keyword: 'id/name/resid/resname/sphere/ressphere'"
+                                }
+                                Rule::conjunction => "conjunction: 'and'/'or'",
+                                Rule::range => "range of numbers, e.g. '1-4'",
                                 Rule::sphere_values => "sphere values: origin atom ID and radius",
                                 Rule::origin => "origin atom ID",
-                                Rule::radius => "radius",
-                                Rule::namelist_element => "a name",
-                                Rule::range_start => "a number",
-                                Rule::range_end => "the end of a range",
+                                Rule::radius => "sphere radius",
+                                Rule::namelist_element => "name of atom or residue",
+                                Rule::range_start => {
+                                    "number or a range of numbers, e.g. '23' or '4-8'"
+                                }
+                                Rule::range_end => "number for end of range",
                                 _ => "something else",
                             })
                             .join(&" OR\n".red()),
