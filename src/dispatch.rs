@@ -280,16 +280,12 @@ pub fn dispatch(
                     let stdout = io::stdout();
                     let mut handle = stdout.lock();
 
-                    if let Ok(l) = get_atomlist(pdb, Region::QM1) {
-                        writeln!(handle, "A -q {}\n", l.into_iter().map(|n| n.to_string()).join(","))?;
-                    };
-                    if let Ok(l) = get_atomlist(pdb, Region::QM2) {
-                        writeln!(handle, "A -o {}\n", l.into_iter().map(|n| n.to_string()).join(","))?;
-                    };
-                    if let Ok(l) = get_atomlist(pdb, Region::Active) {
-                        writeln!(handle, "A -a {}", l.into_iter().map(|n| n.to_string()).join(","))?;
-                    };
-
+                    for (region, string) in [Region::QM1, Region::QM2, Region::Active].into_iter().zip(["-q", "-o", "-a"].into_iter()) {
+                        if let Ok(l) = get_atomlist(pdb, region) {
+                            writeln!(handle, "A {} id {}", string, l.into_iter().map(|n| n.to_string()).join(","))?;
+                        };
+                    }
+                    writeln!(handle, "W -w")?;
                 } else {
                     print_pdb_to_stdout(pdb)?;
                 }
@@ -319,16 +315,12 @@ pub fn dispatch(
                 if *state {
                     let mut file = BufWriter::new(File::create(f)?);
 
-                    if let Ok(l) = get_atomlist(pdb, Region::QM1) {
-                        writeln!(file, "A -q id {}", l.into_iter().map(|n| n.to_string()).join(","))?;
-                    };
-                    if let Ok(l) = get_atomlist(pdb, Region::QM2) {
-                        writeln!(file, "A -o id {}", l.into_iter().map(|n| n.to_string()).join(","))?;
-                    };
-                    if let Ok(l) = get_atomlist(pdb, Region::Active) {
-                        writeln!(file, "A -a id {}", l.into_iter().map(|n| n.to_string()).join(","))?;
-                    };
-
+                    for (region, string) in [Region::QM1, Region::QM2, Region::Active].into_iter().zip(["-q", "-o", "-a"].into_iter()) {
+                        if let Ok(l) = get_atomlist(pdb, region) {
+                            writeln!(file, "A {} id {}", string, l.into_iter().map(|n| n.to_string()).join(","))?;
+                        };
+                    }
+                    writeln!(file, "W -w")?;
                 } else if let Err(e) = save_pdb(pdb, f, pdbtbx::StrictnessLevel::Loose) {
                     e.into_iter().for_each(|e| println!("{}", e));
                 }
