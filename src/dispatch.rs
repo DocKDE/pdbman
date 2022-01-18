@@ -1,13 +1,13 @@
 use std::collections::HashSet;
 use std::fs::File;
-use std::io::{self, BufRead, BufReader, BufWriter, Write};
+use std::io::{self, BufWriter, Write};
 
 use anyhow::Context;
 use colored::Colorize;
 use pdbtbx::{save_pdb, Atom};
 
 use crate::functions::*;
-use crate::options::{Distance, Mode, Output, Region, Source, Target};
+use crate::options::{Distance, Mode, Output, Region, Target};
 use crate::revertable::{EditOp, Revertable};
 use crate::selection::{convert_result, parse_selection, Conjunction};
 
@@ -85,41 +85,42 @@ pub fn dispatch(
         }
         Mode::Add {
             region,
-            source,
+            selection,
             partial,
         }
         | Mode::Remove {
             region,
-            source,
+            selection,
             partial,
         } => {
             let mut input_list: Vec<usize> = Vec::new();
-            match source {
+            match selection {
                 // If source is Some(_), clap requires target and region arguments as well, hence
                 // calling unwrap on them is fine.
                 Some(s) => {
-                    let mut input = match s {
-                        Source::List(l) => l.clone(),
-                        Source::Infile(f) => {
-                            let file = BufReader::new(
-                                File::open(f).context("\nNo such file or directory".red())?,
-                            );
-                            file.lines()
-                                .enumerate()
-                                .map(|(i, l)| -> Result<String, anyhow::Error> {
-                                    Ok(l.context(format!(
-                                        "{}: {}",
-                                        "COULDN'T READ LINE FROM FILE".red(),
-                                        i.to_string().blue()
-                                    ))?
-                                    .trim()
-                                    .to_owned())
-                                    // Ok(s)
-                                })
-                                .collect::<Result<Vec<String>, anyhow::Error>>()?
-                                .join(",")
-                        }
-                    };
+                    let mut input = s.to_owned();
+                    // match s {
+                    // Source::List(l) => l.clone(),
+                    // Source::Infile(f) => {
+                    //     let file = BufReader::new(
+                    //         File::open(f).context("\nNo such file or directory".red())?,
+                    //     );
+                    //     file.lines()
+                    //         .enumerate()
+                    //         .map(|(i, l)| -> Result<String, anyhow::Error> {
+                    //             Ok(l.context(format!(
+                    //                 "{}: {}",
+                    //                 "COULDN'T READ LINE FROM FILE".red(),
+                    //                 i.to_string().blue()
+                    //             ))?
+                    //             .trim()
+                    //             .to_owned())
+                    //             // Ok(s)
+                    //         })
+                    //         .collect::<Result<Vec<String>, anyhow::Error>>()?
+                    //         .join(",")
+                    // }
+                    // };
                     input.push(' ');
 
                     let (sele_vec, conj_vec) = convert_result(parse_selection(&input), &input)?;
@@ -218,7 +219,7 @@ pub fn dispatch(
                     }
                 }
             }
-            if source.is_some() {
+            if selection.is_some() {
                 edit_op = match mode.to_string().as_str() {
                     // Necessary when adding QM1 atoms over QM2 atoms or vice versa
                     "Add" => match region.unwrap() {

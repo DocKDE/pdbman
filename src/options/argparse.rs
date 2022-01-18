@@ -69,21 +69,25 @@ pub fn clap_args() -> App<'static> {
         .subcommand(App::new("Add")
             .about("Add atoms or residues to QM or active regions")
             .visible_aliases(&["add", "A", "a"])
-            .arg(
-                Arg::new("Infile")
-                    .help("File for list input")
-                    .long("file")
-                    .short('f')
-                    .takes_value(true),
-            )
-            .arg(
-                Arg::new("List")
-                    .help("Command line list")
-                    .long("list")
-                    .short('l')
-                    .takes_value(true)
-                    .multiple_values(true)
-            )
+            // .arg(
+            //     Arg::new("Infile")
+            //         .help("File for list input")
+            //         .long("file")
+            //         .short('f')
+            //         .takes_value(true),
+            // )
+            // .arg(
+            //     Arg::new("List")
+            //         .help("Command line list")
+            //         .long("list")
+            //         .short('l')
+            //         .takes_value(true)
+            //         .multiple_values(true)
+            // )
+            .arg(Arg::new("Input")
+                .help("Input for atom selection")
+                .required(true)
+                .multiple_values(true))
             .arg(
                 Arg::new("QM1")
                     .help("QM1 region")
@@ -124,29 +128,33 @@ pub fn clap_args() -> App<'static> {
                 ArgGroup::new("region")
                     .args(&["QM1", "QM2", "Active"])
                     .required(true))
-            .group(
-                ArgGroup::new("source")
-                    .args(&["Infile", "List"])
-                    .required(true))
+            // .group(
+            //     ArgGroup::new("source")
+            //         .args(&["Infile", "List"])
+            //         .required(true))
         )
         .subcommand(App::new("Remove")
             .about("Remove atoms or residues to QM or active regions")
             .visible_aliases(&["remove"])
-            .arg(
-                Arg::new("Infile")
-                    .help("File for list input")
-                    .long("file")
-                    .short('f')
-                    .takes_value(true),
-            )
-            .arg(
-                Arg::new("List")
-                    .help("Command line list")
-                    .long("list")
-                    .short('l')
-                    .takes_value(true)
-                    .multiple_values(true)
-            )
+            // .arg(
+            //     Arg::new("Infile")
+            //         .help("File for list input")
+            //         .long("file")
+            //         .short('f')
+            //         .takes_value(true),
+            // )
+            // .arg(
+            //     Arg::new("List")
+            //         .help("Command line list")
+            //         .long("list")
+            //         .short('l')
+            //         .takes_value(true)
+            //         .multiple_values(true)
+            // )
+            .arg(Arg::new("Input")
+                .help("Input for atom selection")
+                // .required(true)
+                .multiple_values(true))
             .arg(
                 Arg::new("QM1")
                     .help("QM1 region")
@@ -188,10 +196,10 @@ pub fn clap_args() -> App<'static> {
                     .args(&["QM1", "QM2", "Active"])
                     // .requires_all(&["target", "source"])
                 )
-            .group(
-                ArgGroup::new("source")
-                    .args(&["Infile", "List"])
-                    .requires_all(&["region"]))
+            // .group(
+            //     ArgGroup::new("source")
+            //         .args(&["Infile", "List"])
+            //         .requires_all(&["region"]))
         )
         .subcommand(App::new("Write")
             .about("Write PDB information")

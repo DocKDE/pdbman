@@ -85,7 +85,7 @@ This makes it easier to use pdbman in scripts but will also make the output less
 
 #### Load commands from file
 
-If many commands are to be executed in an automated fashion, they can be saved in a file and called from there. In this case the `--File` (short: `-f`) option needs to be given, followed by the name of the file which holds the commands to be executed:
+If many commands are to be executed in an automated fashion, they can be saved in a file and called from there. In this case the `--file` (short: `-f`) option needs to be given, followed by the name of the file which holds the commands to be executed:
 
 ```
 pdbman myfile.pdb -f mycommands.txt
@@ -162,30 +162,37 @@ r -q
 # Remove all atoms from QM2 region
 r -o
 ```
+If specific atoms or residues are to be removed, these need to be supplied via command line with the `--list`/`-l` or the `--file`/`-f` flag in addition to a region flag (see above).
 
-If an `--atoms`/`-t` or `--residues`/`-r` flag is also present, specific atoms/residues will be remove from the specified region. In this case a source of atoms/residues must be given. This can be a command line list given after a `--list`/`-l` flag, a list read from a file specified with `--file`/`-f` or a calculated sphere around a given atom specified with the `--sphere`/`-s` flag.
+The selection syntax for atoms or residues is keyword-based and accepts six of them (case-insensitive). Each of them selects something different:
+- id -> atoms by ID 
+- resid -> residues by ID
+- name -> atoms by name
+- resn(ame) -> residues by name
+- s(phere) -> atoms in a sphere around a central atom
+- ressphere/rs -> whole residues in a sphere around a central atom
 
-In the latter case an atom ID and a radius must be given. All atoms within the given radius around the given atom will be processed. If the `--residues`/`-r` flag is active, all residues that have at least one atom within the given sphere will be removed.
-
-A `--list`/`-l` flag must be followed by a comma-separated list of items that are to be processed. This can consist of atom/residue IDs or names thereof, but not both.
-
-`pdbman` recognizes ranges of lists separated with a colon (`:`) or dash (`-`).
-
-If a list from a file is to be used with the `--file`/`-f` flag, a filename holding the list must be specified. It follows the same syntax rules as the command line list mentioned previously.
-
-Examples:
+Each keyword needs to be followed by appropriate input to select for as given in the following examples.
 
 ```Python
 # Remove atoms 16 and 17 from QM1 region
-r -tql 16,17
-# Remove given list of atoms from active region
-r -ral 1-12,49,128
-# Remove list of atoms given in 'atomlist.txt' from QM2 region
-r -tof atomlist.txt
+r -ql id 16,17
+# Remove residues with the name 'HIS' from QM2 region
+r -ol resn his
+# Remove given list of residues from active region. Note that ranges are supported
+r -al resid 1-12,49,128,3:5
 # Remove all atoms within 10 Å of the atom with ID 3230 from the active region
-r -tas 3230 10
+r -a sphere 3230 10
 # Remove all residues that have an atom within 6 Å of the atom with ID 3230 from the QM1 region
-r -rqs 3230 6
+r -q rs 3230 6
+```
+
+The selections can be chained for more finegrained control:
+```Python
+# Remove the C atoms of GLY residues from QM1 region
+r -ql name c and resn gly
+# Remove all waters combining different naming schemes for it
+r -al resn wat or resn hoh or resn h2o
 ```
 
 #### Add
