@@ -20,7 +20,7 @@ serve as input for Orca QM/MM calculations.
 - Lists of QM or active atoms can be saved to or loaded from files
 
 The several options are provided via command line flags (the ordering of the flags does not matter). 
-Additional information can be obtained by giving the `--help`/'`-h` option anywhere in the program.
+Additional information can be obtained by giving the `--help`/`-h` option anywhere in the program.
 
 ---
 
@@ -148,7 +148,7 @@ If the `--residues`/`-r` or `--atoms`/`-t` flag is given in conjunction with a `
 
 Examples:
 
-```Python
+```
 # Analyze QM1 residues
 y -rq 
 # Analyze active atoms
@@ -165,7 +165,7 @@ If no other flags are given, all atoms will be remove from all regions. If only 
 
 Examples:
 
-```Python
+```
 # Remove all atoms from all regions
 r
 # Remove all atoms from QM1 region
@@ -186,7 +186,7 @@ The selection syntax for atoms or residues is keyword-based and accepts six of t
 
 Each keyword needs to be followed by appropriate input to select for as given in the following examples.
 
-```Python
+```
 # Remove atoms 16 and 17 from QM1 region
 r -q id 16,17
 # Remove residues with the name 'HIS' from QM2 region
@@ -200,7 +200,7 @@ r -q rs 3230 6
 ```
 
 The selections can be chained for more finegrained control:
-```Python
+```
 # Remove the C atoms of GLY residues from QM1 region
 r -q name c and resn gly
 # Remove all waters combining different naming schemes for it
@@ -209,7 +209,7 @@ r -a resn wat or resn hoh or resn h2o
 For chaining either the `and`/`or` keywords or the equivalent `&`/`|` operators can be used.
 
 Inverting a selection is also possible:
-```Python
+```
 # Remove all non-Water atoms from QM1 region
 r -q not resname wat and not resname hoh
 ```
@@ -223,7 +223,7 @@ The syntax is exactly the same as for the `Remove` subcommand, except that is do
 
 Examples:
 
-```Python
+```
 # Same syntax as for 'Remove' (see above)
 a -q id 16,17
 a -a resid 1-12,49,128
@@ -240,7 +240,7 @@ This way, atoms/residues with a specific name or ID can be targeted or the surro
 
 Examples:
 
-```Python
+```
 # Find atom(s) with name 'cu' (case-insensitive)
 q name cu
 # Show atoms with IDs 23-30
@@ -296,7 +296,7 @@ This is useful to quickly transfer the state of one PDB file to another.
 
 Examples:
 
-```Python
+```
 # Write PDB structure to input file, overwriting it
 w -w
 # Write commands to recreate state to stdout
@@ -426,7 +426,7 @@ pdbman> R
 It is also possible to only reset the QM or active region by giving the respective flags:
 
 ```
-pdbman> R -q/`R -a`
+pdbman> R -q/R -a
 ```
 
 We will save the changes made here at the end of our editing session.
@@ -580,7 +580,7 @@ The we remove the carbon and oxygen atom:
 pdbman> R -q id 16,17
 ```
 
-The `-l` option supports ranges of atoms or residues which can be given with a dash or colon 
+The `id` and `resid` keywords support ranges of atoms or residues which can be given with a dash or colon 
 as separator like so:
 
 ```
