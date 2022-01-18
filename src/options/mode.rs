@@ -17,21 +17,17 @@ pub enum Mode<'a> {
     },
     Add {
         region: Option<Region>,
-        // source: Option<Source<'a>>,
         partial: Option<Partial>,
         selection: Option<String>,
     },
     Remove {
         region: Option<Region>,
-        // source: Option<Source<'a>>,
         partial: Option<Partial>,
         selection: Option<String>,
     },
     Write {
         output: Option<Output<'a>>,
         state: bool,
-        // region: Option<Region>,
-        // target: Option<Target>,
     },
 }
 
@@ -41,12 +37,6 @@ pub enum Region {
     QM2,
     Active,
 }
-
-// #[derive(Display, PartialEq, Debug, Clone, EnumString, EnumVariantNames)]
-// pub enum Source<'a> {
-//     Infile(&'a str),
-//     List(String),
-// }
 
 #[derive(Display, PartialEq, Debug, Clone, Copy, PartialOrd, EnumString, EnumVariantNames)]
 pub enum Target {
@@ -116,31 +106,6 @@ impl<'a> Mode<'a> {
                     .find(|x| matches.subcommand_matches("Add").unwrap().is_present(x))
                     .map(|s| Region::from_str(s).unwrap());
 
-                // This argument is required for the Add subcommand so unwrap is fine here.
-                // let source_str = Source::VARIANTS
-                //     .iter()
-                //     .find(|x| matches.subcommand_matches("Add").unwrap().is_present(x))
-                //     .unwrap();
-
-                // let source = match *source_str {
-                //     "Infile" => Some(Source::Infile(
-                //         matches
-                //             .subcommand_matches("Add")
-                //             .unwrap()
-                //             .value_of("Infile")
-                //             .unwrap(),
-                //     )),
-                //     "List" => Some(Source::List(
-                //         matches
-                //             .subcommand_matches("Add")
-                //             .unwrap()
-                //             .values_of("List")
-                //             .unwrap()
-                //             .join(" "),
-                //     )),
-                //     _ => unreachable!(),
-                // };
-
                 let partial = Partial::VARIANTS
                     .iter()
                     .find(|x| matches.subcommand_matches("Add").unwrap().is_present(x))
@@ -162,30 +127,6 @@ impl<'a> Mode<'a> {
                     .find(|x| matches.subcommand_matches("Remove").unwrap().is_present(x))
                     .map(|s| Region::from_str(s).unwrap());
 
-                // let source_str = Source::VARIANTS
-                //     .iter()
-                //     .find(|x| matches.subcommand_matches("Remove").unwrap().is_present(x))
-                //     .unwrap_or(&"None");
-
-                // let source = match *source_str {
-                //     "Infile" => Some(Source::Infile(
-                //         matches
-                //             .subcommand_matches("Remove")
-                //             .unwrap()
-                //             .value_of("Infile")
-                //             .unwrap(),
-                //     )),
-                //     "List" => Some(Source::List(
-                //         matches
-                //             .subcommand_matches("Remove")
-                //             .unwrap()
-                //             .values_of("List")
-                //             .unwrap()
-                //             .join(" "),
-                //     )),
-                //     _ => None,
-                // };
-
                 let partial = Partial::VARIANTS
                     .iter()
                     .find(|x| matches.subcommand_matches("Remove").unwrap().is_present(x))
@@ -198,9 +139,7 @@ impl<'a> Mode<'a> {
                         .unwrap()
                         .values_of("Input")
                         .map(|mut i| i.join(" ")),
-                    // target,
                     partial,
-                    // input,
                 })
             }
             Some("Write") => {
@@ -221,21 +160,9 @@ impl<'a> Mode<'a> {
                     _ => None,
                 };
 
-                // let region = Region::VARIANTS
-                //     .iter()
-                //     .find(|x| matches.subcommand_matches("Write").unwrap().is_present(x))
-                //     .map(|s| Region::from_str(s).unwrap());
-
-                // let target = Target::VARIANTS
-                //     .iter()
-                //     .find(|x| matches.subcommand_matches("Write").unwrap().is_present(x))
-                //     .map(|s| Target::from_str(s).unwrap());
-
                 Ok(Mode::Write {
                     output,
                     state: matches.subcommand_matches("Write").unwrap().is_present("State")
-                    // region,
-                    // target,
                 })
             }
             _ => unreachable!(),

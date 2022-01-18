@@ -23,8 +23,6 @@ colored = "2.0.0"
 pdbtbx = {version = "0.8", features = ["rayon", "rstar"]}
 pest = "2"
 pest_derive = "2"
-# nom = "7.1"
-# nom-supreme = "0.6"
 # pdbtbx = {git = "https://github.com/nonnominandus/pdbtbx", branch = "master", features = ["rayon", "rstar"]}
 # pdbtbx = {path = "../pdbtbx", features = ["rayon", "rstar"]}
 
@@ -37,9 +35,9 @@ default-features = false
 features = ["std", "cargo", "color", "suggestions", "unicode"]
 
 [profile.release]
-#opt-level = 3
+# opt-level = 3
 # strip = true
-lto = "off"
 # codegen-units = 1
+lto = "off"
 debug = 1
 incremental = true

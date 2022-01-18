@@ -97,37 +97,14 @@ pub fn dispatch(
             let mut input_list: Vec<usize> = Vec::new();
             match selection {
                 Some(s) => {
-                    let mut input = s.to_owned();
-                    // match s {
-                    // Source::List(l) => l.clone(),
-                    // Source::Infile(f) => {
-                    //     let file = BufReader::new(
-                    //         File::open(f).context("\nNo such file or directory".red())?,
-                    //     );
-                    //     file.lines()
-                    //         .enumerate()
-                    //         .map(|(i, l)| -> Result<String, anyhow::Error> {
-                    //             Ok(l.context(format!(
-                    //                 "{}: {}",
-                    //                 "COULDN'T READ LINE FROM FILE".red(),
-                    //                 i.to_string().blue()
-                    //             ))?
-                    //             .trim()
-                    //             .to_owned())
-                    //             // Ok(s)
-                    //         })
-                    //         .collect::<Result<Vec<String>, anyhow::Error>>()?
-                    //         .join(",")
-                    // }
-                    // };
-
-                    // Pushing a space onto the input makes pest parse this as a finished word
+                    // Adding a space to the input makes pest parse this as a finished word
                     // making the error handling clearer
-                    input.push(' ');
+                    let input = s.to_owned() + " ";
 
                     let (sele_vec, conj_vec) = convert_result(parse_selection(&input), &input)?;
 
                     let mut sele_iter = sele_vec.into_iter();
+                    // First element must be present otherwise the parser would have complained
                     let initial_sel = sele_iter.next().unwrap();
                     let initial_atomvec = get_atoms_from_selection(initial_sel, pdb, *partial)?;
 
@@ -136,8 +113,6 @@ pub fn dispatch(
                         input_list.extend(initial_atomvec)
                     } else {
                         let mut prev_set: HashSet<usize> = HashSet::from_iter(initial_atomvec);
-
-                        // let mut new_set: HashSet<usize>;
 
                         for (sele, conj) in sele_iter.zip(conj_vec) {
                             let current_atomvec = get_atoms_from_selection(sele, pdb, *partial)?;
@@ -173,24 +148,37 @@ pub fn dispatch(
                         }
 
                         let mut remove_ops = Vec::with_capacity(3);
-                        if !qm1_atoms.is_empty() {
-                            remove_ops.push(EditOp::ToRemove {
-                                region: Region::QM1,
-                                atoms: qm1_atoms,
-                            })
+
+                        for (list, region) in [qm1_atoms, qm2_atoms, active_atoms]
+                            .into_iter()
+                            .zip([Region::QM1, Region::QM2, Region::Active].into_iter())
+                        {
+                            if !list.is_empty() {
+                                remove_ops.push(EditOp::ToRemove {
+                                    region,
+                                    atoms: list,
+                                })
+                            }
                         }
-                        if !qm2_atoms.is_empty() {
-                            remove_ops.push(EditOp::ToRemove {
-                                region: Region::QM2,
-                                atoms: qm2_atoms,
-                            })
-                        }
-                        if !active_atoms.is_empty() {
-                            remove_ops.push(EditOp::ToRemove {
-                                region: Region::Active,
-                                atoms: active_atoms,
-                            })
-                        }
+
+                        // if !qm1_atoms.is_empty() {
+                        //     remove_ops.push(EditOp::ToRemove {
+                        //         region: Region::QM1,
+                        //         atoms: qm1_atoms,
+                        //     })
+                        // }
+                        // if !qm2_atoms.is_empty() {
+                        //     remove_ops.push(EditOp::ToRemove {
+                        //         region: Region::QM2,
+                        //         atoms: qm2_atoms,
+                        //     })
+                        // }
+                        // if !active_atoms.is_empty() {
+                        //     remove_ops.push(EditOp::ToRemove {
+                        //         region: Region::Active,
+                        //         atoms: active_atoms,
+                        //     })
+                        // }
 
                         if !remove_ops.is_empty() {
                             edit_op = Some(Box::new(remove_ops));
@@ -269,55 +257,47 @@ pub fn dispatch(
                 }
             }
         }
-        Mode::Write {
-            output,
-            state
-            // region,
-            // target,
-        } => match output {
+        Mode::Write { output, state } => match output {
             None => {
                 if *state {
                     let stdout = io::stdout();
                     let mut handle = stdout.lock();
 
-                    for (region, string) in [Region::QM1, Region::QM2, Region::Active].into_iter().zip(["-q", "-o", "-a"].into_iter()) {
+                    writeln!(handle, "R")?;
+                    for (region, string) in [Region::QM1, Region::QM2, Region::Active]
+                        .into_iter()
+                        .zip(["-q", "-o", "-a"].into_iter())
+                    {
                         if let Ok(l) = get_atomlist(pdb, region) {
-                            writeln!(handle, "A {} id {}", string, l.into_iter().map(|n| n.to_string()).join(","))?;
+                            writeln!(
+                                handle,
+                                "A {} id {}",
+                                string,
+                                l.into_iter().map(|n| n.to_string()).join(",")
+                            )?;
                         };
                     }
                     writeln!(handle, "W -w")?;
                 } else {
                     print_pdb_to_stdout(pdb)?;
                 }
-                // if region.is_none() {
-                //     print_pdb_to_stdout(pdb)?;
-                // } else {
-                //     let stdout = io::stdout();
-                //     let mut handle = stdout.lock();
-                //     // target can be unwrapped because required to be Some by clap if region is Some
-                //     match target.unwrap() {
-                //         Target::Atoms => {
-                //             for num in get_atomlist(pdb, region.unwrap())? {
-                //                 writeln!(handle, "{}", num)
-                //                     .context("FAILED TO WRITE LIST OF ATOMS TO STDOUT".red())?
-                //             }
-                //         }
-                //         Target::Residues => {
-                //             for num in get_residuelist(pdb, region.unwrap())? {
-                //                 writeln!(handle, "{}", num)
-                //                     .context("FAILED TO WRITE LIST OF RESIDUES TO STDOUT".red())?
-                //             }
-                //         }
-                //     }
-                // }
             }
             Some(Output::Outfile(f)) => {
                 if *state {
                     let mut file = BufWriter::new(File::create(f)?);
 
-                    for (region, string) in [Region::QM1, Region::QM2, Region::Active].into_iter().zip(["-q", "-o", "-a"].into_iter()) {
+                    writeln!(file, "R")?;
+                    for (region, string) in [Region::QM1, Region::QM2, Region::Active]
+                        .into_iter()
+                        .zip(["-q", "-o", "-a"].into_iter())
+                    {
                         if let Ok(l) = get_atomlist(pdb, region) {
-                            writeln!(file, "A {} id {}", string, l.into_iter().map(|n| n.to_string()).join(","))?;
+                            writeln!(
+                                file,
+                                "A {} id {}",
+                                string,
+                                l.into_iter().map(|n| n.to_string()).join(",")
+                            )?;
                         };
                     }
                     writeln!(file, "W -w")?;
@@ -325,31 +305,6 @@ pub fn dispatch(
                     e.into_iter().for_each(|e| println!("{}", e));
                 }
             }
-            // Some(Output::Outfile(f)) match region {
-            //     None => {
-            //         if let Err(e) = save_pdb(pdb, f, pdbtbx::StrictnessLevel::Loose) {
-            //             e.into_iter().for_each(|e| println!("{}", e));
-            //         }
-            //     }
-            //     _ => {
-            //         let mut file = BufWriter::new(File::create(f)?);
-            //         // target can be unwrapped because required to be Some by clap if region is Some
-            //         match target.unwrap() {
-            //             Target::Atoms => {
-            //                 for num in get_atomlist(pdb, region.unwrap())? {
-            //                     writeln!(file, "{}", num)
-            //                         .context("FAILED TO WRITE LIST OF ATOMS TO FILE".red())?;
-            //                 }
-            //             }
-            //             Target::Residues => {
-            //                 for num in get_residuelist(pdb, region.unwrap())? {
-            //                     writeln!(file, "{}", num)
-            //                         .context("FAILED TO WRITE LIST OF RESIDUES TO FILE".red())?;
-            //                 }
-            //             }
-            //         };
-            //     }
-            // },
             Some(Output::Overwrite) => {
                 if let Err(e) = save_pdb(pdb, pdb_path, pdbtbx::StrictnessLevel::Loose) {
                     e.into_iter().for_each(|e| println!("{}", e));
@@ -426,7 +381,7 @@ mod tests {
     fn add_qm1() {
         let edit_action = get_edit_action(
             "tests/test_blank.pdb",
-            ["A", "-ql", "id", "4,1,9"].into_iter(),
+            ["A", "-q", "id", "4,1,9"].into_iter(),
         );
         let (edit_action, region, atoms) = get_editop(&edit_action);
         let atom_vec = get_atomvec(atoms);
@@ -440,7 +395,7 @@ mod tests {
     fn add_qm2() {
         let edit_action = get_edit_action(
             "tests/test_blank.pdb",
-            ["A", "-ol", "id", "22,17,8"].into_iter(),
+            ["A", "-o", "id", "22,17,8"].into_iter(),
         );
         let (edit_action, region, atoms) = get_editop(&edit_action);
         let atom_vec = get_atomvec(atoms);
@@ -454,7 +409,7 @@ mod tests {
     fn add_active() {
         let edit_action = get_edit_action(
             "tests/test_blank.pdb",
-            ["A", "-al", "id", "22,17,8"].into_iter(),
+            ["A", "-a", "id", "22,17,8"].into_iter(),
         );
         let (edit_action, region, atoms) = get_editop(&edit_action);
         let atom_vec = get_atomvec(atoms);
@@ -468,7 +423,7 @@ mod tests {
     fn remove_qm1() {
         let edit_action = get_edit_action(
             "tests/test_full.pdb",
-            ["R", "-ql", "id", "22,17,8"].into_iter(),
+            ["R", "-q", "id", "22,17,8"].into_iter(),
         );
         let (edit_action, region, atoms) = get_editop(&edit_action);
         let atom_vec = get_atomvec(atoms);
@@ -482,7 +437,7 @@ mod tests {
     fn remove_active() {
         let edit_action = get_edit_action(
             "tests/test_full.pdb",
-            ["R", "-al", "id", "22,17,8"].into_iter(),
+            ["R", "-a", "id", "22,17,8"].into_iter(),
         );
         let (edit_action, region, atoms) = get_editop(&edit_action);
         let atom_vec = get_atomvec(atoms);
@@ -497,7 +452,7 @@ mod tests {
     fn remove_empty() {
         get_edit_action(
             "tests/test_blank.pdb",
-            ["R", "-al", "id", "22,17,8"].into_iter(),
+            ["R", "-a", "id", "22,17,8"].into_iter(),
         );
     }
 
@@ -506,7 +461,7 @@ mod tests {
     fn add_existing() {
         get_edit_action(
             "tests/test_full.pdb",
-            ["A", "-ql", "id", "22,17,8"].into_iter(),
+            ["A", "-q", "id", "22,17,8"].into_iter(),
         );
     }
 
@@ -514,7 +469,7 @@ mod tests {
     fn checked_add() {
         let edit_action = get_edit_action(
             "tests/test_overwrite.pdb",
-            ["A", "-ql", "id", "1,3,4"].into_iter(),
+            ["A", "-q", "id", "1,3,4"].into_iter(),
         );
         let (edit_action, region, atoms) = get_editop(&edit_action);
         let atom_vec = get_atomvec(atoms);
@@ -528,7 +483,7 @@ mod tests {
     fn checked_remove() {
         let edit_action = get_edit_action(
             "tests/test_overwrite.pdb",
-            ["R", "-al", "id", "1-3"].into_iter(),
+            ["R", "-a", "id", "1-3"].into_iter(),
         );
         let (edit_action, region, atoms) = get_editop(&edit_action);
         let atom_vec = get_atomvec(atoms);
@@ -542,7 +497,7 @@ mod tests {
     fn overwrite_qm() {
         let edit_action = get_edit_action(
             "tests/test_overwrite.pdb",
-            ["A", "-ol", "id", "9,1-3"].into_iter(),
+            ["A", "-o", "id", "9,1-3"].into_iter(),
         );
         let re = regex!(r"(\w+)\s\{\sregion:\s(\w+),\satoms:\s\[((\d(, )?)+)\]\s");
         let mut matches = re.find_iter(&edit_action);
