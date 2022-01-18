@@ -1,2 +1,0 @@
-q id 1 or id 2
-q name cu

@@ -1,7 +1,6 @@
 use std::str::FromStr;
 
 use anyhow::Result;
-// use colored::Colorize;
 use itertools::Itertools;
 use strum::VariantNames;
 use strum_macros::{Display, EnumString, EnumVariantNames};
@@ -30,8 +29,9 @@ pub enum Mode<'a> {
     },
     Write {
         output: Option<Output<'a>>,
-        region: Option<Region>,
-        target: Option<Target>,
+        state: bool,
+        // region: Option<Region>,
+        // target: Option<Target>,
     },
 }
 
@@ -221,20 +221,21 @@ impl<'a> Mode<'a> {
                     _ => None,
                 };
 
-                let region = Region::VARIANTS
-                    .iter()
-                    .find(|x| matches.subcommand_matches("Write").unwrap().is_present(x))
-                    .map(|s| Region::from_str(s).unwrap());
+                // let region = Region::VARIANTS
+                //     .iter()
+                //     .find(|x| matches.subcommand_matches("Write").unwrap().is_present(x))
+                //     .map(|s| Region::from_str(s).unwrap());
 
-                let target = Target::VARIANTS
-                    .iter()
-                    .find(|x| matches.subcommand_matches("Write").unwrap().is_present(x))
-                    .map(|s| Target::from_str(s).unwrap());
+                // let target = Target::VARIANTS
+                //     .iter()
+                //     .find(|x| matches.subcommand_matches("Write").unwrap().is_present(x))
+                //     .map(|s| Target::from_str(s).unwrap());
 
                 Ok(Mode::Write {
                     output,
-                    region,
-                    target,
+                    state: matches.subcommand_matches("Write").unwrap().is_present("State")
+                    // region,
+                    // target,
                 })
             }
             _ => unreachable!(),

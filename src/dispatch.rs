@@ -4,10 +4,11 @@ use std::io::{self, BufWriter, Write};
 
 use anyhow::Context;
 use colored::Colorize;
+use itertools::Itertools;
 use pdbtbx::{save_pdb, Atom};
 
 use crate::functions::*;
-use crate::options::{Distance, Mode, Output, Region, Target};
+use crate::options::{Distance, Mode, Output, Region};
 use crate::revertable::{EditOp, Revertable};
 use crate::selection::{convert_result, parse_selection, Conjunction};
 
@@ -95,8 +96,6 @@ pub fn dispatch(
         } => {
             let mut input_list: Vec<usize> = Vec::new();
             match selection {
-                // If source is Some(_), clap requires target and region arguments as well, hence
-                // calling unwrap on them is fine.
                 Some(s) => {
                     let mut input = s.to_owned();
                     // match s {
@@ -121,6 +120,9 @@ pub fn dispatch(
                     //         .join(",")
                     // }
                     // };
+
+                    // Pushing a space onto the input makes pest parse this as a finished word
+                    // making the error handling clearer
                     input.push(' ');
 
                     let (sele_vec, conj_vec) = convert_result(parse_selection(&input), &input)?;
@@ -269,57 +271,93 @@ pub fn dispatch(
         }
         Mode::Write {
             output,
-            region,
-            target,
+            state
+            // region,
+            // target,
         } => match output {
             None => {
-                if region.is_none() {
-                    print_pdb_to_stdout(pdb)?;
-                } else {
+                if *state {
                     let stdout = io::stdout();
                     let mut handle = stdout.lock();
-                    // target can be unwrapped because required to be Some by clap if region is Some
-                    match target.unwrap() {
-                        Target::Atoms => {
-                            for num in get_atomlist(pdb, region.unwrap())? {
-                                writeln!(handle, "{}", num)
-                                    .context("FAILED TO WRITE LIST OF ATOMS TO STDOUT".red())?
-                            }
-                        }
-                        Target::Residues => {
-                            for num in get_residuelist(pdb, region.unwrap())? {
-                                writeln!(handle, "{}", num)
-                                    .context("FAILED TO WRITE LIST OF RESIDUES TO STDOUT".red())?
-                            }
-                        }
-                    }
+
+                    if let Ok(l) = get_atomlist(pdb, Region::QM1) {
+                        writeln!(handle, "A -q {}\n", l.into_iter().map(|n| n.to_string()).join(","))?;
+                    };
+                    if let Ok(l) = get_atomlist(pdb, Region::QM2) {
+                        writeln!(handle, "A -o {}\n", l.into_iter().map(|n| n.to_string()).join(","))?;
+                    };
+                    if let Ok(l) = get_atomlist(pdb, Region::Active) {
+                        writeln!(handle, "A -a {}", l.into_iter().map(|n| n.to_string()).join(","))?;
+                    };
+
+                } else {
+                    print_pdb_to_stdout(pdb)?;
+                }
+                // if region.is_none() {
+                //     print_pdb_to_stdout(pdb)?;
+                // } else {
+                //     let stdout = io::stdout();
+                //     let mut handle = stdout.lock();
+                //     // target can be unwrapped because required to be Some by clap if region is Some
+                //     match target.unwrap() {
+                //         Target::Atoms => {
+                //             for num in get_atomlist(pdb, region.unwrap())? {
+                //                 writeln!(handle, "{}", num)
+                //                     .context("FAILED TO WRITE LIST OF ATOMS TO STDOUT".red())?
+                //             }
+                //         }
+                //         Target::Residues => {
+                //             for num in get_residuelist(pdb, region.unwrap())? {
+                //                 writeln!(handle, "{}", num)
+                //                     .context("FAILED TO WRITE LIST OF RESIDUES TO STDOUT".red())?
+                //             }
+                //         }
+                //     }
+                // }
+            }
+            Some(Output::Outfile(f)) => {
+                if *state {
+                    let mut file = BufWriter::new(File::create(f)?);
+
+                    if let Ok(l) = get_atomlist(pdb, Region::QM1) {
+                        writeln!(file, "A -q id {}", l.into_iter().map(|n| n.to_string()).join(","))?;
+                    };
+                    if let Ok(l) = get_atomlist(pdb, Region::QM2) {
+                        writeln!(file, "A -o id {}", l.into_iter().map(|n| n.to_string()).join(","))?;
+                    };
+                    if let Ok(l) = get_atomlist(pdb, Region::Active) {
+                        writeln!(file, "A -a id {}", l.into_iter().map(|n| n.to_string()).join(","))?;
+                    };
+
+                } else if let Err(e) = save_pdb(pdb, f, pdbtbx::StrictnessLevel::Loose) {
+                    e.into_iter().for_each(|e| println!("{}", e));
                 }
             }
-            Some(Output::Outfile(f)) => match region {
-                None => {
-                    if let Err(e) = save_pdb(pdb, f, pdbtbx::StrictnessLevel::Loose) {
-                        e.into_iter().for_each(|e| println!("{}", e));
-                    }
-                }
-                _ => {
-                    let mut file = BufWriter::new(File::create(f)?);
-                    // target can be unwrapped because required to be Some by clap if region is Some
-                    match target.unwrap() {
-                        Target::Atoms => {
-                            for num in get_atomlist(pdb, region.unwrap())? {
-                                writeln!(file, "{}", num)
-                                    .context("FAILED TO WRITE LIST OF ATOMS TO FILE".red())?;
-                            }
-                        }
-                        Target::Residues => {
-                            for num in get_residuelist(pdb, region.unwrap())? {
-                                writeln!(file, "{}", num)
-                                    .context("FAILED TO WRITE LIST OF RESIDUES TO FILE".red())?;
-                            }
-                        }
-                    };
-                }
-            },
+            // Some(Output::Outfile(f)) match region {
+            //     None => {
+            //         if let Err(e) = save_pdb(pdb, f, pdbtbx::StrictnessLevel::Loose) {
+            //             e.into_iter().for_each(|e| println!("{}", e));
+            //         }
+            //     }
+            //     _ => {
+            //         let mut file = BufWriter::new(File::create(f)?);
+            //         // target can be unwrapped because required to be Some by clap if region is Some
+            //         match target.unwrap() {
+            //             Target::Atoms => {
+            //                 for num in get_atomlist(pdb, region.unwrap())? {
+            //                     writeln!(file, "{}", num)
+            //                         .context("FAILED TO WRITE LIST OF ATOMS TO FILE".red())?;
+            //                 }
+            //             }
+            //             Target::Residues => {
+            //                 for num in get_residuelist(pdb, region.unwrap())? {
+            //                     writeln!(file, "{}", num)
+            //                         .context("FAILED TO WRITE LIST OF RESIDUES TO FILE".red())?;
+            //                 }
+            //             }
+            //         };
+            //     }
+            // },
             Some(Output::Overwrite) => {
                 if let Err(e) = save_pdb(pdb, pdb_path, pdbtbx::StrictnessLevel::Loose) {
                     e.into_iter().for_each(|e| println!("{}", e));

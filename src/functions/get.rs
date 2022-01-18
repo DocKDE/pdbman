@@ -8,16 +8,13 @@ use crate::{
 use anyhow::Result;
 use colored::Colorize;
 use itertools::Itertools;
-use pdbtbx::{
-    Atom, AtomConformerResidueChainModel, ContainsAtomConformer, ContainsAtomConformerResidue,
-    Residue, PDB,
-};
+use pdbtbx::{Atom, ContainsAtomConformer, ContainsAtomConformerResidue, Residue, PDB};
 use rayon::{iter::FromParallelIterator, prelude::ParallelIterator};
 
 use super::{parse_atomic_list, parse_residue_list};
 
 type AtomList = Vec<usize>;
-type ResidueList = Vec<isize>;
+// type ResidueList = Vec<isize>;
 
 /// Takes an Atom struct as point of origin and a radius in A. Returns a Vector of Atom IDs
 /// of Atoms within the given radius wrapped in a Result. Origin can be included or excluded.
@@ -123,23 +120,23 @@ pub fn get_atomlist(pdb: &PDB, region: Region) -> Result<AtomList, anyhow::Error
 }
 
 // Get list of residue IDs for printing to stdout or file
-pub fn get_residuelist(pdb: &PDB, region: Region) -> Result<ResidueList, anyhow::Error> {
-    let filt_closure = match region {
-        Region::QM1 => |a: &AtomConformerResidueChainModel| a.atom().occupancy() == 1.00,
-        Region::QM2 => |a: &AtomConformerResidueChainModel| a.atom().occupancy() == 2.00,
-        Region::Active => |a: &AtomConformerResidueChainModel| a.atom().b_factor() == 1.00,
-    };
+// pub fn get_residuelist(pdb: &PDB, region: Region) -> Result<ResidueList, anyhow::Error> {
+//     let filt_closure = match region {
+//         Region::QM1 => |a: &AtomConformerResidueChainModel| a.atom().occupancy() == 1.00,
+//         Region::QM2 => |a: &AtomConformerResidueChainModel| a.atom().occupancy() == 2.00,
+//         Region::Active => |a: &AtomConformerResidueChainModel| a.atom().b_factor() == 1.00,
+//     };
 
-    let num_vec = pdb
-        .atoms_with_hierarchy()
-        .filter(filt_closure)
-        .map(|a| a.residue().serial_number())
-        .dedup()
-        .collect::<Vec<isize>>();
+//     let num_vec = pdb
+//         .atoms_with_hierarchy()
+//         .filter(filt_closure)
+//         .map(|a| a.residue().serial_number())
+//         .dedup()
+//         .collect::<Vec<isize>>();
 
-    ensure!(!num_vec.is_empty(), "No residues in the requested region!");
-    Ok(num_vec)
-}
+//     ensure!(!num_vec.is_empty(), "No residues in the requested region!");
+//     Ok(num_vec)
+// }
 
 pub fn get_atomlist_from_residuelist(
     list: &[isize],
@@ -316,15 +313,15 @@ mod tests {
         assert_eq!(active_atoms, vec![1, 2, 3, 5, 6, 8, 9]);
     }
 
-    #[test]
-    fn get_residuelist_test() {
-        let pdb = test_pdb("tests/test_get_residuelist.pdb");
-        let qm1_residues = get_residuelist(&pdb, Region::QM1).unwrap();
-        let qm2_residues = get_residuelist(&pdb, Region::QM2).unwrap();
-        let active_residues = get_residuelist(&pdb, Region::Active).unwrap();
+    // #[test]
+    // fn get_residuelist_test() {
+    //     let pdb = test_pdb("tests/test_get_residuelist.pdb");
+    //     let qm1_residues = get_residuelist(&pdb, Region::QM1).unwrap();
+    //     let qm2_residues = get_residuelist(&pdb, Region::QM2).unwrap();
+    //     let active_residues = get_residuelist(&pdb, Region::Active).unwrap();
 
-        assert_eq!(qm1_residues, vec![1, 7]);
-        assert_eq!(qm2_residues, vec![3, 4]);
-        assert_eq!(active_residues, vec![2, 3]);
-    }
+    //     assert_eq!(qm1_residues, vec![1, 7]);
+    //     assert_eq!(qm2_residues, vec![3, 4]);
+    //     assert_eq!(active_residues, vec![2, 3]);
+    // }
 }
