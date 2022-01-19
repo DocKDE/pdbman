@@ -54,7 +54,6 @@ pub fn parse_selection(
     let mut selections = Vec::new();
     let mut conjunctions = Vec::new();
 
-    // println!("{:#?}", success);
     let mut invert = false;
     for i in success {
         match i.as_rule() {
@@ -178,10 +177,7 @@ pub fn convert_result<'a>(
 
             match e.variant {
                 ErrorVariant::CustomError { message } => err_string.push_str(&message),
-                ErrorVariant::ParsingError {
-                    positives,
-                    negatives: _,
-                } => {
+                ErrorVariant::ParsingError { positives, .. } => {
                     err_string.push_str("\nExpected: ");
                     err_string.push_str(
                         &positives

@@ -158,7 +158,6 @@ pub fn clap_args() -> App<'static> {
             .group(
                 ArgGroup::new("region")
                     .args(&["QM1", "QM2", "Active"])
-                    // .requires_all(&["target", "source"])
                 )
         )
         .subcommand(App::new("Write")

@@ -161,25 +161,6 @@ pub fn dispatch(
                             }
                         }
 
-                        // if !qm1_atoms.is_empty() {
-                        //     remove_ops.push(EditOp::ToRemove {
-                        //         region: Region::QM1,
-                        //         atoms: qm1_atoms,
-                        //     })
-                        // }
-                        // if !qm2_atoms.is_empty() {
-                        //     remove_ops.push(EditOp::ToRemove {
-                        //         region: Region::QM2,
-                        //         atoms: qm2_atoms,
-                        //     })
-                        // }
-                        // if !active_atoms.is_empty() {
-                        //     remove_ops.push(EditOp::ToRemove {
-                        //         region: Region::Active,
-                        //         atoms: active_atoms,
-                        //     })
-                        // }
-
                         if !remove_ops.is_empty() {
                             edit_op = Some(Box::new(remove_ops));
                         }
