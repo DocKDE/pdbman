@@ -162,19 +162,20 @@ pub fn dispatch(
                         let d = atom_vec[3].atom().pos();
                         // Form the three vectors
                         let ba = (a.0 - b.0, a.1 - b.1, a.2 - b.2);
-                        let cb = (c.0 - b.0, c.1 - b.1, c.2 - b.2);
-                        let dc = (c.0 - d.0, c.1 - d.1, c.2 - d.2);
+                        let bc = (c.0 - b.0, c.1 - b.1, c.2 - b.2);
+                        let cb = (b.0 - c.0, b.1 - c.1, b.2 - c.2);
+                        let cd = (d.0 - c.0, d.1 - c.1, d.2 - c.2);
 
                         // Form two normal vectors via cross products
                         let n1 = (
-                            ba.1 * cb.2 - ba.2 - cb.1,
-                            ba.2 * cb.0 - ba.0 * cb.2,
-                            ba.0 * cb.1 - ba.1 * cb.0,
+                            ba.1 * bc.2 - ba.2 - bc.1,
+                            ba.2 * bc.0 - ba.0 * bc.2,
+                            ba.0 * bc.1 - ba.1 * bc.0,
                         );
                         let n2 = (
-                            cb.1 * dc.2 - cb.2 - dc.1,
-                            cb.2 * dc.0 - cb.0 * dc.2,
-                            cb.0 * dc.1 - cb.1 * dc.0,
+                            cb.1 * cd.2 - cb.2 - cd.1,
+                            cb.2 * cd.0 - cb.0 * cd.2,
+                            cb.0 * cd.1 - cb.1 * cd.0,
                         );
 
                         let abs_n1 = (n1.0 * n1.0 + n1.1 * n1.1 + n1.2 * n2.2).powf(0.5);
