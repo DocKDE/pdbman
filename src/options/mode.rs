@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use itertools::Itertools;
 use strum::VariantNames;
 use strum_macros::{Display, EnumString, EnumVariantNames};
@@ -29,6 +29,9 @@ pub enum Mode<'a> {
         output: Option<Output<'a>>,
         state: bool,
     },
+    Measure {
+        measure_target: MeasureTarget,
+    },
 }
 
 #[derive(Display, PartialEq, Debug, Clone, Copy, PartialOrd, EnumString, EnumVariantNames)]
@@ -42,6 +45,12 @@ pub enum Region {
 pub enum Target {
     Atoms,
     Residues,
+}
+
+#[derive(Display, PartialEq, Debug, Clone, PartialOrd, EnumString, EnumVariantNames)]
+pub enum MeasureTarget {
+    Sphere(usize, f64),
+    Atoms(Vec<usize>),
 }
 
 #[derive(Display, PartialEq, Debug, Clone, EnumString, EnumVariantNames)]
@@ -162,8 +171,68 @@ impl<'a> Mode<'a> {
 
                 Ok(Mode::Write {
                     output,
-                    state: matches.subcommand_matches("Write").unwrap().is_present("State")
+                    state: matches
+                        .subcommand_matches("Write")
+                        .unwrap()
+                        .is_present("State"),
                 })
+            }
+            Some("Measure") => {
+                let measure_str = MeasureTarget::VARIANTS
+                    .iter()
+                    .find(|x| matches.subcommand_matches("Measure").unwrap().is_present(x))
+                    .unwrap();
+
+                let measure = match *measure_str {
+                    "Sphere" => {
+                        let mut sphere_values = matches
+                            .subcommand_matches("Measure")
+                            .unwrap()
+                            .values_of("Sphere")
+                            .unwrap();
+                        let origin_str = sphere_values.next().unwrap();
+                        let origin_id = origin_str
+                            .parse::<usize>()
+                            .context(format!("Invalid input for Atom ID: {}", origin_str))?;
+                        let radius_str = sphere_values.next().unwrap();
+                        let radius_float = radius_str
+                            .parse::<f64>()
+                            .context(format!("Invalid input for radius: {}", radius_str))?;
+                        Ok(Mode::Measure {
+                            measure_target: MeasureTarget::Sphere(origin_id, radius_float),
+                        })
+                    }
+                    "Atoms" => {
+                        let atom_str = matches
+                            .subcommand_matches("Measure")
+                            .unwrap()
+                            .values_of("Atoms")
+                            .unwrap();
+
+                        let mut atom_ids = Vec::new();
+                        for id in atom_str {
+                            if let Ok(i) = id.parse::<usize>() {
+                                atom_ids.push(i)
+                            } else {
+                                bail!("Invalid input for Atom ID: {}", id)
+                            }
+                        }
+
+                        // Error out if duplicates are present because the input will make no sense
+                        let id_count = atom_ids.iter().copied().sorted().dedup().count();
+                        ensure!(
+                            atom_ids.len() == id_count,
+                            "Atom list for measurements contains duplicate elements"
+                        );
+
+                        Ok(Mode::Measure {
+                            measure_target: MeasureTarget::Atoms(atom_ids),
+                        })
+                    }
+                    _ => unreachable!(),
+                };
+
+                measure
             }
             _ => unreachable!(),
         }

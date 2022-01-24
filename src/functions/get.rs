@@ -42,6 +42,16 @@ pub fn get_atom_sphere(
         .locate_within_distance(origin_atom.pos(), radius.powf(2.0))
         .map(|atom| atom.serial_number())
         .collect();
+    // let test = tree.nearest_neighbor_iter_with_distance_2(&origin_atom.pos());
+    // let mut sphere_atoms = Vec::new();
+    // let mut distances = Vec::new();
+
+    // for (atom, distance) in test {
+    //     if distance <= radius {
+    //         sphere_atoms.push(atom.serial_number());
+    //         distances.push(distance);
+    //     }
+    // }
 
     if !include_self {
         sphere_atoms.retain(|&x| x != origin_atom.serial_number());

@@ -5,10 +5,15 @@ use std::io::{self, BufWriter, Write};
 use anyhow::Context;
 use colored::Colorize;
 use itertools::Itertools;
-use pdbtbx::{save_pdb, Atom};
+use pdbtbx::{
+    save_pdb, Atom, AtomConformerResidueChainModel, ContainsAtomConformer,
+    ContainsAtomConformerResidue,
+};
+use prettytable::Table;
+use rayon::iter::ParallelIterator;
 
 use crate::functions::*;
-use crate::options::{Distance, Mode, Output, Region};
+use crate::options::{Distance, MeasureTarget, Mode, Output, Region};
 use crate::revertable::{EditOp, Revertable};
 use crate::selection::{convert_result, parse_selection, Conjunction};
 
@@ -84,6 +89,163 @@ pub fn dispatch(
                 table.printstd();
             }
         }
+        Mode::Measure { measure_target } => match measure_target {
+            MeasureTarget::Atoms(atoms) => {
+                let atom_vec: Vec<AtomConformerResidueChainModel> = pdb
+                    .atoms_with_hierarchy()
+                    .filter(|a| atoms.contains(&a.atom().serial_number()))
+                    .collect();
+                let mut table = Table::new();
+                table.add_row(row![
+                    "Atom ID",
+                    "Atom name",
+                    "Residue ID",
+                    "Residue Name",
+                    "QM",
+                    "Active",
+                ]);
+
+                match atom_vec.len() {
+                    2 => {
+                        for atom in &atom_vec {
+                            table.add_row(row![
+                                atom.atom().serial_number(),
+                                atom.atom().name(),
+                                atom.residue().serial_number().to_string()
+                                    + atom.residue().insertion_code().unwrap_or(""),
+                                atom.residue().name().unwrap_or(""),
+                                atom.atom().occupancy(),
+                                atom.atom().b_factor(),
+                            ]);
+                        }
+
+                        table.printstd();
+                        println!(
+                            "\nDistance: {:.3} \u{212B}",
+                            atom_vec[0].atom().distance(atom_vec[1].atom())
+                        );
+                    }
+                    3 => {
+                        let a = atom_vec[0].atom().pos();
+                        let b = atom_vec[1].atom().pos();
+                        let c = atom_vec[2].atom().pos();
+                        // Form the two vectors
+                        let ba = (a.0 - b.0, a.1 - b.1, a.2 - b.2);
+                        let bc = (c.0 - b.0, c.1 - b.1, c.2 - b.2);
+                        // Calculate absolute values of vectors
+                        let abs_ba = (ba.0 * ba.0 + ba.1 * ba.1 + ba.2 * ba.2).powf(0.5);
+                        let abs_bc = (bc.0 * bc.0 + bc.1 * bc.1 + bc.2 * bc.2).powf(0.5);
+                        // Form dot product between vecs
+                        let dot = ba.0 * bc.0 + ba.1 * bc.1 + ba.2 * bc.2;
+                        // Calculate angle from all ingredients
+                        let angle = (dot / (abs_ba * abs_bc)).acos();
+
+                        for atom in &atom_vec {
+                            table.add_row(row![
+                                atom.atom().serial_number(),
+                                atom.atom().name(),
+                                atom.residue().serial_number().to_string()
+                                    + atom.residue().insertion_code().unwrap_or(""),
+                                atom.residue().name().unwrap_or(""),
+                                atom.atom().occupancy(),
+                                atom.atom().b_factor(),
+                            ]);
+                        }
+
+                        table.printstd();
+                        println!("\nAngle: {:.1}°", angle.to_degrees());
+                    }
+                    4 => {
+                        let a = atom_vec[0].atom().pos();
+                        let b = atom_vec[1].atom().pos();
+                        let c = atom_vec[2].atom().pos();
+                        let d = atom_vec[3].atom().pos();
+                        // Form the three vectors
+                        let ba = (a.0 - b.0, a.1 - b.1, a.2 - b.2);
+                        let cb = (c.0 - b.0, c.1 - b.1, c.2 - b.2);
+                        let dc = (c.0 - d.0, c.1 - d.1, c.2 - d.2);
+
+                        // Form two normal vectors via cross products
+                        let n1 = (
+                            ba.1 * cb.2 - ba.2 - cb.1,
+                            ba.2 * cb.0 - ba.0 * cb.2,
+                            ba.0 * cb.1 - ba.1 * cb.0,
+                        );
+                        let n2 = (
+                            cb.1 * dc.2 - cb.2 - dc.1,
+                            cb.2 * dc.0 - cb.0 * dc.2,
+                            cb.0 * dc.1 - cb.1 * dc.0,
+                        );
+
+                        let abs_n1 = (n1.0 * n1.0 + n1.1 * n1.1 + n1.2 * n2.2).powf(0.5);
+                        let abs_n2 = (n2.0 * n2.0 + n2.1 * n2.1 + n2.2 * n2.2).powf(0.5);
+                        let dot = n1.0 * n2.0 + n1.1 * n2.1 + n1.2 * n2.2;
+                        let dihedral = (dot / (abs_n1 * abs_n2)).acos();
+
+                        for atom in &atom_vec {
+                            table.add_row(row![
+                                atom.atom().serial_number(),
+                                atom.atom().name(),
+                                atom.residue().serial_number().to_string()
+                                    + atom.residue().insertion_code().unwrap_or(""),
+                                atom.residue().name().unwrap_or(""),
+                                atom.atom().occupancy(),
+                                atom.atom().b_factor(),
+                            ]);
+                        }
+
+                        table.printstd();
+                        println!("{}", (dot / (abs_n1 * abs_n2)));
+                        println!("\nDihedral: {:.1}°", dihedral.to_degrees());
+                    }
+                    _ => unreachable!(),
+                }
+            }
+            MeasureTarget::Sphere(origin_id, radius) => {
+                let origin_atom = pdb
+                    .par_atoms()
+                    .find_first(|a| a.serial_number() == *origin_id)
+                    .ok_or_else::<_, _>(|| {
+                        anyhow!(
+                            "{}: '{}'",
+                            "\nNO ATOM WITH FOUND WITH SERIAL NUMBER".red(),
+                            origin_id.to_string().blue(),
+                        )
+                    })?;
+
+                let tree = pdb.create_hierarchy_rtree();
+                let sphere_iter = tree.nearest_neighbor_iter_with_distance_2(&origin_atom.pos());
+                let mut table = Table::new();
+                table.add_row(row![
+                    "Atom ID",
+                    "Atom name",
+                    "Residue ID",
+                    "Residue Name",
+                    "QM",
+                    "Active",
+                    "Distance"
+                ]);
+
+                for (atom_hier, mut dist) in sphere_iter {
+                    dist = dist.powf(0.5);
+                    if dist <= *radius {
+                        table.add_row(row![
+                            atom_hier.atom().serial_number(),
+                            atom_hier.atom().name(),
+                            atom_hier.residue().serial_number().to_string()
+                                + atom_hier.residue().insertion_code().unwrap_or(""),
+                            atom_hier.residue().name().unwrap_or(""),
+                            atom_hier.atom().occupancy(),
+                            atom_hier.atom().b_factor(),
+                            format!("{:.3}", dist),
+                        ]);
+                    };
+                }
+
+                ensure!(table.len() > 1, "No atoms within the given radius");
+                table.printstd();
+            }
+        },
         Mode::Add {
             region,
             selection,

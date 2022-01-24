@@ -202,6 +202,12 @@ fn run() -> Result<(), anyhow::Error> {
             let command = match rl.readline(p) {
                 Ok(c) => match c.as_str() {
                     "exit" | "e" | "quit" => break,
+                    "hist" | "history" => {
+                        for entry in rl.history().iter() {
+                            println!("{}", entry);
+                        }
+                        continue;
+                    }
                     "undo" => {
                         rl.add_history_entry("undo");
                         if edit_ops_index == 0 {

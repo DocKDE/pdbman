@@ -1,6 +1,6 @@
 [package]
 name = "pdbman"
-version = "0.9.0"
+version = "0.9.1"
 authors = ["Benedikt M. Flöser <benedikt.floeser@cec.mpg.de>"]
 edition = "2021"
 description = "Analyzes and edits PDB files for usage in QM/MM calculations with the ORCA Quantum Chemistry package"
@@ -30,7 +30,7 @@ pest_derive = "2"
 prettytable-rs = {version = "0.8.0", default-features = true}
 
 [dependencies.clap]
-version = "3.0.5"
+version = "3.0.10"
 default-features = false
 features = ["std", "cargo", "color", "suggestions", "unicode"]
 
