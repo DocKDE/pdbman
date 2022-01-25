@@ -5,10 +5,7 @@ use std::io::{self, BufWriter, Write};
 use anyhow::Context;
 use colored::Colorize;
 use itertools::Itertools;
-use pdbtbx::{
-    save_pdb, Atom, AtomConformerResidueChainModel, ContainsAtomConformer,
-    ContainsAtomConformerResidue,
-};
+use pdbtbx::{save_pdb, Atom, ContainsAtomConformer, ContainsAtomConformerResidue};
 use prettytable::Table;
 use rayon::iter::ParallelIterator;
 
@@ -91,10 +88,19 @@ pub fn dispatch(
         }
         Mode::Measure { measure_target } => match measure_target {
             MeasureTarget::Atoms(atoms) => {
-                let atom_vec: Vec<AtomConformerResidueChainModel> = pdb
-                    .atoms_with_hierarchy()
-                    .filter(|a| atoms.contains(&a.atom().serial_number()))
-                    .collect();
+                let mut atom_vec = Vec::new();
+                for id in atoms {
+                    let atom = if let Some(a) = pdb
+                        .atoms_with_hierarchy()
+                        .find(|a| a.atom().serial_number() == *id)
+                    {
+                        a
+                    } else {
+                        bail!("No atom found with ID: {}", id);
+                    };
+                    atom_vec.push(atom);
+                }
+
                 let mut table = Table::new();
                 table.add_row(row![
                     "Atom ID",
@@ -129,16 +135,6 @@ pub fn dispatch(
                         let a = atom_vec[0].atom().pos();
                         let b = atom_vec[1].atom().pos();
                         let c = atom_vec[2].atom().pos();
-                        // Form the two vectors
-                        let ba = (a.0 - b.0, a.1 - b.1, a.2 - b.2);
-                        let bc = (c.0 - b.0, c.1 - b.1, c.2 - b.2);
-                        // Calculate absolute values of vectors
-                        let abs_ba = (ba.0 * ba.0 + ba.1 * ba.1 + ba.2 * ba.2).powf(0.5);
-                        let abs_bc = (bc.0 * bc.0 + bc.1 * bc.1 + bc.2 * bc.2).powf(0.5);
-                        // Form dot product between vecs
-                        let dot = ba.0 * bc.0 + ba.1 * bc.1 + ba.2 * bc.2;
-                        // Calculate angle from all ingredients
-                        let angle = (dot / (abs_ba * abs_bc)).acos();
 
                         for atom in &atom_vec {
                             table.add_row(row![
@@ -153,7 +149,7 @@ pub fn dispatch(
                         }
 
                         table.printstd();
-                        println!("\nAngle: {:.1}°", angle.to_degrees());
+                        println!("\nAngle: {:.1}°", calc_angle(a, b, c));
                     }
                     4 => {
                         let a = atom_vec[0].atom().pos();
@@ -161,27 +157,25 @@ pub fn dispatch(
                         let c = atom_vec[2].atom().pos();
                         let d = atom_vec[3].atom().pos();
                         // Form the three vectors
-                        let ba = (a.0 - b.0, a.1 - b.1, a.2 - b.2);
-                        let bc = (c.0 - b.0, c.1 - b.1, c.2 - b.2);
-                        let cb = (b.0 - c.0, b.1 - c.1, b.2 - c.2);
-                        let cd = (d.0 - c.0, d.1 - c.1, d.2 - c.2);
+                        // let ba = (b.0 - a.0, b.1 - a.1, b.2 - a.2);
+                        // let cb = (b.0 - c.0, b.1 - c.1, b.2 - c.2);
+                        // let dc = (c.0 - d.0, c.1 - d.1, c.2 - d.2);
 
-                        // Form two normal vectors via cross products
-                        let n1 = (
-                            ba.1 * bc.2 - ba.2 - bc.1,
-                            ba.2 * bc.0 - ba.0 * bc.2,
-                            ba.0 * bc.1 - ba.1 * bc.0,
-                        );
-                        let n2 = (
-                            cb.1 * cd.2 - cb.2 - cd.1,
-                            cb.2 * cd.0 - cb.0 * cd.2,
-                            cb.0 * cd.1 - cb.1 * cd.0,
-                        );
+                        // let n1 = (
+                        //     cb.1 * dc.2 - cb.2 * dc.1,
+                        //     cb.2 * dc.0 - cb.0 * dc.2,
+                        //     cb.0 * dc.1 - cb.1 * dc.0,
+                        // );
+                        // let n2 = (
+                        //     ba.1 * cb.2 - ba.2 * cb.1,
+                        //     ba.2 * cb.0 - ba.0 * cb.2,
+                        //     ba.0 * cb.1 - ba.1 * cb.0,
+                        // );
 
-                        let abs_n1 = (n1.0 * n1.0 + n1.1 * n1.1 + n1.2 * n2.2).powf(0.5);
-                        let abs_n2 = (n2.0 * n2.0 + n2.1 * n2.1 + n2.2 * n2.2).powf(0.5);
-                        let dot = n1.0 * n2.0 + n1.1 * n2.1 + n1.2 * n2.2;
-                        let dihedral = (dot / (abs_n1 * abs_n2)).acos();
+                        // let abs_cb = (cb.0 * cb.0 + cb.1 * cb.1 + cb.2 * cb.2).sqrt();
+                        // let p1 = (ba.0 * n1.0 + ba.1 * n1.1 + ba.2 * n1.2) * abs_cb;
+                        // let p2 = n1.0 * n2.0 + n1.1 * n2.1 + n1.2 * n2.2;
+                        // let dihedral = p1.atan2(p2);
 
                         for atom in &atom_vec {
                             table.add_row(row![
@@ -196,8 +190,8 @@ pub fn dispatch(
                         }
 
                         table.printstd();
-                        println!("{}", (dot / (abs_n1 * abs_n2)));
-                        println!("\nDihedral: {:.1}°", dihedral.to_degrees());
+                        // println!("{}", (dot / (abs_n1 * abs_n2)));
+                        println!("\nDihedral: {:.1}°", calc_dihedral(a, b, c, d));
                     }
                     _ => unreachable!(),
                 }
