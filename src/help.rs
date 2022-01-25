@@ -22,6 +22,7 @@ SUBCOMMANDS:
     Query                Query atoms or residues
     Analyse              Analyze PDB file and QM1/QM2/Active region
     Write                Write PDB structure information to file or stdout
+    Measure              Measure distances, angles and dihedrals between atoms
 
 Calling a subcommand with the '--help/-h' flag will display a help message for it
 ";
@@ -44,6 +45,7 @@ SUBCOMMANDS:
     Query                Query atoms or residues
     Analyse              Analyze PDB file and QM1/QM2/Active region
     Write                Write PDB structure information to file or stdout
+    Measure              Measure distances, angles and dihedrals between atoms
 
 Calling a subcommand with the '--help/-h' flag will display a help message for it
 ";
@@ -58,6 +60,7 @@ SUBCOMMANDS:
     Query                Query atoms or residues
     Analyse              Analyze PDB file and QM1/QM2/Active region
     Write                Write PDB structure information to file or stdout
+    Measure              Measure distances, angles and dihedrals between atoms
 
 Calling a subcommand with the '--help/-h' flag will display a help message for it
 ";
