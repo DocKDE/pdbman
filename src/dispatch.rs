@@ -156,26 +156,6 @@ pub fn dispatch(
                         let b = atom_vec[1].atom().pos();
                         let c = atom_vec[2].atom().pos();
                         let d = atom_vec[3].atom().pos();
-                        // Form the three vectors
-                        // let ba = (b.0 - a.0, b.1 - a.1, b.2 - a.2);
-                        // let cb = (b.0 - c.0, b.1 - c.1, b.2 - c.2);
-                        // let dc = (c.0 - d.0, c.1 - d.1, c.2 - d.2);
-
-                        // let n1 = (
-                        //     cb.1 * dc.2 - cb.2 * dc.1,
-                        //     cb.2 * dc.0 - cb.0 * dc.2,
-                        //     cb.0 * dc.1 - cb.1 * dc.0,
-                        // );
-                        // let n2 = (
-                        //     ba.1 * cb.2 - ba.2 * cb.1,
-                        //     ba.2 * cb.0 - ba.0 * cb.2,
-                        //     ba.0 * cb.1 - ba.1 * cb.0,
-                        // );
-
-                        // let abs_cb = (cb.0 * cb.0 + cb.1 * cb.1 + cb.2 * cb.2).sqrt();
-                        // let p1 = (ba.0 * n1.0 + ba.1 * n1.1 + ba.2 * n1.2) * abs_cb;
-                        // let p2 = n1.0 * n2.0 + n1.1 * n2.1 + n1.2 * n2.2;
-                        // let dihedral = p1.atan2(p2);
 
                         for atom in &atom_vec {
                             table.add_row(row![
@@ -190,7 +170,6 @@ pub fn dispatch(
                         }
 
                         table.printstd();
-                        // println!("{}", (dot / (abs_n1 * abs_n2)));
                         println!("\nDihedral: {:.1}°", calc_dihedral(a, b, c, d));
                     }
                     _ => unreachable!(),
@@ -222,7 +201,7 @@ pub fn dispatch(
                 ]);
 
                 for (atom_hier, mut dist) in sphere_iter {
-                    dist = dist.powf(0.5);
+                    dist = dist.sqrt();
                     if dist <= *radius {
                         table.add_row(row![
                             atom_hier.atom().serial_number(),
