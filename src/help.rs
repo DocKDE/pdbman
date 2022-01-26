@@ -24,8 +24,7 @@ SUBCOMMANDS:
     Write                Write PDB structure information to file or stdout
     Measure              Measure distances, angles and dihedrals between atoms
 
-Calling a subcommand with the '--help/-h' flag will display a help message for it
-";
+Calling a subcommand with the '--help/-h' flag will display a help message for it";
 
 pub const HELP_SHORT: &str = "
 USAGE:
@@ -47,8 +46,7 @@ SUBCOMMANDS:
     Write                Write PDB structure information to file or stdout
     Measure              Measure distances, angles and dihedrals between atoms
 
-Calling a subcommand with the '--help/-h' flag will display a help message for it
-";
+Calling a subcommand with the '--help/-h' flag will display a help message for it";
 
 pub const HELP_INTER: &str = "
 USAGE:
@@ -62,5 +60,4 @@ SUBCOMMANDS:
     Write                Write PDB structure information to file or stdout
     Measure              Measure distances, angles and dihedrals between atoms
 
-Calling a subcommand with the '--help/-h' flag will display a help message for it
-";
+Calling a subcommand with the '--help/-h' flag will display a help message for it";

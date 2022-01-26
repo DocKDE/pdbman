@@ -671,9 +671,9 @@ dependencies = [
 
 [[package]]
 name = "pdbtbx"
-version = "0.8.0"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "81ba9441818756e756e288e5dd520339551acbd953779feee720df5e4f64a22f"
+checksum = "5bbb8cba5aa1cad87ae0a9b6592b6a39defd6dfb77b7078b81f3cfea54efb701"
 dependencies = [
  "doc-cfg",
  "rayon",

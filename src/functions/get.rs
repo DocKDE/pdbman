@@ -1,3 +1,4 @@
+use core::fmt;
 use std::collections::HashSet;
 
 use crate::{
@@ -5,13 +6,36 @@ use crate::{
     selection::{convert_result, parse_selection, Conjunction, Selection},
 };
 
+use super::{calc_angle, calc_dihedral, parse_atomic_list, parse_residue_list};
 use anyhow::Result;
 use colored::Colorize;
 use itertools::Itertools;
-use pdbtbx::{Atom, ContainsAtomConformer, ContainsAtomConformerResidue, Residue, PDB};
+use pdbtbx::{
+    Atom, AtomConformerResidueChainModel, ContainsAtomConformer, ContainsAtomConformerResidue,
+    Residue, PDB,
+};
+use prettytable::Table;
 use rayon::{iter::FromParallelIterator, prelude::ParallelIterator};
 
-use super::{parse_atomic_list, parse_residue_list};
+pub enum AtomMeasurement {
+    Distance(f64),
+    Angle(f64),
+    Dihedral(f64),
+}
+
+impl fmt::Display for AtomMeasurement {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                AtomMeasurement::Distance(d) => format!("Distance: {:.3} \u{212B}", d),
+                AtomMeasurement::Angle(a) => format!("Angle: {:.1}°", a),
+                AtomMeasurement::Dihedral(d) => format!("Dihedral: {:.1}°", d),
+            }
+        )
+    }
+}
 
 type AtomList = Vec<usize>;
 // type ResidueList = Vec<isize>;
@@ -153,7 +177,7 @@ fn get_atomlist_from_residuelist(
     pdb: &PDB,
     partial: Option<Partial>,
 ) -> Vec<usize> {
-    let residue_set: HashSet<isize> = list.iter().copied().collect();
+    let residue_set: HashSet<&isize> = list.iter().collect();
     match partial {
         None => pdb
             .atoms_with_hierarchy()
@@ -172,7 +196,7 @@ fn get_atomlist_from_residuelist(
 }
 
 fn get_inverted(atomlist: &[usize], pdb: &PDB) -> Vec<usize> {
-    let atom_set: HashSet<&usize> = HashSet::from_iter(atomlist);
+    let atom_set: HashSet<&usize> = atomlist.iter().collect();
     pdb.par_atoms()
         .filter(|a| !atom_set.contains(&a.serial_number()))
         .map(Atom::serial_number)
@@ -297,6 +321,63 @@ pub fn get_atomlist_from_input(
             },
         )?;
         Ok(atom_set.into_iter().collect())
+    }
+}
+
+pub fn get_measurements(
+    atomlist: &[usize],
+    pdb: &PDB,
+) -> Result<(Table, AtomMeasurement), anyhow::Error> {
+    let atom_vec = atomlist
+        .iter()
+        .map(|i| {
+            pdb.atoms_with_hierarchy()
+                .find(|a| a.atom().serial_number() == *i)
+                .ok_or_else(|| anyhow!("No atom found with ID: {}", i))
+        })
+        .collect::<Result<Vec<AtomConformerResidueChainModel>, anyhow::Error>>()?;
+
+    let mut table = Table::new();
+    table.add_row(row![
+        "Atom ID",
+        "Atom name",
+        "Residue ID",
+        "Residue Name",
+        "QM",
+        "Active",
+    ]);
+
+    for atom in &atom_vec {
+        table.add_row(row![
+            atom.atom().serial_number(),
+            atom.atom().name(),
+            atom.residue().serial_number().to_string()
+                + atom.residue().insertion_code().unwrap_or(""),
+            atom.residue().name().unwrap_or(""),
+            atom.atom().occupancy(),
+            atom.atom().b_factor(),
+        ]);
+    }
+
+    match atom_vec.len() {
+        2 => Ok((
+            table,
+            AtomMeasurement::Distance(atom_vec[0].atom().distance(atom_vec[1].atom())),
+        )),
+        3 => {
+            let a = atom_vec[0].atom().pos();
+            let b = atom_vec[1].atom().pos();
+            let c = atom_vec[2].atom().pos();
+            Ok((table, AtomMeasurement::Angle(calc_angle(a, b, c))))
+        }
+        4 => {
+            let a = atom_vec[0].atom().pos();
+            let b = atom_vec[1].atom().pos();
+            let c = atom_vec[2].atom().pos();
+            let d = atom_vec[3].atom().pos();
+            Ok((table, AtomMeasurement::Dihedral(calc_dihedral(a, b, c, d))))
+        }
+        _ => unreachable!(),
     }
 }
 

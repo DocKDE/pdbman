@@ -4,10 +4,7 @@ use std::io::{self, BufWriter, Write};
 use anyhow::Context;
 use colored::Colorize;
 use itertools::Itertools;
-use pdbtbx::{
-    save_pdb, Atom, AtomConformerResidueChainModel, ContainsAtomConformer,
-    ContainsAtomConformerResidue,
-};
+use pdbtbx::{save_pdb, Atom, ContainsAtomConformer, ContainsAtomConformerResidue};
 use prettytable::Table;
 use rayon::iter::ParallelIterator;
 
@@ -62,88 +59,9 @@ pub fn dispatch(
         }
         Mode::Measure { measure_target } => match measure_target {
             MeasureTarget::Atoms(atoms) => {
-                let atom_vec = atoms
-                    .iter()
-                    .map(|i| {
-                        pdb.atoms_with_hierarchy()
-                            .find(|a| a.atom().serial_number() == *i)
-                            .ok_or_else(|| anyhow!("No atom found with ID: {}", i))
-                    })
-                    .collect::<Result<Vec<AtomConformerResidueChainModel>, anyhow::Error>>()?;
-
-                let mut table = Table::new();
-                table.add_row(row![
-                    "Atom ID",
-                    "Atom name",
-                    "Residue ID",
-                    "Residue Name",
-                    "QM",
-                    "Active",
-                ]);
-
-                match atom_vec.len() {
-                    2 => {
-                        for atom in &atom_vec {
-                            table.add_row(row![
-                                atom.atom().serial_number(),
-                                atom.atom().name(),
-                                atom.residue().serial_number().to_string()
-                                    + atom.residue().insertion_code().unwrap_or(""),
-                                atom.residue().name().unwrap_or(""),
-                                atom.atom().occupancy(),
-                                atom.atom().b_factor(),
-                            ]);
-                        }
-
-                        table.printstd();
-                        println!(
-                            "\nDistance: {:.3} \u{212B}",
-                            atom_vec[0].atom().distance(atom_vec[1].atom())
-                        );
-                    }
-                    3 => {
-                        let a = atom_vec[0].atom().pos();
-                        let b = atom_vec[1].atom().pos();
-                        let c = atom_vec[2].atom().pos();
-
-                        for atom in &atom_vec {
-                            table.add_row(row![
-                                atom.atom().serial_number(),
-                                atom.atom().name(),
-                                atom.residue().serial_number().to_string()
-                                    + atom.residue().insertion_code().unwrap_or(""),
-                                atom.residue().name().unwrap_or(""),
-                                atom.atom().occupancy(),
-                                atom.atom().b_factor(),
-                            ]);
-                        }
-
-                        table.printstd();
-                        println!("\nAngle: {:.1}°", calc_angle(a, b, c));
-                    }
-                    4 => {
-                        let a = atom_vec[0].atom().pos();
-                        let b = atom_vec[1].atom().pos();
-                        let c = atom_vec[2].atom().pos();
-                        let d = atom_vec[3].atom().pos();
-
-                        for atom in &atom_vec {
-                            table.add_row(row![
-                                atom.atom().serial_number(),
-                                atom.atom().name(),
-                                atom.residue().serial_number().to_string()
-                                    + atom.residue().insertion_code().unwrap_or(""),
-                                atom.residue().name().unwrap_or(""),
-                                atom.atom().occupancy(),
-                                atom.atom().b_factor(),
-                            ]);
-                        }
-
-                        table.printstd();
-                        println!("\nDihedral: {:.1}°", calc_dihedral(a, b, c, d));
-                    }
-                    _ => unreachable!(),
-                }
+                let (table, geom) = get_measurements(atoms, pdb)?;
+                table.printstd();
+                println!("\n{}", geom);
             }
             MeasureTarget::Sphere(origin_id, radius) => {
                 let origin_atom = pdb
@@ -241,10 +159,10 @@ pub fn dispatch(
                         }
 
                         remove_region(pdb, None);
-                    } else if region.is_some() {
+                    } else if let Some(r) = region {
                         let region_atoms: Vec<usize> = pdb
                             .atoms()
-                            .filter(|a| match region.unwrap() {
+                            .filter(|a| match r {
                                 Region::QM1 => a.occupancy() == 1.00,
                                 Region::QM2 => a.occupancy() == 2.00,
                                 Region::Active => a.b_factor() == 1.00,
