@@ -9,17 +9,17 @@ readme = "README.md"
 
 [dependencies]
 prettytable-rs = {version = "0.8", default-features = false}
-strum = "0.23.0"
-strum_macros = "0.23.1"
+strum = "0.23"
+strum_macros = "0.23"
 lazy-regex = "2.2"
-lazy_static = "1.4.0"
+lazy_static = "1.4"
 itertools = "0.10"
 rayon = "1.5"
 rustyline = "9.0"
 rustyline-derive = "0.6"
 env_logger = "0.9"
-anyhow = "1.0.44"
-colored = "2.0.0"
+anyhow = "1.0"
+colored = "2.0"
 pdbtbx = {version = "0.8", features = ["rayon", "rstar"]}
 pest = "2"
 pest_derive = "2"

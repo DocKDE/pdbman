@@ -1,18 +1,19 @@
-use std::collections::HashSet;
 use std::fs::File;
 use std::io::{self, BufWriter, Write};
 
 use anyhow::Context;
 use colored::Colorize;
 use itertools::Itertools;
-use pdbtbx::{save_pdb, Atom, ContainsAtomConformer, ContainsAtomConformerResidue};
+use pdbtbx::{
+    save_pdb, Atom, AtomConformerResidueChainModel, ContainsAtomConformer,
+    ContainsAtomConformerResidue,
+};
 use prettytable::Table;
 use rayon::iter::ParallelIterator;
 
 use crate::functions::*;
 use crate::options::{Distance, MeasureTarget, Mode, Output, Region};
 use crate::revertable::{EditOp, Revertable};
-use crate::selection::{convert_result, parse_selection, Conjunction};
 
 // Run function that handles the logic of when to call which function given an enum with the
 // command line options. Hands all occurring errors to caller.
@@ -25,34 +26,7 @@ pub fn dispatch(
 
     match mode {
         Mode::Query { input } => {
-            // Add a space to the given user input. This will make pest parse the
-            // last character as a finished word resulting in more meaningful error messages.
-            let input = input.to_owned() + " ";
-            let (sele_vec, conj_vec) = convert_result(parse_selection(&input), &input)?;
-
-            let mut sele_iter = sele_vec.into_iter();
-            let initial_sel = sele_iter.next().unwrap();
-            let initial_atomvec = get_atoms_from_selection(initial_sel, pdb, None)?;
-
-            if conj_vec.is_empty()
-            // if vec of conjunctions is not present, the vec of selections can only have one element
-            {
-                query_atoms(pdb, &initial_atomvec)?.printstd();
-            } else {
-                let mut prev_set: HashSet<usize> = HashSet::from_iter(initial_atomvec);
-
-                for (sele, conj) in sele_iter.zip(conj_vec) {
-                    let current_atomvec = get_atoms_from_selection(sele, pdb, None)?;
-                    let current_set: HashSet<usize> = HashSet::from_iter(current_atomvec);
-
-                    prev_set = match conj {
-                        Conjunction::And => prev_set.intersection(&current_set).copied().collect(),
-                        Conjunction::Or => prev_set.union(&current_set).copied().collect(),
-                    };
-                }
-
-                query_atoms(pdb, &prev_set.into_iter().collect::<Vec<usize>>())?.printstd();
-            }
+            query_atoms(pdb, &get_atomlist_from_input(input, pdb, None)?)?.printstd();
         }
         Mode::Analyze {
             region,
@@ -88,18 +62,14 @@ pub fn dispatch(
         }
         Mode::Measure { measure_target } => match measure_target {
             MeasureTarget::Atoms(atoms) => {
-                let mut atom_vec = Vec::new();
-                for id in atoms {
-                    let atom = if let Some(a) = pdb
-                        .atoms_with_hierarchy()
-                        .find(|a| a.atom().serial_number() == *id)
-                    {
-                        a
-                    } else {
-                        bail!("No atom found with ID: {}", id);
-                    };
-                    atom_vec.push(atom);
-                }
+                let atom_vec = atoms
+                    .iter()
+                    .map(|i| {
+                        pdb.atoms_with_hierarchy()
+                            .find(|a| a.atom().serial_number() == *i)
+                            .ok_or_else(|| anyhow!("No atom found with ID: {}", i))
+                    })
+                    .collect::<Result<Vec<AtomConformerResidueChainModel>, anyhow::Error>>()?;
 
                 let mut table = Table::new();
                 table.add_row(row![
@@ -233,37 +203,7 @@ pub fn dispatch(
             let mut input_list: Vec<usize> = Vec::new();
             match selection {
                 Some(s) => {
-                    // Adding a space to the input makes pest parse this as a finished word
-                    // making the error handling clearer
-                    let input = s.to_owned() + " ";
-
-                    let (sele_vec, conj_vec) = convert_result(parse_selection(&input), &input)?;
-
-                    let mut sele_iter = sele_vec.into_iter();
-                    // First element must be present otherwise the parser would have complained
-                    let initial_sel = sele_iter.next().unwrap();
-                    let initial_atomvec = get_atoms_from_selection(initial_sel, pdb, *partial)?;
-
-                    if conj_vec.is_empty() {
-                        // if vec of conjunctions is not present, the vec of selections can only have one element
-                        input_list.extend(initial_atomvec)
-                    } else {
-                        let mut prev_set: HashSet<usize> = HashSet::from_iter(initial_atomvec);
-
-                        for (sele, conj) in sele_iter.zip(conj_vec) {
-                            let current_atomvec = get_atoms_from_selection(sele, pdb, *partial)?;
-                            let current_set: HashSet<usize> = HashSet::from_iter(current_atomvec);
-
-                            prev_set = match conj {
-                                Conjunction::And => {
-                                    prev_set.intersection(&current_set).copied().collect()
-                                }
-                                Conjunction::Or => prev_set.union(&current_set).copied().collect(),
-                            };
-                        }
-
-                        input_list.extend(prev_set)
-                    }
+                    input_list.extend(get_atomlist_from_input(s, pdb, *partial)?);
                 }
                 None => {
                     if mode.to_string() == "Remove" && *region == None {
@@ -274,8 +214,7 @@ pub fn dispatch(
                         for atom in pdb.atoms() {
                             if atom.occupancy() == 1.00 {
                                 qm1_atoms.push(atom.serial_number())
-                            }
-                            if atom.occupancy() == 2.00 {
+                            } else if atom.occupancy() == 2.00 {
                                 qm2_atoms.push(atom.serial_number())
                             }
                             if atom.b_factor() == 1.00 {

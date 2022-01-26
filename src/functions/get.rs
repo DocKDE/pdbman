@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use crate::{
     options::{Partial, Region},
-    selection::Selection,
+    selection::{convert_result, parse_selection, Conjunction, Selection},
 };
 
 use anyhow::Result;
@@ -18,7 +18,7 @@ type AtomList = Vec<usize>;
 
 /// Takes an Atom struct as point of origin and a radius in A. Returns a Vector of Atom IDs
 /// of Atoms within the given radius wrapped in a Result. Origin can be included or excluded.
-pub fn get_atom_sphere(
+fn get_atom_sphere(
     pdb: &PDB,
     origin_id: usize,
     // origin: &Atom,
@@ -69,7 +69,7 @@ pub fn get_atom_sphere(
 /// Takes an Atom struct as point of origin, a radius in A. Returns a Vector of Atom IDs
 /// that belong to a Residue that had at least one Atom within the given radius wrapped in a Result.
 /// Origin residue can be included or excluded.
-pub fn get_residue_sphere(
+fn get_residue_sphere(
     pdb: &PDB,
     origin_id: usize,
     // origin: impl ContainsAtomConformerResidueChain,
@@ -148,7 +148,7 @@ pub fn get_atomlist(pdb: &PDB, region: Region) -> Result<AtomList, anyhow::Error
 //     Ok(num_vec)
 // }
 
-pub fn get_atomlist_from_residuelist(
+fn get_atomlist_from_residuelist(
     list: &[isize],
     pdb: &PDB,
     partial: Option<Partial>,
@@ -208,7 +208,7 @@ fn verify_residuelist(list: &[isize], pdb: &PDB) -> Result<(), anyhow::Error> {
     Ok(())
 }
 
-pub fn get_atoms_from_selection(
+fn get_atoms_from_selection(
     s: Selection,
     pdb: &PDB,
     partial: Option<Partial>,
@@ -256,6 +256,48 @@ pub fn get_atoms_from_selection(
         atomvec = get_inverted(&atomvec, pdb);
     }
     Ok(atomvec)
+}
+
+pub fn get_atomlist_from_input(
+    input: &str,
+    pdb: &PDB,
+    partial: Option<Partial>,
+) -> Result<Vec<usize>, anyhow::Error> {
+    // Add a space to the given user input. This will make pest parse the
+    // last character as a finished word resulting in more meaningful error messages.
+    let input = input.to_owned() + " ";
+    let (sele_vec, conj_vec) = convert_result(parse_selection(&input), &input)?;
+
+    let mut sele_iter = sele_vec.into_iter();
+    let initial_sel = sele_iter.next().unwrap();
+    let initial_atomvec = get_atoms_from_selection(initial_sel, pdb, None)?;
+
+    if conj_vec.is_empty()
+    // if vec of conjunctions is not present, the vec of selections can only have one element
+    {
+        Ok(initial_atomvec)
+    } else {
+        let atom_set = sele_iter.zip(conj_vec.iter()).try_fold(
+            HashSet::from_iter(initial_atomvec),
+            |acc, (sele, conj)| -> Result<HashSet<usize>, anyhow::Error> {
+                match conj {
+                    Conjunction::Or => Ok(acc
+                        .union(&HashSet::from_iter(get_atoms_from_selection(
+                            sele, pdb, partial,
+                        )?))
+                        .copied()
+                        .collect()),
+                    Conjunction::And => Ok(acc
+                        .intersection(&HashSet::from_iter(get_atoms_from_selection(
+                            sele, pdb, partial,
+                        )?))
+                        .copied()
+                        .collect()),
+                }
+            },
+        )?;
+        Ok(atom_set.into_iter().collect())
+    }
 }
 
 #[cfg(test)]
