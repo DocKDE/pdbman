@@ -1,17 +1,17 @@
 use crate::residue_ascii::RESIDUE_ASCII;
 
 use std::borrow::ToOwned;
-use std::io;
-use std::io::prelude::Write;
 
-use anyhow::{Context, Result};
 use itertools::Itertools;
 use pdbtbx::{ContainsAtomConformer, ContainsAtomConformerResidue, PDB};
 use prettytable::Table;
 
 /// Query Molecule for information. Depending on the input this will print a table of
 /// Residues and/or Atoms with available information that were asked for.
-pub fn query_atoms(pdb: &PDB, atom_list: &[usize]) -> Result<Table, anyhow::Error> {
+pub fn query_atoms<'a>(
+    pdb: &'a PDB,
+    atom_list: &'a [usize],
+) -> Result<(Table, Option<&'a str>), anyhow::Error> {
     let mut table = Table::new();
     table.add_row(row![
         "Atom ID",
@@ -45,15 +45,26 @@ pub fn query_atoms(pdb: &PDB, atom_list: &[usize]) -> Result<Table, anyhow::Erro
         key = resname_vec[0].as_deref();
     }
 
-    if let Some(k) = key {
-        if let Some(res_ascii) = RESIDUE_ASCII.get(&k.to_uppercase().as_ref()) {
-            writeln!(io::stdout(), "{}", res_ascii)
-                .context("Failed to print residue depiction to stdout")?;
-        }
-    }
+    // if let Some(k) = key {
+    //     if let Some(res_ascii) = RESIDUE_ASCII.get(&k.to_uppercase().as_ref()) {
+    //         writeln!(io::stdout(), "{}", res_ascii)
+    //             .context("Failed to print residue depiction to stdout")?;
+    //     }
+    // }
 
     ensure!(table.len() > 1, "No atoms found in given selection");
-    Ok(table)
+
+    if let Some(k) = key {
+        Ok((
+            table,
+            RESIDUE_ASCII
+                .get(&k.to_uppercase().as_ref())
+                .map(ToOwned::to_owned),
+        ))
+    } else {
+        Ok((table, None))
+    }
+    // Ok(table)
 }
 
 // This cannot fail because if no residues can be queried, the
@@ -119,7 +130,7 @@ mod tests {
     #[test]
     fn query_atoms_test() {
         let pdb = test_pdb("tests/test_blank.pdb");
-        let table = query_atoms(&pdb, &[1, 5, 19]).unwrap();
+        let (table, _) = query_atoms(&pdb, &[1, 5, 19]).unwrap();
 
         let mut test_table = Table::new();
         test_table.add_row(row![

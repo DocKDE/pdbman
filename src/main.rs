@@ -203,9 +203,7 @@ fn run() -> Result<(), anyhow::Error> {
                 Ok(c) => match c.as_str() {
                     "exit" | "e" | "quit" => break,
                     "hist" | "history" => {
-                        for entry in rl.history().iter() {
-                            println!("{}", entry);
-                        }
+                        rl.history().iter().for_each(|e| println!("{}", e));
                         continue;
                     }
                     "undo" => {

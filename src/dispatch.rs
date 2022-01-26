@@ -23,7 +23,13 @@ pub fn dispatch(
 
     match mode {
         Mode::Query { input } => {
-            query_atoms(pdb, &get_atomlist_from_input(input, pdb, None)?)?.printstd();
+            let atomlist = get_atomlist_from_input(input, pdb, None)?;
+            let (table, res) = query_atoms(pdb, &atomlist)?;
+            if let Some(s) = res {
+                writeln!(io::stdout(), "{}", s)
+                    .context("Failed to print residue depiction to stdout")?
+            }
+            table.printstd();
         }
         Mode::Analyze {
             region,
@@ -67,7 +73,7 @@ pub fn dispatch(
                 let origin_atom = pdb
                     .par_atoms()
                     .find_first(|a| a.serial_number() == *origin_id)
-                    .ok_or_else::<_, _>(|| {
+                    .ok_or_else(|| {
                         anyhow!(
                             "{}: '{}'",
                             "\nNO ATOM WITH FOUND WITH SERIAL NUMBER".red(),
