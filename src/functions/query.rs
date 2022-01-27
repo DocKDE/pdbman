@@ -45,13 +45,6 @@ pub fn query_atoms<'a>(
         key = resname_vec[0].as_deref();
     }
 
-    // if let Some(k) = key {
-    //     if let Some(res_ascii) = RESIDUE_ASCII.get(&k.to_uppercase().as_ref()) {
-    //         writeln!(io::stdout(), "{}", res_ascii)
-    //             .context("Failed to print residue depiction to stdout")?;
-    //     }
-    // }
-
     ensure!(table.len() > 1, "No atoms found in given selection");
 
     if let Some(k) = key {
@@ -64,7 +57,6 @@ pub fn query_atoms<'a>(
     } else {
         Ok((table, None))
     }
-    // Ok(table)
 }
 
 // This cannot fail because if no residues can be queried, the

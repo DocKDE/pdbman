@@ -17,6 +17,8 @@ serve as input for Orca QM/MM calculations.
 - Add or remove atoms and residues to QM or active region by calculating a sphere of given radius around a given atom
 - Add or remove only the sidechain or backbone of residues
 - Write PDB structure and commands to recreate it from scratch to stdout or file
+- Measure distances, angles or dihedrals between selected atoms
+- Measure distances in a sphere around an atom
 - Lists of QM or active atoms can be saved to or loaded from files
 
 The several options are provided via command line flags (the ordering of the flags does not matter). 
@@ -274,7 +276,29 @@ pdbman> q resid 1
 +---------+-----------+------------+--------------+----+--------+
 ```
 
+#### Measure
 
+The measure command takes either an `--atom`/`-a` or a `--sphere`/`-s` option to indicate
+what is to be measured. The `--atom` option expects two, three or four atom indices as
+arguments which will prompt `pdbman` to calculate the distance, angle or dihedral of the
+given atoms, depending on how many indices were given.
+
+Note that the order of the atoms is of importance for angles and dihedrals.
+
+If the `--sphere` option is given, an atom ID and a radius are expected as arguments.
+`pdbman` then print a table of all atoms within the given radius around the given atom
+with the respective distances.
+
+Examples:
+
+```
+# Get distance between atom ID 2 and 8
+m -a 2 8
+# Get dihedral given by atom IDs 1,2,3 and 4
+m -a 1 2 3 4
+# Show atoms within 3 Å of atom ID 2589
+m -s 2589 3
+```
 
 #### Write
 
