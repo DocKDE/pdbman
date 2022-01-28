@@ -2,9 +2,11 @@ use crate::residue_ascii::RESIDUE_ASCII;
 
 use std::borrow::ToOwned;
 
+use comfy_table::modifiers::{UTF8_ROUND_CORNERS, UTF8_SOLID_INNER_BORDERS};
+use comfy_table::presets::UTF8_FULL;
+use comfy_table::{Row, Table};
 use itertools::Itertools;
 use pdbtbx::{ContainsAtomConformer, ContainsAtomConformerResidue, PDB};
-use prettytable::Table;
 
 /// Query Molecule for information. Depending on the input this will print a table of
 /// Residues and/or Atoms with available information that were asked for.
@@ -13,14 +15,18 @@ pub fn query_atoms<'a>(
     atom_list: &'a [usize],
 ) -> Result<(Table, Option<&'a str>), anyhow::Error> {
     let mut table = Table::new();
-    table.add_row(row![
+    table
+        .load_preset(UTF8_FULL)
+        .apply_modifier(UTF8_ROUND_CORNERS)
+        .apply_modifier(UTF8_SOLID_INNER_BORDERS);
+    table.set_header(Row::from(vec![
         "Atom ID",
         "Atom name",
         "Residue ID",
         "Residue Name",
         "QM",
-        "Active"
-    ]);
+        "Active",
+    ]));
 
     let mut key: Option<&str> = None;
     let mut resname_vec = Vec::new();
@@ -29,22 +35,19 @@ pub fn query_atoms<'a>(
         if atom_list.contains(&atom_hier.atom().serial_number()) {
             resname_vec.push(atom_hier.residue().name().map(ToOwned::to_owned));
 
-            table.add_row(row![
-                atom_hier.atom().serial_number(),
-                atom_hier.atom().name(),
+            table.add_row(Row::from(vec![
+                atom_hier.atom().serial_number().to_string(),
+                atom_hier.atom().name().to_owned(),
                 atom_hier.residue().serial_number().to_string()
                     + atom_hier.residue().insertion_code().unwrap_or(""),
-                atom_hier.residue().name().unwrap_or(""),
-                atom_hier.atom().occupancy(),
-                atom_hier.atom().b_factor(),
-            ]);
+                atom_hier.residue().name().unwrap_or("").to_owned(),
+                atom_hier.atom().occupancy().to_string(),
+                atom_hier.atom().b_factor().to_string(),
+            ]));
         }
     }
 
-    ensure!(
-        !resname_vec.is_empty(),
-        "No atoms found in given selection"
-    );
+    ensure!(!resname_vec.is_empty(), "No atoms found in given selection");
 
     if resname_vec.iter().all_equal() {
         key = resname_vec[0].as_deref();
@@ -128,20 +131,49 @@ mod tests {
         let (table, _) = query_atoms(&pdb, &[1, 5, 19]).unwrap();
 
         let mut test_table = Table::new();
-        test_table.add_row(row![
+        test_table
+            .load_preset(UTF8_FULL)
+            .apply_modifier(UTF8_ROUND_CORNERS)
+            .apply_modifier(UTF8_SOLID_INNER_BORDERS);
+        test_table.set_header(Row::from(vec![
             "Atom ID",
             "Atom name",
             "Residue ID",
             "Residue Name",
             "QM",
-            "Active"
-        ]);
+            "Active",
+        ]));
 
-        test_table.add_row(row![1, "N", 1, "HIE", 0.00, 0.00]);
-        test_table.add_row(row![5, "HA", 1, "HIE", 0.00, 0.00]);
-        test_table.add_row(row![19, "N", 2, "GLY", 0.00, 0.00]);
+        test_table.add_row(Row::from(vec![
+            1_u8.to_string(),
+            "N".to_owned(),
+            1_u8.to_string(),
+            "HIE".to_owned(),
+            0.00.to_string(),
+            0.00.to_string(),
+        ]));
+        test_table.add_row(Row::from(vec![
+            5_u8.to_string(),
+            "HA".to_owned(),
+            1_u8.to_string(),
+            "HIE".to_owned(),
+            0.00.to_string(),
+            0.00.to_string(),
+        ]));
+        test_table.add_row(Row::from(vec![
+            19_u8.to_string(),
+            "N".to_owned(),
+            2_u8.to_string(),
+            "GLY".to_owned(),
+            0.00.to_string(),
+            0.00.to_string(),
+        ]));
+        // test_table.add_row(Row::from(vec![5, "HA", 1, "HIE", 0.00, 0.00]));
+        // test_table.add_row(Row::from(vec![19, "N", 2, "GLY", 0.00, 0.00]));
 
-        assert_eq!(table, test_table)
+        println!("{}", table);
+        println!("{}", test_table);
+        assert_eq!(format!("{}", table), format!("{}", test_table))
     }
 
     // #[test]

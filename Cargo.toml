@@ -8,7 +8,7 @@ license = "GPL-2.0-or-later"
 readme = "README.md"
 
 [dependencies]
-prettytable-rs = {version = "0.8", default-features = false}
+comfy-table = "5"
 strum = "0.23"
 strum_macros = "0.23"
 lazy-regex = "2.2"
@@ -25,9 +25,6 @@ pest = "2"
 pest_derive = "2"
 # pdbtbx = {git = "https://github.com/nonnominandus/pdbtbx", branch = "master", features = ["rayon", "rstar"]}
 # pdbtbx = {path = "../pdbtbx", features = ["rayon", "rstar"]}
-
-[dev-dependencies]
-prettytable-rs = {version = "0.8.0", default-features = true}
 
 [dependencies.clap]
 version = "3.0.10"

@@ -3,9 +3,11 @@ use std::io::{self, BufWriter, Write};
 
 use anyhow::Context;
 use colored::Colorize;
+use comfy_table::modifiers::{UTF8_ROUND_CORNERS, UTF8_SOLID_INNER_BORDERS};
+use comfy_table::presets::UTF8_FULL;
+use comfy_table::{Row, Table};
 use itertools::Itertools;
 use pdbtbx::{save_pdb, Atom, ContainsAtomConformer, ContainsAtomConformerResidue};
-use prettytable::Table;
 use rayon::iter::ParallelIterator;
 
 use crate::functions::*;
@@ -29,7 +31,8 @@ pub fn dispatch(
                 writeln!(io::stdout(), "{}", s)
                     .context("Failed to print residue depiction to stdout")?
             }
-            table.printstd();
+            writeln!(io::stdout(), "{}", table).context("Failed to write table to stdout")?;
+            // table.printstd();
         }
         Mode::Analyze {
             region,
@@ -37,7 +40,8 @@ pub fn dispatch(
             distance,
         } => {
             let (basic_table, detailed_table) = analyze(pdb, *region, *target)?;
-            basic_table.printstd();
+            writeln!(io::stdout(), "{}", basic_table).context("Failed to write table to stdout")?;
+            // basic_table.printstd();
 
             if let Some(t) = detailed_table {
                 // target must be present if detailed_table is Some
@@ -45,7 +49,8 @@ pub fn dispatch(
                 writeln!(io::stdout(), "\n{} {}", region.unwrap(), target_str).with_context(
                     || format!(" Failed to print {} to stdout", target_str.to_lowercase()),
                 )?;
-                t.printstd();
+                writeln!(io::stdout(), "{}", t).context("Failed to write table to stdout")?;
+                // t.printstd();
             };
 
             if let Some(d) = *distance {
@@ -60,13 +65,15 @@ pub fn dispatch(
                             .context("Failed to print contact analysis to stdout.")?;
                     }
                 }
-                table.printstd();
+                writeln!(io::stdout(), "{}", table).context("Failed to print table to stdout")?;
+                // table.printstd();
             }
         }
         Mode::Measure { measure_target } => match measure_target {
             MeasureTarget::Atoms(atoms) => {
                 let (table, geom) = get_measurements(atoms, pdb)?;
-                table.printstd();
+                writeln!(io::stdout(), "{}", table).context("Failed to print table to stdout")?;
+                // table.printstd();
                 println!("\n{}", geom);
             }
             MeasureTarget::Sphere(origin_id, radius) => {
@@ -84,34 +91,42 @@ pub fn dispatch(
                 let tree = pdb.create_hierarchy_rtree();
                 let sphere_iter = tree.nearest_neighbor_iter_with_distance_2(&origin_atom.pos());
                 let mut table = Table::new();
-                table.add_row(row![
+                table
+                    .load_preset(UTF8_FULL)
+                    .apply_modifier(UTF8_ROUND_CORNERS)
+                    .apply_modifier(UTF8_SOLID_INNER_BORDERS);
+                table.set_header(Row::from(vec![
                     "Atom ID",
                     "Atom name",
                     "Residue ID",
                     "Residue Name",
                     "QM",
                     "Active",
-                    "Distance"
-                ]);
+                    "Distance",
+                ]));
 
                 for (atom_hier, mut dist) in sphere_iter {
                     dist = dist.sqrt();
                     if dist <= *radius {
-                        table.add_row(row![
-                            atom_hier.atom().serial_number(),
-                            atom_hier.atom().name(),
+                        table.add_row(Row::from(vec![
+                            atom_hier.atom().serial_number().to_string(),
+                            atom_hier.atom().name().to_string(),
                             atom_hier.residue().serial_number().to_string()
                                 + atom_hier.residue().insertion_code().unwrap_or(""),
-                            atom_hier.residue().name().unwrap_or(""),
-                            atom_hier.atom().occupancy(),
-                            atom_hier.atom().b_factor(),
+                            atom_hier.residue().name().unwrap_or("").to_owned(),
+                            atom_hier.atom().occupancy().to_string(),
+                            atom_hier.atom().b_factor().to_string(),
                             format!("{:.3}", dist),
-                        ]);
+                        ]));
                     };
                 }
 
-                ensure!(table.len() > 1, "No atoms within the given radius");
-                table.printstd();
+                // Header and delimiter lines also count
+                ensure!(
+                    table.lines().count() > 4,
+                    "No atoms within the given radius"
+                );
+                write!(io::stdout(), "{}", table).context("Failed to print table to stdout")?;
             }
         },
         Mode::Add {

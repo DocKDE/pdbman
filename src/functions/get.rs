@@ -9,12 +9,12 @@ use crate::{
 use super::{calc_angle, calc_dihedral, parse_atomic_list, parse_residue_list};
 use anyhow::Result;
 use colored::Colorize;
+use comfy_table::{Row, Table, presets::UTF8_FULL, modifiers::{UTF8_ROUND_CORNERS, UTF8_SOLID_INNER_BORDERS}};
 use itertools::Itertools;
 use pdbtbx::{
     Atom, AtomConformerResidueChainModel, ContainsAtomConformer, ContainsAtomConformerResidue,
     Residue, PDB,
 };
-use prettytable::Table;
 use rayon::{iter::FromParallelIterator, prelude::ParallelIterator};
 
 pub enum AtomMeasurement {
@@ -338,25 +338,29 @@ pub fn get_measurements(
         .collect::<Result<Vec<AtomConformerResidueChainModel>, anyhow::Error>>()?;
 
     let mut table = Table::new();
-    table.add_row(row![
+    table
+        .load_preset(UTF8_FULL)
+        .apply_modifier(UTF8_ROUND_CORNERS)
+        .apply_modifier(UTF8_SOLID_INNER_BORDERS);
+    table.set_header(Row::from(vec![
         "Atom ID",
         "Atom name",
         "Residue ID",
         "Residue Name",
         "QM",
         "Active",
-    ]);
+    ]));
 
     for atom in &atom_vec {
-        table.add_row(row![
-            atom.atom().serial_number(),
-            atom.atom().name(),
+        table.add_row(Row::from(vec![
+            atom.atom().serial_number().to_string(),
+            atom.atom().name().to_owned(),
             atom.residue().serial_number().to_string()
                 + atom.residue().insertion_code().unwrap_or(""),
-            atom.residue().name().unwrap_or(""),
-            atom.atom().occupancy(),
-            atom.atom().b_factor(),
-        ]);
+            atom.residue().name().unwrap_or("").to_owned(),
+            atom.atom().occupancy().to_string(),
+            atom.atom().b_factor().to_string(),
+        ]));
     }
 
     match atom_vec.len() {
