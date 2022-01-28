@@ -41,11 +41,14 @@ pub fn query_atoms<'a>(
         }
     }
 
-    if !resname_vec.is_empty() && resname_vec.iter().all_equal() {
+    ensure!(
+        !resname_vec.is_empty(),
+        "No atoms found in given selection"
+    );
+
+    if resname_vec.iter().all_equal() {
         key = resname_vec[0].as_deref();
     }
-
-    ensure!(table.len() > 1, "No atoms found in given selection");
 
     if let Some(k) = key {
         Ok((

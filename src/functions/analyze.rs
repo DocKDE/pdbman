@@ -118,9 +118,7 @@ pub fn analyze(
             if atom.occupancy() == 1.00 {
                 qm1_residue_list.push(residue);
                 qm1_atom_list.push(atom);
-            }
-
-            if atom.occupancy() == 2.00 {
+            } else if atom.occupancy() == 2.00 {
                 qm2_residue_list.push(residue);
                 qm2_atom_list.push(atom);
             }
