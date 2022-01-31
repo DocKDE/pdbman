@@ -41,7 +41,6 @@ pub fn dispatch(
         } => {
             let (basic_table, detailed_table) = analyze(pdb, *region, *target)?;
             writeln!(io::stdout(), "{}", basic_table).context("Failed to write table to stdout")?;
-            // basic_table.printstd();
 
             if let Some(t) = detailed_table {
                 // target must be present if detailed_table is Some
@@ -50,7 +49,6 @@ pub fn dispatch(
                     || format!(" Failed to print {} to stdout", target_str.to_lowercase()),
                 )?;
                 writeln!(io::stdout(), "{}", t).context("Failed to write table to stdout")?;
-                // t.printstd();
             };
 
             if let Some(d) = *distance {
@@ -66,7 +64,6 @@ pub fn dispatch(
                     }
                 }
                 writeln!(io::stdout(), "{}", table).context("Failed to print table to stdout")?;
-                // table.printstd();
             }
         }
         Mode::Measure { measure_target } => match measure_target {
@@ -127,7 +124,14 @@ pub fn dispatch(
                     table.row_iter().peekable().peek().is_some(),
                     "No atoms within the given radius"
                 );
-                writeln!(io::stdout(), "{}", table).context("Failed to print table to stdout")?;
+                writeln!(
+                    io::stdout(),
+                    "\nAtoms within {:.3} of atom with ID {}\n{}",
+                    radius,
+                    origin_atom.serial_number(),
+                    table
+                )
+                .context("Failed to print table to stdout")?;
             }
         },
         Mode::Add {

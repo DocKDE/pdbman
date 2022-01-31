@@ -59,29 +59,6 @@ pub fn find_contacts(pdb: &PDB, level: Distance) -> Result<Table, anyhow::Error>
             {
                 let distance = other_atom_hier.atom().distance(atom_hier.atom());
 
-                // if distance <= 0.75 && distance > 0.5 {
-                //     table.add_row(Row::from(vec![
-                //                    bByFd =>
-                //                    other_atom_hier.atom().serial_number(),
-                //                    other_atom_hier.atom().name(),
-                //                    other_atom_hier.residue().name().unwrap_or(""),
-                //                    atom_hier.atom().serial_number(),
-                //                    atom_hier.atom().name(),
-                //                    atom_hier.residue().name().unwrap_or(""),
-                //                    format!("{:.2}", distance)
-                //     ]));
-                // } else if distance <= 0.5 {
-                //     table.add_row(row![
-                //         bBrFd =>
-                //         other_atom_hier.atom().serial_number(),
-                //         other_atom_hier.atom().name(),
-                //         other_atom_hier.residue().name().unwrap_or(""),
-                //         atom_hier.atom().serial_number(),
-                //         atom_hier.atom().name(),
-                //         atom_hier.residue().name().unwrap_or(""),
-                //         format!("{:.2}", distance)
-                //     ]);
-                // } else {
                 vec_of_rows.push(vec![
                     other_atom_hier.atom().serial_number().to_string(),
                     other_atom_hier.atom().name().to_owned(),
@@ -91,16 +68,6 @@ pub fn find_contacts(pdb: &PDB, level: Distance) -> Result<Table, anyhow::Error>
                     atom_hier.residue().name().unwrap_or("").to_owned(),
                     format!("{:.2}", distance).to_string(),
                 ]);
-                // table.add_row(Row::from(vec![
-                //     other_atom_hier.atom().serial_number().to_string(),
-                //     other_atom_hier.atom().name().to_owned(),
-                //     other_atom_hier.residue().name().unwrap_or("").to_owned(),
-                //     atom_hier.atom().serial_number().to_string(),
-                //     atom_hier.atom().name().to_owned(),
-                //     atom_hier.residue().name().unwrap_or("").to_owned(),
-                //     format!("{:.2}", distance).to_string(),
-                // ]));
-                // }
             }
         }
     }
@@ -113,17 +80,13 @@ pub fn find_contacts(pdb: &PDB, level: Distance) -> Result<Table, anyhow::Error>
             .unwrap()
             .parse::<f64>()
             .unwrap()
-            .partial_cmp(&row2.iter().last().unwrap().parse::<f64>().unwrap()).unwrap()
+            .partial_cmp(&row2.iter().last().unwrap().parse::<f64>().unwrap())
+            .unwrap()
     });
 
     for row in vec_of_rows {
         table.add_row(Row::from(row));
     }
-
-    // ensure!(
-    //     table.row_iter().peekable().peek().is_some(),
-    //     "No contacts found!"
-    // );
 
     Ok(table)
 }
@@ -165,10 +128,6 @@ pub fn analyze(
     // the respective item is already present every time. Also since
     // the residues are iterated serially, sorting should not be necessary.
 
-    // qm1_residue_list.sort();
-    // qm2_residue_list.sort();
-    // active_residue_list.sort();
-
     qm1_residue_list.dedup();
     qm2_residue_list.dedup();
     active_residue_list.dedup();
@@ -185,6 +144,7 @@ pub fn analyze(
         qm1_atom_list.len().to_string(),
         qm1_residue_list.len().to_string(),
     ]));
+
     basic_table.add_row(Row::from(vec![
         "QM2".to_owned(),
         qm2_atom_list.len().to_string(),
