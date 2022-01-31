@@ -118,15 +118,16 @@ pub fn dispatch(
                             atom_hier.atom().b_factor().to_string(),
                             format!("{:.3}", dist),
                         ]));
+                    } else {
+                        break;
                     };
                 }
 
-                // Header and delimiter lines also count
                 ensure!(
-                    table.lines().count() > 4,
+                    table.row_iter().peekable().peek().is_some(),
                     "No atoms within the given radius"
                 );
-                write!(io::stdout(), "{}", table).context("Failed to print table to stdout")?;
+                writeln!(io::stdout(), "{}", table).context("Failed to print table to stdout")?;
             }
         },
         Mode::Add {

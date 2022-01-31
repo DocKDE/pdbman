@@ -168,11 +168,7 @@ mod tests {
             0.00.to_string(),
             0.00.to_string(),
         ]));
-        // test_table.add_row(Row::from(vec![5, "HA", 1, "HIE", 0.00, 0.00]));
-        // test_table.add_row(Row::from(vec![19, "N", 2, "GLY", 0.00, 0.00]));
 
-        println!("{}", table);
-        println!("{}", test_table);
         assert_eq!(format!("{}", table), format!("{}", test_table))
     }
 

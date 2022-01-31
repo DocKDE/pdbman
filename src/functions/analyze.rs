@@ -26,6 +26,7 @@ pub fn find_contacts(pdb: &PDB, level: Distance) -> Result<Table, anyhow::Error>
     ]));
 
     let tree = pdb.create_hierarchy_rtree();
+    let mut vec_of_rows = Vec::new();
 
     for atom_hier in pdb.atoms_with_hierarchy() {
         let radius: f64 = match level {
@@ -81,7 +82,7 @@ pub fn find_contacts(pdb: &PDB, level: Distance) -> Result<Table, anyhow::Error>
                 //         format!("{:.2}", distance)
                 //     ]);
                 // } else {
-                table.add_row(Row::from(vec![
+                vec_of_rows.push(vec![
                     other_atom_hier.atom().serial_number().to_string(),
                     other_atom_hier.atom().name().to_owned(),
                     other_atom_hier.residue().name().unwrap_or("").to_owned(),
@@ -89,14 +90,41 @@ pub fn find_contacts(pdb: &PDB, level: Distance) -> Result<Table, anyhow::Error>
                     atom_hier.atom().name().to_owned(),
                     atom_hier.residue().name().unwrap_or("").to_owned(),
                     format!("{:.2}", distance).to_string(),
-                ]));
+                ]);
+                // table.add_row(Row::from(vec![
+                //     other_atom_hier.atom().serial_number().to_string(),
+                //     other_atom_hier.atom().name().to_owned(),
+                //     other_atom_hier.residue().name().unwrap_or("").to_owned(),
+                //     atom_hier.atom().serial_number().to_string(),
+                //     atom_hier.atom().name().to_owned(),
+                //     atom_hier.residue().name().unwrap_or("").to_owned(),
+                //     format!("{:.2}", distance).to_string(),
+                // ]));
                 // }
             }
         }
     }
 
-    // Header and delimiter lines also count
-    ensure!(table.lines().count() > 4, "No contacts found!");
+    ensure!(!vec_of_rows.is_empty(), "No contacts found!");
+
+    vec_of_rows.sort_by(|row1, row2| {
+        row1.iter()
+            .last()
+            .unwrap()
+            .parse::<f64>()
+            .unwrap()
+            .partial_cmp(&row2.iter().last().unwrap().parse::<f64>().unwrap()).unwrap()
+    });
+
+    for row in vec_of_rows {
+        table.add_row(Row::from(row));
+    }
+
+    // ensure!(
+    //     table.row_iter().peekable().peek().is_some(),
+    //     "No contacts found!"
+    // );
+
     Ok(table)
 }
 
@@ -172,13 +200,6 @@ pub fn analyze(
         atom_num.to_string(),
         res_num.to_string(),
     ]));
-    // let basic_table = table!(
-    //     ["", "# of Atoms", "# of Residues"],
-    //     ["QM1", qm1_atom_list.len(), qm1_residue_list.len()],
-    //     ["QM2", qm2_atom_list.len(), qm2_residue_list.len()],
-    //     ["Active", active_atom_list.len(), active_residue_list.len()],
-    //     ["Total", atom_num, res_num]
-    // );
 
     let mut detailed_table = None;
 
