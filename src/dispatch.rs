@@ -32,7 +32,6 @@ pub fn dispatch(
                     .context("Failed to print residue depiction to stdout")?
             }
             writeln!(io::stdout(), "{}", table).context("Failed to write table to stdout")?;
-            // table.printstd();
         }
         Mode::Analyze {
             region,
@@ -69,9 +68,8 @@ pub fn dispatch(
         Mode::Measure { measure_target } => match measure_target {
             MeasureTarget::Atoms(atoms) => {
                 let (table, geom) = get_measurements(atoms, pdb)?;
-                writeln!(io::stdout(), "{}", table).context("Failed to print table to stdout")?;
-                // table.printstd();
-                println!("\n{}", geom);
+                writeln!(io::stdout(), "{}\n{}", table, geom)
+                    .context("Failed to print table to stdout")?;
             }
             MeasureTarget::Sphere(origin_id, radius) => {
                 let origin_atom = pdb
@@ -302,12 +300,14 @@ pub fn dispatch(
                     }
                     writeln!(file, "W -w")?;
                 } else if let Err(e) = save_pdb(pdb, f, pdbtbx::StrictnessLevel::Loose) {
-                    e.into_iter().for_each(|e| println!("{}", e));
+                    e.into_iter()
+                        .try_for_each(|e| writeln!(io::stdout(), "{}", e))?;
                 }
             }
             Some(Output::Overwrite) => {
                 if let Err(e) = save_pdb(pdb, pdb_path, pdbtbx::StrictnessLevel::Loose) {
-                    e.into_iter().for_each(|e| println!("{}", e));
+                    e.into_iter()
+                        .try_for_each(|e| writeln!(io::stdout(), "{}", e))?;
                 }
             }
         },

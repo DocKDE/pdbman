@@ -26,6 +26,7 @@ mod shell;
 
 use std::env;
 use std::fs;
+use std::io::{self, Write};
 use std::path::Path;
 use std::process;
 
@@ -79,7 +80,7 @@ fn run() -> Result<(), anyhow::Error> {
     let pdbman_match = app_from_crate!()
         .setting(AppSettings::DisableVersionFlag)
         .setting(AppSettings::IgnoreErrors)
-        .setting(AppSettings::NoAutoHelp)
+        .override_help(HELP_LONG)
         .arg(Arg::new("PDBFILE").help("Path to PDB file").required(true))
         .arg(
             Arg::new("Interactive")
@@ -108,7 +109,7 @@ fn run() -> Result<(), anyhow::Error> {
 
     // Print help if pdbman is called with no arguments
     if given_args.len() == 1 {
-        println!("{}", HELP_LONG);
+        writeln!(io::stdout(), "{}", HELP_LONG)?;
         return Ok(());
     }
 
@@ -118,13 +119,13 @@ fn run() -> Result<(), anyhow::Error> {
     if given_args.contains(&"-h".to_owned()) || given_args.contains(&"--help".to_owned()) {
         match given_args.len() {
             2 => {
-                println!("{}", HELP_LONG);
+                writeln!(io::stdout(), "{}", HELP_LONG)?;
             }
             3 => {
                 if Path::new(pdbman_match.value_of("PDBFILE").unwrap()).exists() {
-                    println!("{}", HELP_LONG);
+                    writeln!(io::stdout(), "{}", HELP_LONG)?;
                 } else if let Err(e) = clap_args().try_get_matches_from(given_args.iter().skip(1)) {
-                    println!("{}", e);
+                    writeln!(io::stdout(), "{}", e)?;
                 }
             }
             _ => {
@@ -135,7 +136,7 @@ fn run() -> Result<(), anyhow::Error> {
                 };
 
                 if let Err(e) = clap_args().try_get_matches_from(given_args.iter().skip(skip_val)) {
-                    println!("{}", e);
+                    writeln!(io::stdout(), "{}", e)?;
                 }
             }
         }
@@ -152,11 +153,15 @@ fn run() -> Result<(), anyhow::Error> {
     let read_pdb = || -> Result<pdbtbx::PDB, anyhow::Error> {
         match pdbtbx::open_pdb(filename, StrictnessLevel::Strict) {
             Ok((pdb_read, errors)) => {
-                errors.iter().for_each(|x| println!("{}", x));
+                errors
+                    .iter()
+                    .try_for_each(|x| writeln!(io::stdout(), "{}", x))?;
                 Ok(pdb_read)
             }
             Err(errors) => {
-                errors.iter().for_each(|x| println!("{}", x));
+                errors
+                    .iter()
+                    .try_for_each(|x| writeln!(io::stdout(), "{}", x))?;
                 bail!("EXITING...".red())
             }
         }
@@ -203,13 +208,15 @@ fn run() -> Result<(), anyhow::Error> {
                 Ok(c) => match c.as_str() {
                     "exit" | "e" | "quit" => break,
                     "hist" | "history" => {
-                        rl.history().iter().for_each(|e| println!("{}", e));
+                        rl.history()
+                            .iter()
+                            .try_for_each(|e| writeln!(io::stdout(), "{}", e))?;
                         continue;
                     }
                     "undo" => {
                         rl.add_history_entry("undo");
                         if edit_ops_index == 0 {
-                            println!("Nothing to undo");
+                            writeln!(io::stdout(), "Nothing to undo")?;
                         } else {
                             edit_ops[edit_ops_index - 1].undo(&mut pdb);
                             edit_ops_index -= 1;
@@ -220,7 +227,7 @@ fn run() -> Result<(), anyhow::Error> {
                     "redo" => {
                         rl.add_history_entry("redo");
                         if edit_ops.len() == edit_ops_index {
-                            println!("Nothing to redo");
+                            writeln!(io::stdout(), "Nothing to redo")?;
                         } else {
                             edit_ops[edit_ops_index].redo(&mut pdb);
                             edit_ops_index += 1;
@@ -229,18 +236,18 @@ fn run() -> Result<(), anyhow::Error> {
                     }
                     h @ ("-h" | "--help" | "help") => {
                         rl.add_history_entry(h);
-                        println!("{}", HELP_INTER);
+                        writeln!(io::stdout(), "{}", HELP_INTER)?;
                         continue;
                     }
                     "" => continue,
                     _ => c,
                 },
                 Err(ReadlineError::Interrupted) => {
-                    println!("CTRL-C");
+                    writeln!(io::stdout(), "CTRL-C")?;
                     break;
                 }
                 Err(ReadlineError::Eof) => {
-                    println!("CTRL-D");
+                    writeln!(io::stdout(), "CTRL-D")?;
                     break;
                 }
                 Err(e) => bail!(e),
@@ -253,7 +260,7 @@ fn run() -> Result<(), anyhow::Error> {
             let matches = match clap_args().try_get_matches_from(command.split_whitespace()) {
                 Ok(m) => m,
                 Err(e) => {
-                    println!("{}", e);
+                    writeln!(io::stdout(), "{}", e)?;
                     continue;
                 }
             };
@@ -262,7 +269,7 @@ fn run() -> Result<(), anyhow::Error> {
             let mode = match Mode::new(&matches) {
                 Ok(m) => m,
                 Err(e) => {
-                    println!("{}", e);
+                    writeln!(io::stdout(), "{}", e)?;
                     continue;
                 }
             };
@@ -279,7 +286,7 @@ fn run() -> Result<(), anyhow::Error> {
                         edit_ops_index += 1;
                     }
                 }
-                Err(e) => println!("{}", e),
+                Err(e) => writeln!(io::stdout(), "{}", e)?,
             }
             // println!("Index: {}", edit_ops_index);
             // println!("Length: {}", edit_ops.len());
