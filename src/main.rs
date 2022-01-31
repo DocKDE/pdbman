@@ -194,7 +194,7 @@ fn run() -> Result<(), anyhow::Error> {
 
         let mut pdb = read_pdb()?;
 
-        let mut edit_ops: Vec<Box<dyn Revertable>> = Vec::new();
+        let mut edit_ops: Vec<Revertable> = Vec::new();
         let mut edit_ops_index = 0;
         let mut undone = false;
 

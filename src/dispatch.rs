@@ -20,8 +20,8 @@ pub fn dispatch(
     mode: &Mode,
     pdb: &mut pdbtbx::PDB,
     pdb_path: &str,
-) -> Result<Option<Box<dyn Revertable>>, anyhow::Error> {
-    let mut edit_op: Option<Box<dyn Revertable>> = None;
+) -> Result<Option<Revertable>, anyhow::Error> {
+    let mut edit_op: Option<Revertable> = None;
 
     match mode {
         Mode::Query { input } => {
@@ -179,7 +179,7 @@ pub fn dispatch(
                         }
 
                         if !remove_ops.is_empty() {
-                            edit_op = Some(Box::new(remove_ops));
+                            edit_op = Some(Revertable::Many(remove_ops));
                         }
 
                         remove_region(pdb, None);
@@ -195,7 +195,7 @@ pub fn dispatch(
                             .collect();
 
                         if !region_atoms.is_empty() {
-                            edit_op = Some(Box::new(EditOp::ToRemove {
+                            edit_op = Some(Revertable::One(EditOp::ToRemove {
                                 region: region.unwrap(),
                                 atoms: region_atoms,
                             }))
@@ -225,7 +225,7 @@ pub fn dispatch(
                             let actual_self = edit_atoms_checked(pdb, &input_list, "Add", r)?;
 
                             if let Ok(actual) = actual_other {
-                                Some(Box::new(vec![
+                                Some(Revertable::Many(vec![
                                     EditOp::ToRemove {
                                         region: other_region,
                                         atoms: actual,
@@ -236,18 +236,18 @@ pub fn dispatch(
                                     },
                                 ]))
                             } else {
-                                Some(Box::new(EditOp::ToAdd {
+                                Some(Revertable::One(EditOp::ToAdd {
                                     region: r,
                                     atoms: actual_self,
                                 }))
                             }
                         }
-                        Region::Active => Some(Box::new(EditOp::ToAdd {
+                        Region::Active => Some(Revertable::One(EditOp::ToAdd {
                             region: Region::Active,
                             atoms: edit_atoms_checked(pdb, &input_list, "Add", Region::Active)?,
                         })),
                     },
-                    "Remove" => Some(Box::new(EditOp::ToRemove {
+                    "Remove" => Some(Revertable::One(EditOp::ToRemove {
                         region: region.unwrap(),
                         atoms: edit_atoms_checked(pdb, &input_list, "Remove", region.unwrap())?,
                     })),
