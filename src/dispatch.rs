@@ -10,7 +10,7 @@ use itertools::Itertools;
 use pdbtbx::{save_pdb, Atom, ContainsAtomConformer, ContainsAtomConformerResidue};
 use rayon::iter::ParallelIterator;
 
-use crate::functions::*;
+use crate::functions;
 use crate::options::{Distance, MeasureTarget, Mode, Output, Region};
 use crate::revertable::{EditOp, Revertable};
 
@@ -25,8 +25,8 @@ pub fn dispatch(
 
     match mode {
         Mode::Query { input } => {
-            let atomlist = get_atomlist_from_input(input, pdb, None)?;
-            let (table, res) = query_atoms(pdb, &atomlist)?;
+            let atomlist = functions::get_atomlist_from_input(input, pdb, None)?;
+            let (table, res) = functions::query_atoms(pdb, &atomlist)?;
             if let Some(s) = res {
                 writeln!(io::stdout(), "{}", s)
                     .context("Failed to print residue depiction to stdout")?
@@ -38,7 +38,7 @@ pub fn dispatch(
             target,
             distance,
         } => {
-            let (basic_table, detailed_table) = analyze(pdb, *region, *target)?;
+            let (basic_table, detailed_table) = functions::analyze(pdb, *region, *target)?;
             writeln!(io::stdout(), "{}", basic_table).context("Failed to write table to stdout")?;
 
             if let Some(t) = detailed_table {
@@ -51,7 +51,7 @@ pub fn dispatch(
             };
 
             if let Some(d) = *distance {
-                let table = find_contacts(pdb, d)?;
+                let table = functions::find_contacts(pdb, d)?;
                 match d {
                     Distance::Clashes => {
                         writeln!(io::stdout(), "\nClash Analysis")
@@ -67,7 +67,7 @@ pub fn dispatch(
         }
         Mode::Measure { measure_target } => match measure_target {
             MeasureTarget::Atoms(atoms) => {
-                let (table, geom) = get_measurements(atoms, pdb)?;
+                let (table, geom) = functions::get_measurements(atoms, pdb)?;
                 writeln!(io::stdout(), "{}\n{}", table, geom)
                     .context("Failed to print table to stdout")?;
             }
@@ -145,7 +145,7 @@ pub fn dispatch(
             let mut input_list: Vec<usize> = Vec::new();
             match selection {
                 Some(s) => {
-                    input_list.extend(get_atomlist_from_input(s, pdb, *partial)?);
+                    input_list.extend(functions::get_atomlist_from_input(s, pdb, *partial)?);
                 }
                 None => {
                     if mode.to_string() == "Remove" && *region == None {
@@ -182,7 +182,7 @@ pub fn dispatch(
                             edit_op = Some(Revertable::Many(remove_ops));
                         }
 
-                        remove_region(pdb, None);
+                        functions::remove_region(pdb, None);
                     } else if let Some(r) = region {
                         let region_atoms: Vec<usize> = pdb
                             .atoms()
@@ -201,7 +201,7 @@ pub fn dispatch(
                             }))
                         }
 
-                        remove_region(pdb, Some(region.unwrap()))
+                        functions::remove_region(pdb, Some(region.unwrap()))
                     } else {
                         bail!("Please provide the approprate options (see --help).".red())
                     }
@@ -220,9 +220,14 @@ pub fn dispatch(
 
                             // Try removing atoms from other QM region when adding any to see if anything would be
                             // overwritten.
-                            let actual_other =
-                                edit_atoms_checked(pdb, &input_list, "Remove", other_region);
-                            let actual_self = edit_atoms_checked(pdb, &input_list, "Add", r)?;
+                            let actual_other = functions::edit_atoms_checked(
+                                pdb,
+                                &input_list,
+                                "Remove",
+                                other_region,
+                            );
+                            let actual_self =
+                                functions::edit_atoms_checked(pdb, &input_list, "Add", r)?;
 
                             if let Ok(actual) = actual_other {
                                 Some(Revertable::Many(vec![
@@ -244,12 +249,22 @@ pub fn dispatch(
                         }
                         Region::Active => Some(Revertable::One(EditOp::ToAdd {
                             region: Region::Active,
-                            atoms: edit_atoms_checked(pdb, &input_list, "Add", Region::Active)?,
+                            atoms: functions::edit_atoms_checked(
+                                pdb,
+                                &input_list,
+                                "Add",
+                                Region::Active,
+                            )?,
                         })),
                     },
                     "Remove" => Some(Revertable::One(EditOp::ToRemove {
                         region: region.unwrap(),
-                        atoms: edit_atoms_checked(pdb, &input_list, "Remove", region.unwrap())?,
+                        atoms: functions::edit_atoms_checked(
+                            pdb,
+                            &input_list,
+                            "Remove",
+                            region.unwrap(),
+                        )?,
                     })),
                     _ => unreachable!(),
                 }
@@ -266,7 +281,7 @@ pub fn dispatch(
                         .into_iter()
                         .zip(["-q", "-o", "-a"].into_iter())
                     {
-                        if let Ok(l) = get_atomlist(pdb, region) {
+                        if let Ok(l) = functions::get_atomlist(pdb, region) {
                             writeln!(
                                 handle,
                                 "A {} id {}",
@@ -277,7 +292,7 @@ pub fn dispatch(
                     }
                     writeln!(handle, "W -w")?;
                 } else {
-                    print_pdb_to_stdout(pdb)?;
+                    functions::print_pdb_to_stdout(pdb)?;
                 }
             }
             Some(Output::Outfile(f)) => {
@@ -289,7 +304,7 @@ pub fn dispatch(
                         .into_iter()
                         .zip(["-q", "-o", "-a"].into_iter())
                     {
-                        if let Ok(l) = get_atomlist(pdb, region) {
+                        if let Ok(l) = functions::get_atomlist(pdb, region) {
                             writeln!(
                                 file,
                                 "A {} id {}",

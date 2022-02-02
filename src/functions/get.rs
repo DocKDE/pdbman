@@ -9,7 +9,11 @@ use crate::{
 use super::{calc_angle, calc_dihedral, parse_atomic_list, parse_residue_list};
 use anyhow::Result;
 use colored::Colorize;
-use comfy_table::{Row, Table, presets::UTF8_FULL, modifiers::{UTF8_ROUND_CORNERS, UTF8_SOLID_INNER_BORDERS}};
+use comfy_table::{
+    modifiers::{UTF8_ROUND_CORNERS, UTF8_SOLID_INNER_BORDERS},
+    presets::UTF8_FULL,
+    Row, Table,
+};
 use itertools::Itertools;
 use pdbtbx::{
     Atom, AtomConformerResidueChainModel, ContainsAtomConformer, ContainsAtomConformerResidue,
@@ -294,7 +298,7 @@ pub fn get_atomlist_from_input(
 
     let mut sele_iter = sele_vec.into_iter();
     let initial_sel = sele_iter.next().unwrap();
-    let initial_atomvec = get_atoms_from_selection(initial_sel, pdb, None)?;
+    let initial_atomvec = get_atoms_from_selection(initial_sel, pdb, partial)?;
 
     if conj_vec.is_empty()
     // if vec of conjunctions is not present, the vec of selections can only have one element

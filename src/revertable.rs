@@ -41,7 +41,7 @@ impl EditOp {
     }
 }
 
-#[derive(Debug, Display, PartialEq)]
+#[derive(Debug, Display)]
 pub enum Revertable {
     One(EditOp),
     Many(Vec<EditOp>),
