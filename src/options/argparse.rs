@@ -1,15 +1,17 @@
-use clap::{App, AppSettings, Arg, ArgGroup};
+use clap::{Arg, ArgGroup, Command};
 
 /// Defines all Args, their configuration and all ArgGroups as defined by clap.
-pub fn clap_args() -> App<'static> {
-    App::new("")
-        // .setting(AppSettings::ArgRequiredElseHelp)
-        // .setting(AppSettings::SubcommandRequiredElseHelp)
-        // .setting(AppSettings::VersionlessSubcommands)
-        .setting(AppSettings::InferSubcommands)
-        .setting(AppSettings::NoBinaryName)
-        // .setting(AppSettings::NoAutoHelp)
-        .subcommand(App::new("Query")
+pub fn clap_args() -> Command<'static> {
+    Command::new("")
+        // .setting(CommandSettings::ArgRequiredElseHelp)
+        // .setting(CommandSettings::SubcommandRequiredElseHelp)
+        // .setting(CommandSettings::VersionlessSubcommands)
+        // .setting(CommandSettings::InferSubcommands)
+        .infer_subcommands(true)
+        .no_binary_name(true)
+        // .setting(CommandSettings::NoBinaryName)
+        // .setting(CommandSettings::NoAutoHelp)
+        .subcommand(Command::new("Query")
             .about("Query for atoms and residues")
             .visible_aliases(&["query"])
             .arg(Arg::new("Input")
@@ -17,7 +19,7 @@ pub fn clap_args() -> App<'static> {
                 .required(true)
                 .multiple_values(true))
         )
-        .subcommand(App::new("Analyze")
+        .subcommand(Command::new("Analyze")
             .about("Analysis QM and active regions")
             .visible_aliases(&["analyze", "Y", "y"])
             .arg(
@@ -66,7 +68,7 @@ pub fn clap_args() -> App<'static> {
             .group(ArgGroup::new("region").args(&["QM1", "QM2", "Active"]).requires("target"))
             .group(ArgGroup::new("distances").args(&["Clashes", "Contacts"]))
         )
-        .subcommand(App::new("Add")
+        .subcommand(Command::new("Add")
             .about("Add atoms or residues to QM or active regions")
             .visible_aliases(&["add", "A", "a"])
             .arg(Arg::new("Input")
@@ -113,7 +115,7 @@ pub fn clap_args() -> App<'static> {
                     .args(&["QM1", "QM2", "Active"])
                     .required(true))
         )
-        .subcommand(App::new("Remove")
+        .subcommand(Command::new("Remove")
             .about("Remove atoms or residues to QM or active regions")
             .visible_aliases(&["remove"])
             .arg(Arg::new("Input")
@@ -160,7 +162,7 @@ pub fn clap_args() -> App<'static> {
                     .args(&["QM1", "QM2", "Active"])
                 )
         )
-        .subcommand(App::new("Write")
+        .subcommand(Command::new("Write")
             .about("Write PDB information")
             .visible_aliases(&["write"])
             .arg(
@@ -188,7 +190,7 @@ pub fn clap_args() -> App<'static> {
                     .args(&["Outfile", "Overwrite"])
             )
         )
-        .subcommand(App::new("Measure")
+        .subcommand(Command::new("Measure")
             .about("Measure distances and angles")
             .visible_aliases(&["measure"])
             .arg(Arg::new("Atoms")

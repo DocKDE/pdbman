@@ -1,8 +1,5 @@
 #![allow(clippy::float_cmp)]
 
-#[macro_use]
-extern crate clap;
-
 // #[macro_use]
 // extern crate prettytable;
 
@@ -32,7 +29,7 @@ use std::process;
 
 use anyhow::Context;
 use anyhow::Result;
-use clap::{AppSettings, Arg};
+use clap::Arg;
 use colored::Colorize;
 use pdbtbx::StrictnessLevel;
 use rustyline::completion::FilenameCompleter;
@@ -77,9 +74,11 @@ where
 }
 
 fn run() -> Result<(), anyhow::Error> {
-    let pdbman_match = app_from_crate!()
-        .setting(AppSettings::DisableVersionFlag)
-        .setting(AppSettings::IgnoreErrors)
+    let pdbman_match = clap::command!()
+        .disable_version_flag(true)
+        .ignore_errors(true)
+        // .setting(AppSettings::DisableVersionFlag)
+        // .setting(AppSettings::IgnoreErrors)
         .override_help(HELP_LONG)
         .arg(Arg::new("PDBFILE").help("Path to PDB file").required(true))
         .arg(
