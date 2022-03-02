@@ -6,7 +6,7 @@ use crate::{
     selection::{convert_result, parse_selection, Conjunction, Selection},
 };
 
-use super::{calc_angle, calc_dihedral, parse_atomic_list, parse_residue_list};
+use super::{parse_atomic_list, parse_residue_list};
 use anyhow::Result;
 use colored::Colorize;
 use comfy_table::{
@@ -67,7 +67,7 @@ fn get_atom_sphere(
 
     let tree = pdb.create_atom_rtree();
     let mut sphere_atoms: AtomList = tree
-        .locate_within_distance(origin_atom.pos(), radius.powf(2.0))
+        .locate_within_distance(origin_atom.pos(), radius.powi(2))
         .map(|atom| atom.serial_number())
         .collect();
     // let test = tree.nearest_neighbor_iter_with_distance_2(&origin_atom.pos());
@@ -117,7 +117,7 @@ fn get_residue_sphere(
     let tree = pdb.create_hierarchy_rtree();
 
     let mut sphere_atoms: AtomList = tree
-        .locate_within_distance(sphere_origin.atom().pos(), radius.powf(2.0))
+        .locate_within_distance(sphere_origin.atom().pos(), radius.powi(2))
         .flat_map(|atom_hier| atom_hier.residue().atoms().map(Atom::serial_number))
         .unique()
         .collect();
@@ -373,17 +373,17 @@ pub fn get_measurements(
             AtomMeasurement::Distance(atom_vec[0].atom().distance(atom_vec[1].atom())),
         )),
         3 => {
-            let a = atom_vec[0].atom().pos();
-            let b = atom_vec[1].atom().pos();
-            let c = atom_vec[2].atom().pos();
-            Ok((table, AtomMeasurement::Angle(calc_angle(a, b, c))))
+            let a = atom_vec[0].atom();
+            let b = atom_vec[1].atom();
+            let c = atom_vec[2].atom();
+            Ok((table, AtomMeasurement::Angle(a.angle(b, c))))
         }
         4 => {
-            let a = atom_vec[0].atom().pos();
-            let b = atom_vec[1].atom().pos();
-            let c = atom_vec[2].atom().pos();
-            let d = atom_vec[3].atom().pos();
-            Ok((table, AtomMeasurement::Dihedral(calc_dihedral(a, b, c, d))))
+            let a = atom_vec[0].atom();
+            let b = atom_vec[1].atom();
+            let c = atom_vec[2].atom();
+            let d = atom_vec[3].atom();
+            Ok((table, AtomMeasurement::Dihedral(a.dihedral(b, c, d))))
         }
         _ => unreachable!(),
     }

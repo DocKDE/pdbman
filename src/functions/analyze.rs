@@ -41,7 +41,7 @@ pub fn find_contacts(pdb: &PDB, level: Distance) -> Result<Table, anyhow::Error>
                         atom_hier.atom().element()
                     )
                 })?
-                .powf(2.0),
+                .powi(2),
         };
 
         let contacts = tree.locate_within_distance(atom_hier.atom().pos(), radius);

@@ -20,10 +20,10 @@ rustyline-derive = "0.6"
 env_logger = "0.9"
 anyhow = "1.0"
 colored = "2.0"
-pdbtbx = {version = "0.9", features = ["rayon", "rstar"]}
 pest = "2"
 pest_derive = "2"
-# pdbtbx = {git = "https://github.com/nonnominandus/pdbtbx", branch = "master", features = ["rayon", "rstar"]}
+# pdbtbx = {version = "0.9", features = ["rayon", "rstar"]}
+pdbtbx = {git = "https://github.com/nonnominandus/pdbtbx", branch = "master", features = ["rayon", "rstar"]}
 # pdbtbx = {path = "../pdbtbx", features = ["rayon", "rstar"]}
 
 [dependencies.clap]
